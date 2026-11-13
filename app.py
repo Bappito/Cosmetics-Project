@@ -27,17 +27,6 @@ WAREHOUSES_HE = [
     "מחסן חומרה פגומה"
 ]
 
-WAREHOUSES_EN = {
-    "מחסן חומר": "Raw Material WH",
-    "קו ייצור": "Production Line",
-    "מחסן איכות": "QA Quarantine WH",
-    "מחסן חומר מוכן": "Bulk Ready WH",
-    "מחסן מלאי אריזות": "Packaging WH",
-    "מחסן תצורה מוכנה": "Finished Goods WH",
-    "מחסן ספקים": "Vendor Consignment WH",
-    "מחסן חומרה פגומה": "Defective / Scrap WH"
-}
-
 ITEM_TYPES = ["חומר גלם", "אריזה", "מדבקה", "מוצר מוגמר"]
 
 # --- מילון דו-לשוני (עברית / אנגלית) ---
@@ -45,77 +34,165 @@ TRANSLATIONS = {
     "he": {
         "dir": "rtl",
         "align": "right",
-        "title": "מערכת ERP לניהול מלאי, מחסנים, ייצור, רכש ו-SAP",
+        "flex_align": "flex-start",
         "nav_title": "תפריט מערכת ERP",
         "m_inv": "📦 קטלוג פריטים ומלאי רב-מחסני",
         "m_wh": "🔄 העברות בין מחסנים ויומן תנועות",
-        "m_bom": "🧪 עצי מוצר (חומר גלם + אריזות + מדבקות) וייצור",
-        "m_po": "🚚 הזמנות רכש (PO) וזמני הגעת אספקה",
-        "m_sap": "🔌 ממשק משיכת נתונים מ-SAP וסימולטור",
-        "m_ai": "🤖 סוכן חכם (עובד גם ללא שרת חיצוני)"
+        "m_bom": "🧪 עצי מוצר (חומר + אריזות) וייצור",
+        "m_po": "🚚 הזמנות רכש (PO) וזמני אספקה",
+        "m_sap": "🔌 ממשק משיכה מ-SAP וסימולטור",
+        "m_ai": "🤖 סוכן חכם (מקומי + AI)"
     },
     "en": {
         "dir": "ltr",
         "align": "left",
-        "title": "Cosmetics Enterprise ERP: Inventory, Multi-Warehouse, BOM, PO & SAP",
+        "flex_align": "flex-start",
         "nav_title": "ERP Navigation",
-        "m_inv": "📦 Item Catalog & Multi-Warehouse Inventory",
+        "m_inv": "📦 Item Catalog & Multi-Warehouse",
         "m_wh": "🔄 Warehouse Transfers & Audit Log",
-        "m_bom": "🧪 BOM (Raw + Packaging + Labels) & Production",
-        "m_po": "🚚 Purchase Orders (PO) & Supply ETA",
-        "m_sap": "🔌 SAP Data Connector & MRP Simulator",
-        "m_ai": "🤖 Smart ERP Agent (Local + Cloud AI)"
+        "m_bom": "🧪 BOM (Raw + Pack + Label) & Prod",
+        "m_po": "🚚 Purchase Orders (PO) & ETA",
+        "m_sap": "🔌 SAP Data Connector & Simulator",
+        "m_ai": "🤖 Smart ERP Agent (Local + AI)"
     }
 }
 
-# --- בחירת שפה ומשקל בסרגל הצד ---
-st.sidebar.markdown("## 🌐 Language / שפה")
-lang_choice = st.sidebar.radio("בחר שפה / Select Language:", ["עברית (RTL)", "English (LTR)"], horizontal=True, label_visibility="collapsed")
+# --- בחירת שפה בסרגל הצד ---
+st.sidebar.markdown("### 🌐 שפה / Language")
+lang_choice = st.sidebar.radio(
+    "Language",
+    ["עברית (RTL)", "English (LTR)"],
+    horizontal=True,
+    label_visibility="collapsed"
+)
 lang = "he" if lang_choice.startswith("עברית") else "en"
 T = TRANSLATIONS[lang]
 
-# --- עיצוב דינמי שמותאם ל-Dark Mode ו-Light Mode (ללא טקסט נעלם) + כיווניות RTL/LTR ---
+# --- CSS מתקדם שכופה כיווניות מלאה (RTL בעברית / LTR באנגלית) ומעצב את התפריט ---
 st.markdown(f"""
     <style>
-    .stApp {{
-        direction: {T['dir']};
-        text-align: {T['align']};
+    /* כיווניות כללית של האפליקציה והתפריט */
+    .stApp, .main, .block-container {{
+        direction: {T['dir']} !important;
+        text-align: {T['align']} !important;
         font-family: 'Segoe UI', Tahoma, sans-serif;
     }}
-    div[data-testid="stSidebarNav"], section[data-testid="stSidebar"] {{
-        direction: {T['dir']};
-        text-align: {T['align']};
+    section[data-testid="stSidebar"], section[data-testid="stSidebar"] > div {{
+        direction: {T['dir']} !important;
+        text-align: {T['align']} !important;
     }}
-    .stDataFrame, .stTable, div[data-testid="stDataFrame"] {{
-        direction: {T['dir']};
+
+    /* הסתרת סמל הקישור (השרשרת) ליד כותרות */
+    a.header-anchor, [data-testid="stHeaderActionElements"] {{
+        display: none !important;
     }}
-    /* כרטיסי מדדים שמסתגלים אוטומטית למצב בהיר וכהה של הדפדפן */
+
+    /* אכיפת יישור לימין/שמאל על כל הכותרות, הטקסטים והבאנרים */
+    h1, h2, h3, h4, h5, h6, p, span, label, .stMarkdown, [data-testid="stMarkdownContainer"] {{
+        direction: {T['dir']} !important;
+        text-align: {T['align']} !important;
+        width: 100% !important;
+    }}
+
+    /* באנר כותרת ראשית מיושר לחלוטין לימין בעברית */
+    .erp-banner {{
+        direction: {T['dir']} !important;
+        text-align: {T['align']} !important;
+        background-color: var(--secondary-background-color);
+        color: var(--text-color);
+        border: 1px solid rgba(128, 128, 128, 0.3);
+        border-{"right" if lang == "he" else "left"}: 6px solid #8b5cf6;
+        padding: 18px 24px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }}
+    .erp-banner .banner-title {{
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin: 0 0 6px 0;
+        direction: {T['dir']} !important;
+        text-align: {T['align']} !important;
+        width: 100%;
+    }}
+    .erp-banner .banner-sub {{
+        font-size: 0.95rem;
+        opacity: 0.85;
+        margin: 0;
+        direction: {T['dir']} !important;
+        text-align: {T['align']} !important;
+        width: 100%;
+    }}
+
+    /* עיצוב כרטיסי המדדים (KPI Metrics) */
     div[data-testid="stMetric"] {{
         background-color: var(--secondary-background-color);
         color: var(--text-color);
-        border: 1px solid rgba(128, 128, 128, 0.35);
-        padding: 14px;
-        border-radius: 10px;
+        border: 1px solid rgba(128, 128, 128, 0.3);
+        padding: 16px 20px;
+        border-radius: 12px;
+        direction: {T['dir']} !important;
+        text-align: {T['align']} !important;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.04);
     }}
-    div[data-testid="stMetricLabel"], div[data-testid="stMetricValue"] {{
+    div[data-testid="stMetricLabel"] > div,
+    div[data-testid="stMetricValue"] > div {{
+        direction: {T['dir']} !important;
+        text-align: {T['align']} !important;
+        justify-content: {T['flex_align']} !important;
         color: var(--text-color) !important;
     }}
-    .erp-banner {{
-        background-color: var(--secondary-background-color);
-        color: var(--text-color);
-        border: 1px solid rgba(128, 128, 128, 0.35);
-        border-{"right" if lang == "he" else "left"}: 6px solid #8b5cf6;
-        padding: 16px 22px;
-        border-radius: 10px;
-        margin-bottom: 18px;
+
+    /* עיצוב יוקרתי לתפריט הצד (כפתורי כרטיס במקום כפתורי רדיו פשוטים) */
+    section[data-testid="stSidebar"] div[role="radiogroup"] {{
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        direction: {T['dir']} !important;
     }}
-    .erp-card {{
-        background-color: var(--secondary-background-color);
-        color: var(--text-color);
-        border: 1px solid rgba(128, 128, 128, 0.35);
-        padding: 15px;
+    section[data-testid="stSidebar"] div[role="radiogroup"] > label {{
+        background-color: var(--background-color);
+        border: 1px solid rgba(128, 128, 128, 0.25);
         border-radius: 10px;
-        margin-bottom: 12px;
+        padding: 10px 14px !important;
+        margin: 0 !important;
+        transition: all 0.2s ease;
+        direction: {T['dir']} !important;
+        text-align: {T['align']} !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        width: 100% !important;
+        cursor: pointer;
+    }}
+    section[data-testid="stSidebar"] div[role="radiogroup"] > label:hover {{
+        border-color: #8b5cf6;
+        background-color: rgba(139, 92, 246, 0.08);
+    }}
+    section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checked) {{
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.18) 0%, rgba(59, 130, 246, 0.12) 100%);
+        border: 1.5px solid #8b5cf6 !important;
+        font-weight: 700 !important;
+    }}
+    section[data-testid="stSidebar"] div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {{
+        font-size: 0.96rem !important;
+        margin: 0 8px !important;
+        direction: {T['dir']} !important;
+        text-align: {T['align']} !important;
+    }}
+
+    /* יישור לשוניות (Tabs) לימין בעברית */
+    div[data-baseweb="tab-list"] {{
+        direction: {T['dir']} !important;
+        justify-content: flex-start !important;
+        gap: 12px;
+    }}
+    .stDataFrame, .stTable, div[data-testid="stDataFrame"] {{
+        direction: {T['dir']} !important;
     }}
     </style>
 """, unsafe_allow_html=True)
@@ -130,11 +207,10 @@ def init_db():
     conn = get_connection()
     c = conn.cursor()
     
-    # 1. טבלת קטלוג פריטים ראשית (מק"ט = מפתח)
     c.execute("""CREATE TABLE IF NOT EXISTS Catalog (
         sku TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        item_type TEXT NOT NULL, -- 'חומר גלם', 'אריזה', 'מדבקה', 'מוצר מוגמר'
+        item_type TEXT NOT NULL,
         qty_units REAL DEFAULT 0,
         weight_grams REAL DEFAULT 0,
         main_supplier TEXT DEFAULT '',
@@ -146,7 +222,6 @@ def init_db():
         sap_material_code TEXT DEFAULT ''
     )""")
     
-    # 2. טבלת יתרות לפי מחסנים (8 המחסנים)
     c.execute("""CREATE TABLE IF NOT EXISTS WarehouseStock (
         sku TEXT,
         warehouse_name TEXT,
@@ -155,17 +230,15 @@ def init_db():
         PRIMARY KEY (sku, warehouse_name)
     )""")
     
-    # 3. טבלת עץ מוצר (BOM) - כולל חומר גלם, אריזות ומדבקות
     c.execute("""CREATE TABLE IF NOT EXISTS BOM (
         parent_sku TEXT,
         component_sku TEXT,
-        comp_type TEXT, -- 'חומר גלם', 'אריזה', 'מדבקה'
+        comp_type TEXT,
         req_qty_units REAL DEFAULT 0,
         req_weight_grams REAL DEFAULT 0,
         PRIMARY KEY (parent_sku, component_sku)
     )""")
     
-    # 4. טבלת הזמנות רכש (Purchase Orders) וזמני הגעה
     c.execute("""CREATE TABLE IF NOT EXISTS PurchaseOrders (
         po_id INTEGER PRIMARY KEY AUTOINCREMENT,
         po_number TEXT,
@@ -177,10 +250,9 @@ def init_db():
         order_date TEXT,
         eta_date TEXT,
         target_warehouse TEXT DEFAULT 'מחסן חומר',
-        status TEXT DEFAULT 'בדרך (In Transit)' -- 'טיוטה', 'בדרך (In Transit)', 'התקבל במחסן', 'מתעכב'
+        status TEXT DEFAULT 'בדרך (In Transit)'
     )""")
     
-    # 5. יומן תנועות והעברות בין מחסנים
     c.execute("""CREATE TABLE IF NOT EXISTS StockMovements (
         move_id INTEGER PRIMARY KEY AUTOINCREMENT,
         move_date TEXT,
@@ -213,12 +285,10 @@ def init_db():
             c.execute("INSERT OR REPLACE INTO WarehouseStock VALUES (?,?,?,?)", (row[0], row[10], row[3], row[4]))
             
         demo_bom = [
-            # עץ מוצר לקרם פנים FG-501: חומרי גלם בגרמים + צנצנת אריזה + מדבקה
             ("FG-501", "RAW-101", "חומר גלם", 0.035, 35.0),
             ("FG-501", "RAW-103", "חומר גלם", 0.005, 5.0),
             ("FG-501", "PKG-301", "אריזה", 1.0, 80.0),
             ("FG-501", "LBL-401", "מדבקה", 1.0, 1.0),
-            # עץ מוצר לסרום FG-502: חומרי גלם + בקבוקון טפטפת + מדבקה
             ("FG-502", "RAW-102", "חומר גלם", 0.025, 25.0),
             ("FG-502", "RAW-103", "חומר גלם", 0.003, 3.0),
             ("FG-502", "PKG-302", "אריזה", 1.0, 50.0),
@@ -240,7 +310,6 @@ def init_db():
 init_db()
 conn = get_connection()
 
-# --- סנכרון סך הכל מלאי בקטלוג מתוך סכום המחסנים ---
 def sync_catalog_totals():
     conn.execute("""
         UPDATE Catalog
@@ -259,25 +328,25 @@ menu = st.sidebar.radio(
 )
 
 st.sidebar.divider()
-weight_unit = st.sidebar.radio("⚖️ יחידת משקל לתצוגה / Weight Unit:", ["ק\"ג (kg)", "גרם (g)"], horizontal=True)
+st.sidebar.markdown("### ⚖️ יחידת משקל / Weight Unit")
+weight_unit = st.sidebar.radio("Weight", ["ק\"ג (kg)", "גרם (g)"], horizontal=True, label_visibility="collapsed")
 use_kg = weight_unit.startswith("ק\"ג")
 w_factor = 1000.0 if use_kg else 1.0
 w_label = "ק\"ג (kg)" if use_kg else "גרם (g)"
 
 # ==============================================================================
-# מודול 1: קטלוג פריטים ומלאי רב-מחסני (כולל כל השדות שביקשת)
+# מודול 1: קטלוג פריטים ומלאי רב-מחסני
 # ==============================================================================
 if menu == T["m_inv"]:
     st.markdown(f"""
         <div class="erp-banner">
-            <h2 style="margin:0;">{T['m_inv']}</h2>
-            <p style="margin:4px 0 0 0;">מק"ט (מפתח) • שם פריט • כמות ביחידות ובמשקל • ספק ראשי וחלופיים • מחיר פריט • מינימום הזמנה (MOQ) • מחיר קנייה אחרון • 8 מחסנים</p>
+            <div class="banner-title">{T['m_inv']}</div>
+            <div class="banner-sub">מק"ט (מפתח) • שם פריט • כמות ביחידות ובמשקל • ספק ראשי וחלופיים • מחיר פריט • מינימום הזמנה (MOQ) • מחיר קנייה אחרון • 8 מחסנים</div>
         </div>
     """, unsafe_allow_html=True)
 
     df_cat = pd.read_sql("SELECT * FROM Catalog", conn)
     
-    # מדדים ראשיים
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("סה\"כ מק\"טים בקטלוג", len(df_cat))
     total_kg = df_cat["weight_grams"].sum() / 1000.0
@@ -438,8 +507,8 @@ if menu == T["m_inv"]:
 elif menu == T["m_wh"]:
     st.markdown(f"""
         <div class="erp-banner">
-            <h2 style="margin:0;">{T['m_wh']}</h2>
-            <p style="margin:4px 0 0 0;">העברת סחורה וחומרי גלם בין 8 המחסנים (מחסן חומר, קו ייצור, איכות, אריזות, פגומים וכו') ותיעוד של 30 יום אחורה</p>
+            <div class="banner-title">{T['m_wh']}</div>
+            <div class="banner-sub">העברת סחורה וחומרי גלם בין 8 המחסנים (מחסן חומר, קו ייצור, איכות, אריזות, פגומים וכו') ותיעוד של 30 יום אחורה</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -454,13 +523,12 @@ elif menu == T["m_wh"]:
             to_w = st.selectbox("למחסן יעד:", WAREHOUSES_HE, index=1)
             tr_units = st.number_input("כמות להעברה (ביחידות):", min_value=0.0, value=1.0, step=1.0)
             tr_grams = st.number_input("משקל להעברה (בגרמים):", min_value=0.0, value=500.0, step=50.0)
-            tr_ref = st.text_input("אסמכתא / סיבת העברה (למשל: העברה לקו ייצור / בדיקת איכות / פסילה):", value="העברה פנימית")
+            tr_ref = st.text_input("אסמכתא / סיבת העברה:", value="העברה פנימית")
 
             if st.button("🚀 בצע העברה בין המחסנים"):
                 if from_w == to_w:
                     st.warning("מחסן המקור ומחסן היעד חייבים להיות שונים.")
                 else:
-                    # גריעה ממחסן מקור
                     conn.execute("""
                         INSERT INTO WarehouseStock (sku, warehouse_name, qty_units, weight_grams)
                         VALUES (?, ?, 0, 0) ON CONFLICT(sku, warehouse_name) DO NOTHING
@@ -471,7 +539,6 @@ elif menu == T["m_wh"]:
                         WHERE sku = ? AND warehouse_name = ?
                     """, (tr_units, tr_grams, tr_sku, from_w))
 
-                    # הוספה למחסן יעד
                     conn.execute("""
                         INSERT INTO WarehouseStock (sku, warehouse_name, qty_units, weight_grams)
                         VALUES (?, ?, ?, ?)
@@ -480,7 +547,6 @@ elif menu == T["m_wh"]:
                         weight_grams = weight_grams + excluded.weight_grams
                     """, (tr_sku, to_w, tr_units, tr_grams))
 
-                    # עדכון מחסן ראשי בקטלוג ורישום ביומן
                     conn.execute("UPDATE Catalog SET primary_warehouse = ? WHERE sku = ?", (to_w, tr_sku))
                     conn.execute("""
                         INSERT INTO StockMovements (move_date, sku, move_type, from_wh, to_wh, qty_units, weight_grams, reference)
@@ -512,8 +578,8 @@ elif menu == T["m_wh"]:
 elif menu == T["m_bom"]:
     st.markdown(f"""
         <div class="erp-banner">
-            <h2 style="margin:0;">{T['m_bom']}</h2>
-            <p style="margin:4px 0 0 0;">בניית עץ מוצר שלם: חומרי גלם (בגרמים) + אריזות (צנצנות/בקבוקים) + מדבקות, ובדיקת אחוז מוכנות להרכבה</p>
+            <div class="banner-title">{T['m_bom']}</div>
+            <div class="banner-sub">בניית עץ מוצר שלם: חומרי גלם (בגרמים) + אריזות (צנצנות/בקבוקים) + מדבקות, ובדיקת אחוז מוכנות להרכבה</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -546,7 +612,6 @@ elif menu == T["m_bom"]:
             if df_b.empty:
                 st.warning("למוצר זה טרם הוגדר עץ מוצר. עבור ללשונית השנייה כדי להוסיף חומרי גלם, אריזות ומדבקות.")
             else:
-                # חישוב זמינות: עבור חומר גלם לפי גרמים, עבור אריזה/מדבקה לפי יחידות
                 avail_pcts = []
                 max_sets = []
                 needed_desc = []
@@ -638,8 +703,8 @@ elif menu == T["m_bom"]:
 elif menu == T["m_po"]:
     st.markdown(f"""
         <div class="erp-banner">
-            <h2 style="margin:0;">{T['m_po']}</h2>
-            <p style="margin:4px 0 0 0;">ניהול הזמנות רכש מספקים, עדכון תאריכי הגעה צפויים (ETA), וקליטת משלוחים ישירות למחסן הנבחר תוך עדכון 'מחיר קנייה אחרון'</p>
+            <div class="banner-title">{T['m_po']}</div>
+            <div class="banner-sub">ניהול הזמנות רכש מספקים, עדכון תאריכי הגעה צפויים (ETA), וקליטת משלוחים ישירות למחסן הנבחר תוך עדכון 'מחיר קנייה אחרון'</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -717,8 +782,8 @@ elif menu == T["m_po"]:
 elif menu == T["m_sap"]:
     st.markdown(f"""
         <div class="erp-banner">
-            <h2 style="margin:0;">{T['m_sap']}</h2>
-            <p style="margin:4px 0 0 0;">משיכת נתוני פריטים, מלאי והזמנות רכש מ-SAP (טבלאות MARA / MARD / EKPO או ייצוא Excel/CSV מ-SAP GUI)</p>
+            <div class="banner-title">{T['m_sap']}</div>
+            <div class="banner-sub">משיכת נתוני פריטים, מלאי והזמנות רכש מ-SAP (טבלאות MARA / MARD / EKPO או ייצוא Excel/CSV מ-SAP GUI)</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -743,7 +808,6 @@ elif menu == T["m_sap"]:
                 st.write("תצוגה מקדימה של נתוני ה-SAP שנקלטו:")
                 st.dataframe(df_sap.head(10), use_container_width=True)
 
-                # מיפוי חכם של עמודות SAP לעמודות המערכת
                 cols_list = list(df_sap.columns)
                 c_m1, c_m2, c_m3 = st.columns(3)
                 with c_m1:
@@ -808,7 +872,6 @@ elif menu == T["m_sap"]:
                     req_u += fg_qty * m.iloc[0]["req_qty_units"]
                     req_g += fg_qty * m.iloc[0]["req_weight_grams"]
             short_u = max(0.0, req_u - comp["qty_units"])
-            short_g = max(0.0, req_g - comp["weight_grams"])
             order_qty = max(short_u, comp["min_order_qty"]) if short_u > 0 else 0.0
             sim_out.append({
                 "מק\"ט": comp["sku"], "שם פריט": comp["name"], "סוג": comp["item_type"],
@@ -822,23 +885,22 @@ elif menu == T["m_sap"]:
         st.dataframe(pd.DataFrame(sim_out), use_container_width=True, hide_index=True)
 
 # ==============================================================================
-# מודול 6: סוכן חכם היברידי (פותר 100% מבעיית העומס בשרתים!)
+# מודול 6: סוכן חכם היברידי (ללא תלות בעומס שרתים)
 # ==============================================================================
 elif menu == T["m_ai"]:
     st.markdown(f"""
         <div class="erp-banner">
-            <h2 style="margin:0;">{T['m_ai']}</h2>
-            <p style="margin:4px 0 0 0;">מבצע פקודות בעברית גם באופן מקומי מיידי (ללא תלות בעומס בשרתי גוגל!) וגם באמצעות Gemini API</p>
+            <div class="banner-title">{T['m_ai']}</div>
+            <div class="banner-sub">מבצע פקודות בעברית באופן מקומי ומיידי (ללא תלות בעומס בשרתי גוגל!)</div>
         </div>
     """, unsafe_allow_html=True)
 
     st.info("""
-    💡 **איך הסוכן החדש עובד בלי להיתקע לעולם על שגיאת 503:**
-    הוספתי למערכת **מנוע פקודות מקומי מובנה** שמבצע פקודות הוספה, עדכון מלאי, העברה בין מחסנים ומחיקה ב-0.01 שניות ישירות בפייתון, גם אם כל השרתים של גוגל תפוסים!
+    💡 **איך הסוכן עובד בלי להיתקע לעולם על שגיאת 503:**
+    מנוע הפקודות המקומי מבצע פקודות הוספה, עדכון מלאי, שינוי מחירים ומחיקה ב-0.01 שניות ישירות בפייתון!
     דוגמאות לפקודות שתוכל לכתוב:
     - `תוסיף 5 קילו ל-RAW-101` או `תוסיף 500 גרם ל-RAW-102`
     - `תוסיף 200 יחידות ל-PKG-301`
-    - `תעביר 300 גרם של RAW-101 ממחסן חומר אל קו ייצור`
     - `תעדכן מחיר של RAW-101 ל-95`
     - `תמחק את מקט RAW-109`
     """)
@@ -852,21 +914,18 @@ elif menu == T["m_ai"]:
             return False, ""
         sku = sku_match.group(1).upper()
         
-        # 1. מחיקת מק"ט
         if "תמחק" in cmd or "מחק" in cmd:
             conn.execute("DELETE FROM Catalog WHERE sku = ?", (sku,))
             conn.execute("DELETE FROM WarehouseStock WHERE sku = ?", (sku,))
             conn.commit()
             return True, f"✅ מנוע מקומי: המק\"ט `{sku}` נמחק בהצלחה ממסד הנתונים!"
 
-        # 2. עדכון מחיר
         if "מחיר" in cmd and len(num_matches) >= 2:
             new_p = float(num_matches[-1])
             conn.execute("UPDATE Catalog SET item_price = ?, last_purchase_price = ? WHERE sku = ?", (new_p, new_p, sku))
             conn.commit()
             return True, f"✅ מנוע מקומי: המחיר של `{sku}` עודכן ל-₪{new_p}!"
 
-        # 3. הוספת כמות או משקל למלאי
         if ("תוסיף" in cmd or "הוסף" in cmd) and len(num_matches) >= 2:
             amount = float(num_matches[0]) if num_matches[0] not in sku else float(num_matches[-1])
             if "קילו" in cmd or "ק\"ג" in cmd or "kg" in cmd.lower():
@@ -891,4 +950,4 @@ elif menu == T["m_ai"]:
         if handled_locally:
             st.success(local_msg)
         else:
-            st.info("הפקודה נשלחה לניתוח. ניתן גם לערוך כל שדה ישירות בטבלאות בלשוניות המערכת.")
+            st.info("הפקודה נקלטה. ודא שציינת את המק\"ט (למשל RAW-101) ואת הפעולה הרצויה.")
