@@ -3,6 +3,7 @@ import sqlite3
 import pandas as pd
 import plotly.express as px
 import json
+import time
 from datetime import datetime, timedelta
 
 try:
@@ -180,7 +181,7 @@ except Exception:
     pass
 
 api_key = st.sidebar.text_input("🔑 Gemini API Key:", value=default_secret_key, type="password")
-selected_model = st.sidebar.selectbox("מודל AI:", ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.0-flash"])
+selected_model = st.sidebar.selectbox("מודל AI מועדף:", ["gemini-3.8-flash-lite", "gemini-3.8-flash", "gemini-3.8-pro", "gemini-2.5-flash", "gemini-2.0-flash"])
 
 # ==============================================================================
 # מודול 1: ניהול מלאי קוסמטיקה, עריכה חיה ויומן תנועות (30 יום אחורה)
@@ -537,7 +538,7 @@ elif menu == "🎛️ סימולטור ותוכנית עבודה":
             st.plotly_chart(fig, use_container_width=True)
 
 # ==============================================================================
-# מודול 4: סוכן Gemini שמבצע פעולות ישירות על מסד הנתונים
+# מודול 4: סוכן Gemini שמבצע פעולות ישירות על מסד הנתונים (כולל מעקף עומסים אוטומטי)
 # ==============================================================================
 elif menu == "🤖 סוכן AI מבצע פעולות (Gemini)":
     st.markdown("""
@@ -594,27 +595,67 @@ elif menu == "🤖 סוכן AI מבצע פעולות (Gemini)":
         if not api_key:
             st.error("הזן את ה-Gemini API Key שלך בתיבה שבסרגל הצדדי (ימין למטה) כדי שהסוכן יבצע פעולות!")
         else:
+            client = genai.Client(api_key=api_key.strip())
+            
+            # רשימת מודלים לגיבוי אוטומטי במקרה של עומס 503 בשרתי גוגל
+            candidate_models = [
+                selected_model,
+                "gemini-3.8-flash-lite",
+                "gemini-3.8-flash",
+                "gemini-3.8-pro",
+                "gemini-2.5-flash-lite",
+                "gemini-2.5-flash",
+                "gemini-2.0-flash-lite",
+                "gemini-2.0-flash"
+            ]
+            # שאיבת כל המודלים הזמינים בחשבון שלך כרשת ביטחון נוספת
             try:
-                client = genai.Client(api_key=api_key)
-                resp = client.models.generate_content(
-                    model=selected_model,
-                    contents=f"{agent_prompt}\n\nבקשת המשתמש: {user_req}"
-                )
-                raw_text = resp.text.strip().replace("```json", "").replace("```", "").strip()
-                data = json.loads(raw_text)
-                
-                executed_sql = ""
-                if data.get("sql_commands"):
-                    for sql in data["sql_commands"]:
-                        conn.execute(sql)
-                    conn.commit()
-                    executed_sql = "\n".join(data["sql_commands"])
-                
-                reply_txt = data.get("reply", "הפעולה בוצעה בהצלחה!")
-                st.session_state.agent_history.append({"role": "assistant", "content": reply_txt, "sql": executed_sql})
-                st.rerun()
-            except Exception as e:
-                st.error(f"שגיאה בביצוע הפעולה: {e}")
+                for m in client.models.list():
+                    m_name = m.name.replace("models/", "")
+                    if "gemini" in m_name and "tts" not in m_name and "image" not in m_name and m_name not in candidate_models:
+                        candidate_models.append(m_name)
+            except Exception:
+                pass
+
+            resp = None
+            last_err = None
+            with st.spinner("מבצע פעולה מול מסד הנתונים (בוחר שרת פנוי)..."):
+                for m_try in candidate_models:
+                    try:
+                        resp = client.models.generate_content(
+                            model=m_try,
+                            contents=f"{agent_prompt}\n\nבקשת המשתמש: {user_req}"
+                        )
+                        if resp and resp.text:
+                            break
+                    except Exception as e:
+                        last_err = e
+                        time.sleep(0.5)
+                        continue
+
+            if resp and resp.text:
+                try:
+                    raw_text = resp.text.strip().replace("```json", "").replace("```", "").strip()
+                    start_idx = raw_text.find("{")
+                    end_idx = raw_text.rfind("}")
+                    if start_idx != -1 and end_idx != -1:
+                        raw_text = raw_text[start_idx:end_idx+1]
+                    data = json.loads(raw_text)
+                    
+                    executed_sql = ""
+                    if data.get("sql_commands"):
+                        for sql in data["sql_commands"]:
+                            conn.execute(sql)
+                        conn.commit()
+                        executed_sql = "\n".join(data["sql_commands"])
+                    
+                    reply_txt = data.get("reply", "הפעולה בוצעה בהצלחה!")
+                    st.session_state.agent_history.append({"role": "assistant", "content": reply_txt, "sql": executed_sql})
+                    st.rerun()
+                except Exception as parse_err:
+                    st.error(f"התקבלה תשובה אך חלה שגיאה בפענוח: {parse_err}")
+            else:
+                st.error(f"כל השרתים עמוסים כרגע, נסה שוב בעוד מספר שניות. פירוט: {last_err}")
 
 # ==============================================================================
 # מודול 5: מרכז שליטה, גיבוי לאקסל ואיפוס נתונים מתוך האתר
@@ -670,3 +711,4 @@ elif menu == "🛠️ הגדרות, גיבוי וניהול נתונים":
                 st.success("הפקודה בוצעה בהצלחה!")
         except Exception as e:
             st.error(f"שגיאת SQL: {e}")
+        
