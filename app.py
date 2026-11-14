@@ -102,16 +102,19 @@ PLAN_PERIODS = [
     ("W8", "דצמבר 2026" if is_he else "Dec 2026", "שבוע 8" if is_he else "Week 8"),
 ]
 
-# --- CSS נקי, תומך מצב כהה/בהיר, שורות ארוכות ורחבות ללא שבירת שורה ---
+# --- CSS מותאם ל-100% מרוחב המסך ללא גלילה אופקית (גלילה למעלה-למטה בלבד) ---
 st.markdown(f"""
 <style>
 .stApp, .main, .block-container {{
     direction: {UI['dir']} !important;
     text-align: {UI['align']} !important;
     font-family: 'Segoe UI', Tahoma, sans-serif;
-    padding-top: 1.2rem !important;
+    padding-top: 1rem !important;
     padding-bottom: 4rem !important;
-    max-width: 98% !important;
+    padding-left: 1.2rem !important;
+    padding-right: 1.2rem !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
 }}
 section[data-testid="stSidebar"], section[data-testid="stSidebar"] > div {{
     direction: {UI['dir']} !important;
@@ -129,9 +132,9 @@ h1, h2, h3, h4, p, label, .stMarkdown {{
     color: var(--text-color);
     border: 1px solid rgba(128,128,128,0.25);
     border-{"right" if is_he else "left"}: 5px solid #7c3aed;
-    padding: 14px 20px;
+    padding: 12px 18px;
     border-radius: 10px;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
     direction: {UI['dir']} !important;
     text-align: {UI['align']} !important;
 }}
@@ -139,7 +142,7 @@ div[data-testid="stMetric"] {{
     background-color: var(--secondary-background-color);
     color: var(--text-color);
     border: 1px solid rgba(128,128,128,0.22);
-    padding: 12px 16px;
+    padding: 10px 14px;
     border-radius: 10px;
 }}
 div[data-testid="stMetricLabel"] > div, div[data-testid="stMetricValue"] > div {{
@@ -165,137 +168,129 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checke
     background-color: rgba(124, 58, 237, 0.12);
     font-weight: 600 !important;
 }}
-.table-scroll-wrap {{
-    width: 100%;
-    overflow-x: auto;
-    padding-bottom: 8px;
-}}
+/* טבלאות שנכנסות ב-100% בדף אחד ללא גלילה לצדדים */
 .rtl-table {{
-    width: 100%;
-    min-width: 1250px;
+    width: 100% !important;
+    table-layout: auto;
     border-collapse: collapse;
     direction: rtl !important;
     text-align: right;
-    margin: 10px 0 18px 0;
-    font-size: 0.94rem;
+    margin: 8px 0 16px 0;
+    font-size: 0.88rem;
 }}
 .rtl-table th, .rtl-table td {{
     border: 1px solid rgba(128,128,128,0.32);
-    padding: 10px 14px;
+    padding: 7px 8px;
     color: var(--text-color);
     text-align: right !important;
-    white-space: nowrap !important;
+    word-wrap: break-word;
 }}
 .rtl-table th {{
     background-color: var(--secondary-background-color);
     font-weight: 700;
 }}
 .matrix-table {{
-    width: 100%;
-    min-width: 1550px;
+    width: 100% !important;
+    table-layout: fixed;
     border-collapse: collapse;
     direction: rtl !important;
     text-align: center;
-    margin: 10px 0 20px 0;
-    font-size: 0.95rem;
+    margin: 8px 0 18px 0;
+    font-size: 0.86rem;
 }}
 .matrix-table th, .matrix-table td {{
     border: 1px solid rgba(128,128,128,0.35);
-    padding: 10px 14px;
+    padding: 7px 5px;
     color: var(--text-color);
-    white-space: nowrap !important;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }}
 .matrix-table thead tr:first-child th {{
     background-color: rgba(124, 58, 237, 0.18);
     font-weight: 700;
-    font-size: 1.02rem;
+    font-size: 0.94rem;
 }}
 .matrix-table thead tr:nth-child(2) th {{
     background-color: var(--secondary-background-color);
     font-weight: 600;
+    font-size: 0.84rem;
 }}
 .matrix-table td.parent-col {{
     text-align: right !important;
     font-weight: 700;
     background-color: var(--secondary-background-color);
-    white-space: nowrap !important;
+    padding: 8px 10px !important;
 }}
 .matrix-table td.merged-parent-col {{
     text-align: center !important;
     vertical-align: middle !important;
     font-weight: 800;
-    font-size: 1.06rem;
+    font-size: 0.96rem;
     background: linear-gradient(135deg, rgba(124, 58, 237, 0.14) 0%, rgba(124, 58, 237, 0.05) 100%);
     border-left: 3px solid #7c3aed !important;
-    padding: 14px 18px !important;
-    white-space: nowrap !important;
+    padding: 10px 8px !important;
+    line-height: 1.35;
 }}
 .matrix-table tr.group-end td {{
     border-bottom: 2.5px solid rgba(124, 58, 237, 0.55) !important;
 }}
-/* עיצוב תאי מלאי מספיק (ירוק) ומלאי חסר במינוס (אדום) בשורה אחת רחבה וארוכה */
+/* עיצוב תאי מלאי מספיק (ירוק) ומלאי חסר במינוס (אדום) מותאם לרוחב הדף */
 .matrix-table td.stock-ok {{
     background-color: rgba(34, 197, 94, 0.22) !important;
     border: 1px solid rgba(34, 197, 94, 0.55) !important;
-    padding: 8px 14px !important;
+    padding: 6px 4px !important;
     vertical-align: middle;
-    white-space: nowrap !important;
 }}
 .matrix-table td.stock-short {{
     background-color: rgba(239, 68, 68, 0.26) !important;
     border: 1px solid rgba(239, 68, 68, 0.65) !important;
-    padding: 8px 14px !important;
+    padding: 6px 4px !important;
     vertical-align: middle;
-    white-space: nowrap !important;
 }}
 .cell-details {{
     cursor: pointer;
     user-select: none;
-    white-space: nowrap !important;
 }}
 .cell-details summary {{
     list-style: none;
     outline: none;
     display: block;
-    white-space: nowrap !important;
 }}
 .cell-details summary::-webkit-details-marker {{
     display: none;
 }}
 .cell-main-val {{
-    font-size: 1.18rem;
+    font-size: 1.02rem;
     font-weight: 800;
     display: inline-block;
-    padding: 2px 6px;
+    padding: 1px 3px;
     border-radius: 4px;
-    white-space: nowrap !important;
     transition: transform 0.1s ease;
 }}
 .cell-details:hover .cell-main-val {{
     transform: scale(1.05);
     text-decoration: underline;
 }}
-/* פירוט בשורה אחת רחבה וארוכה כשהתא נלחץ */
-.cell-breakdown- wide {{
-    margin-top: 6px;
-    padding: 6px 12px;
+/* פירוט שנפתח בלחיצה מבלי לגרום לגלילה אופקית בדף */
+.cell-breakdown-fit {{
+    margin-top: 5px;
+    padding: 5px 6px;
     border-radius: 6px;
     background-color: var(--background-color);
     border: 1px solid rgba(128,128,128,0.45);
-    font-size: 0.85rem;
+    font-size: 0.76rem;
     font-weight: 600;
-    text-align: center;
+    text-align: {UI['align']};
     direction: {UI['dir']};
-    white-space: nowrap !important;
-    display: inline-block;
+    line-height: 1.35;
     box-shadow: 0 2px 6px rgba(0,0,0,0.14);
 }}
 .legend-box {{
     display: flex;
-    gap: 16px;
+    gap: 14px;
     align-items: center;
     margin-bottom: 8px;
-    font-size: 0.92rem;
+    font-size: 0.88rem;
     flex-wrap: wrap;
 }}
 .legend-pill-ok {{
@@ -464,7 +459,6 @@ menu = st.sidebar.radio(
 )
 
 st.sidebar.divider()
-# ברירת המחדל היא קילוגרמים (index=0), ומתחלפת לגרמים רק אם בוחרים בגרם
 w_choice = st.sidebar.radio(UI["unit_lbl"], [UI["kg"], UI["g"]], index=0, horizontal=True)
 use_kg = (w_choice == UI["kg"])
 w_factor = 1000.0 if use_kg else 1.0
@@ -472,7 +466,6 @@ w_label = ("ק\"ג" if is_he else "kg") if use_kg else ("גרם" if is_he else "
 u_label = "יח'" if is_he else "u"
 
 def fmt_val(val_in_base, is_raw_item):
-    """מפרמט מספר לפי קילוגרם (כברירת מחדל) או גרם (אם הועבר לגרמים), או יחידות לאריזות, בסדר טקסט תקין."""
     if is_raw_item:
         scaled = val_in_base / w_factor
         num_str = f"{scaled:,.2f}".rstrip("0").rstrip(".") if use_kg else f"{scaled:,.0f}"
@@ -484,7 +477,7 @@ def fmt_val(val_in_base, is_raw_item):
 st.button(UI["lang_btn"], on_click=toggle_language, key="floating_lang_btn")
 
 # ==============================================================================
-# 1. מסך מלאי ומחסנים - חומרי גלם לפי ק"ג (או גרם אם הוחלף), ואריזות/מדבקות לפי יח'
+# 1. מסך מלאי ומחסנים - מותאם ב-100% לרוחב המסך ללא גלילה לצדדים
 # ==============================================================================
 if menu == UI["m_inv"]:
     st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_inv"]}</h2></div>', unsafe_allow_html=True)
@@ -562,22 +555,22 @@ if menu == UI["m_inv"]:
         )
 
     inv_table_html = (
-        f'<div class="table-scroll-wrap"><table class="rtl-table">'
+        f'<table class="rtl-table">'
         f'<thead><tr>'
-        f'<th>{"מק\"ט (מפתח)" if is_he else "SKU (Key)"}</th>'
+        f'<th>{"מק\"ט" if is_he else "SKU"}</th>'
         f'<th>{"שם פריט" if is_he else "Item Name"}</th>'
         f'<th>{"סוג פריט" if is_he else "Type"}</th>'
-        f'<th>{"יתרת מלאי (" + w_label + " לחו\"ג / יח\' לאריזות)" if is_he else "Stock (" + w_label + " / Units)"}</th>'
+        f'<th>{"יתרת מלאי" if is_he else "Stock"}</th>'
         f'<th>{"מחסן" if is_he else "Warehouse"}</th>'
         f'<th>{"ספק ראשי" if is_he else "Supplier"}</th>'
         f'<th>{"ספקים חלופיים" if is_he else "Alt Suppliers"}</th>'
-        f'<th>{"מחיר פריט" if is_he else "Item Price"}</th>'
+        f'<th>{"מחיר" if is_he else "Price"}</th>'
         f'<th>{"מינימום הזמנה" if is_he else "MOQ"}</th>'
-        f'<th>{"מחיר קנייה אחרון" if is_he else "Last Price"}</th>'
-        f'<th>{"קוד SAP" if is_he else "SAP Code"}</th>'
+        f'<th>{"מחיר אחרון" if is_he else "Last Price"}</th>'
+        f'<th>{"SAP"}</th>'
         f'</tr></thead>'
         f'<tbody>{inv_rows_html}</tbody>'
-        f'</table></div>'
+        f'</table>'
     )
     st.markdown(inv_table_html, unsafe_allow_html=True)
 
@@ -595,17 +588,17 @@ if menu == UI["m_inv"]:
         edited_inv = st.data_editor(
             df_v[rtl_cols_order],
             column_config={
-                "sku": st.column_config.TextColumn("🔑 מק\"ט (מפתח)" if is_he else "SKU (Key)", required=True),
+                "sku": st.column_config.TextColumn("🔑 מק\"ט" if is_he else "SKU", required=True),
                 "name": st.column_config.TextColumn("שם פריט" if is_he else "Item Name", required=True),
                 "type_translated": st.column_config.SelectboxColumn("סוג" if is_he else "Type", options=type_options_display, required=True),
-                "stock_value_num": st.column_config.NumberColumn(f"כמות במלאי ({w_label} לחו\"ג / יח' לאריזה)" if is_he else f"Stock ({w_label} / Units)", format="%.2f"),
+                "stock_value_num": st.column_config.NumberColumn(f"מלאי ({w_label} / יח')" if is_he else f"Stock ({w_label} / Units)", format="%.2f"),
                 "wh_translated": st.column_config.SelectboxColumn("מחסן" if is_he else "Warehouse", options=wh_options_display, required=True),
                 "main_supplier": st.column_config.TextColumn("ספק" if is_he else "Supplier"),
                 "alt_suppliers": st.column_config.TextColumn("ספקים חלופיים" if is_he else "Alt Suppliers"),
-                "item_price": st.column_config.NumberColumn("מחיר פריט" if is_he else "Price", format="₪%.2f"),
-                "min_order_qty": st.column_config.NumberColumn("מינימום הזמנה" if is_he else "Min Order (MOQ)", format="%.1f"),
-                "last_purchase_price": st.column_config.NumberColumn("מחיר קנייה אחרון" if is_he else "Last Price", format="₪%.2f"),
-                "sap_code": st.column_config.TextColumn("קוד SAP" if is_he else "SAP Code")
+                "item_price": st.column_config.NumberColumn("מחיר" if is_he else "Price", format="₪%.2f"),
+                "min_order_qty": st.column_config.NumberColumn("מינימום הזמנה" if is_he else "MOQ", format="%.1f"),
+                "last_purchase_price": st.column_config.NumberColumn("מחיר אחרון" if is_he else "Last Price", format="₪%.2f"),
+                "sap_code": st.column_config.TextColumn("SAP" if is_he else "SAP Code")
             },
             use_container_width=True, hide_index=True, num_rows="dynamic", key="clean_inv_ed"
         )
@@ -639,7 +632,7 @@ if menu == UI["m_inv"]:
             st.rerun()
 
 # ==============================================================================
-# 2. עצי מוצר ותוכנית עבודה: הכל בק"ג (אלא אם הועבר לגרמים), שורה אחת רחבה וארוכה!
+# 2. עצי מוצר ותוכנית עבודה: חיפוש לפי מק"ט אב או מק"ט בן + הכל נכנס בדף אחד בלי גלילה לצדדים!
 # ==============================================================================
 elif menu == UI["m_bom"]:
     st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_bom"]}</h2></div>', unsafe_allow_html=True)
@@ -650,12 +643,103 @@ elif menu == UI["m_bom"]:
     conn.commit()
 
     sched_query = """
-        SELECT c.sku || ' - ' || c.name AS parent_label, c.sku,
+        SELECT c.sku || ' - ' || c.name AS parent_label, c.sku, c.name AS parent_name,
                s.W1, s.W2, s.W3, s.W4, s.W5, s.W6, s.W7, s.W8
         FROM WeeklySchedule s
         JOIN Catalog c ON s.parent_sku = c.sku
     """
     df_sched = pd.read_sql(sched_query, conn)
+
+    bom_join = """
+        SELECT b.parent_sku, p.name AS parent_name,
+               b.component_sku, c.name AS comp_name, b.comp_type,
+               b.req_qty_units, b.req_weight_grams,
+               c.qty_units AS avail_units, c.weight_grams AS avail_grams,
+               s.W1, s.W2, s.W3, s.W4, s.W5, s.W6, s.W7, s.W8
+        FROM BOM b
+        JOIN Catalog p ON b.parent_sku = p.sku
+        JOIN Catalog c ON b.component_sku = c.sku
+        JOIN WeeklySchedule s ON b.parent_sku = s.parent_sku
+        ORDER BY b.parent_sku, b.comp_type, b.component_sku
+    """
+    df_bom_sched = pd.read_sql(bom_join, conn)
+
+    # --- חישוב מלאי מתגלגל על כל הנתונים (כדי שהיתרות יהיו תמיד מדויקות גם כשמסננים!) ---
+    remaining_pool = {}
+    for _, r in df_bom_sched.iterrows():
+        c_sku = r["component_sku"]
+        if c_sku not in remaining_pool:
+            is_raw = (r["comp_type"] == "RAW")
+            remaining_pool[c_sku] = float(r["avail_grams"] if is_raw else r["avail_units"])
+
+    week_cols = ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8"]
+    cell_status = {}
+
+    for w_col in week_cols:
+        for row_idx, r in df_bom_sched.iterrows():
+            c_sku = r["component_sku"]
+            is_raw = (r["comp_type"] == "RAW")
+            per_unit_factor = float(r["req_weight_grams"] if is_raw else r["req_qty_units"])
+            used_val = float(r[w_col]) * per_unit_factor
+            before_val = remaining_pool.get(c_sku, 0.0)
+
+            if used_val <= before_val + 1e-6:
+                rem_val = max(0.0, before_val - used_val)
+                cell_status[(row_idx, w_col)] = {
+                    "is_ok": True,
+                    "before": before_val,
+                    "used": used_val,
+                    "rem": rem_val,
+                    "missing": 0.0
+                }
+                remaining_pool[c_sku] = rem_val
+            else:
+                missing_val = used_val - before_val
+                cell_status[(row_idx, w_col)] = {
+                    "is_ok": False,
+                    "before": before_val,
+                    "used": used_val,
+                    "rem": 0.0,
+                    "missing": missing_val
+                }
+                remaining_pool[c_sku] = 0.0
+
+    # --- סרגל חיפוש וסינון לפי מק"ט אב או מק"ט בן ---
+    all_lbl = "הכל" if is_he else "All"
+    parent_opts = [all_lbl] + list((df_sched["sku"] + " - " + df_sched["parent_name"]).unique())
+    child_opts = [all_lbl] + list((df_bom_sched["component_sku"] + " - " + df_bom_sched["comp_name"]).unique())
+
+    s_col1, s_col2, s_col3 = st.columns([2, 1.5, 1.5])
+    with s_col1:
+        bom_search_txt = st.text_input(
+            "🔍 חיפוש חופשי לפי מק\"ט אב או מק\"ט בן (או שם פריט):" if is_he else "🔍 Search by Parent SKU, Child SKU, or Name:",
+            placeholder="למשל: FG-501 / RAW-103 / קרם / חומצה..." if is_he else "e.g., FG-501 / RAW-103..."
+        )
+    with s_col2:
+        sel_parent_filter = st.selectbox("סנן לפי מק\"ט אב:" if is_he else "Filter by Parent SKU:", parent_opts)
+    with s_col3:
+        sel_child_filter = st.selectbox("סנן לפי מק\"ט בן (רכיב):" if is_he else "Filter by Child SKU:", child_opts)
+
+    # סינון הטבלאות לפי בחירת המשתמש
+    df_bom_view = df_bom_sched.copy()
+    if sel_parent_filter != all_lbl:
+        p_code_sel = sel_parent_filter.split(" - ")[0]
+        df_bom_view = df_bom_view[df_bom_view["parent_sku"] == p_code_sel]
+    if sel_child_filter != all_lbl:
+        c_code_sel = sel_child_filter.split(" - ")[0]
+        df_bom_view = df_bom_view[df_bom_view["component_sku"] == c_code_sel]
+    if bom_search_txt.strip():
+        q = bom_search_txt.strip()
+        df_bom_view = df_bom_view[
+            df_bom_view["parent_sku"].str.contains(q, case=False, na=False) |
+            df_bom_view["parent_name"].str.contains(q, case=False, na=False) |
+            df_bom_view["component_sku"].str.contains(q, case=False, na=False) |
+            df_bom_view["comp_name"].str.contains(q, case=False, na=False)
+        ]
+
+    # סינון טבלת מק"טי האב העליונה כך שתציג את מק"טי האב הרלוונטיים לחיפוש
+    relevant_parents = list(df_bom_view["parent_sku"].unique())
+    df_sched_view = df_sched[df_sched["sku"].isin(relevant_parents)] if (sel_parent_filter != all_lbl or sel_child_filter != all_lbl or bom_search_txt.strip()) else df_sched
 
     st.subheader("1. תוכנית ייצור למק\"טי אב (חודשים מעל שבועות)" if is_he else "1. Master Production Schedule (Months over Weeks)")
 
@@ -664,7 +748,7 @@ elif menu == UI["m_bom"]:
     month2_name = PLAN_PERIODS[4][1]
 
     rows_sched_html = ""
-    for _, row in df_sched.iterrows():
+    for _, row in df_sched_view.iterrows():
         rows_sched_html += (
             f"<tr>"
             f"<td class='parent-col'>{row['parent_label']}</td>"
@@ -674,15 +758,15 @@ elif menu == UI["m_bom"]:
         )
 
     html_table = (
-        f"<div class='table-scroll-wrap'><table class='matrix-table'>"
+        f"<table class='matrix-table'>"
         f"<thead>"
-        f"<tr><th rowspan='2' style='width:22%; text-align:right;'>{parent_col_title}</th>"
-        f"<th colspan='4'>{month1_name}</th><th colspan='4'>{month2_name}</th></tr>"
+        f"<tr><th rowspan='2' style='width:20%; text-align:right;'>{parent_col_title}</th>"
+        f"<th colspan='4' style='width:40%;'>{month1_name}</th><th colspan='4' style='width:40%;'>{month2_name}</th></tr>"
         f"<tr>"
         f"<th>{PLAN_PERIODS[0][2]}</th><th>{PLAN_PERIODS[1][2]}</th><th>{PLAN_PERIODS[2][2]}</th><th>{PLAN_PERIODS[3][2]}</th>"
         f"<th>{PLAN_PERIODS[4][2]}</th><th>{PLAN_PERIODS[5][2]}</th><th>{PLAN_PERIODS[6][2]}</th><th>{PLAN_PERIODS[7][2]}</th>"
         f"</tr></thead>"
-        f"<tbody>{rows_sched_html}</tbody></table></div>"
+        f"<tbody>{rows_sched_html}</tbody></table>"
     )
     st.markdown(html_table, unsafe_allow_html=True)
 
@@ -724,67 +808,13 @@ elif menu == UI["m_bom"]:
         f"<div class='legend-box'>"
         f"<span class='legend-pill-ok'>{'ירוק = המלאי שיישאר אחרי השימוש באותו שבוע' if is_he else 'Green = Remaining Stock After Week Usage'}</span>"
         f"<span class='legend-pill-short'>{'אדום = במינוס הכמות שחסרה במלאי' if is_he else 'Red = Minus Missing Quantity'}</span>"
-        f"<span style='opacity:0.85;'>💡 {'לחץ על כל תא כדי לפתוח שורה ארוכה עם: לפני השימוש | שימוש השבוע | נשאר במלאי' if is_he else 'Click any cell for single-line breakdown: Before | Used | Remaining'}</span>"
+        f"<span style='opacity:0.85;'>💡 {'לחץ על כל תא כדי לראות: לפני השימוש | שימוש השבוע | נשאר במלאי' if is_he else 'Click any cell to see: Before | Used | Remaining'}</span>"
         f"</div>"
     )
     st.markdown(legend_html, unsafe_allow_html=True)
 
-    bom_join = """
-        SELECT b.parent_sku, p.name AS parent_name,
-               b.component_sku, c.name AS comp_name, b.comp_type,
-               b.req_qty_units, b.req_weight_grams,
-               c.qty_units AS avail_units, c.weight_grams AS avail_grams,
-               s.W1, s.W2, s.W3, s.W4, s.W5, s.W6, s.W7, s.W8
-        FROM BOM b
-        JOIN Catalog p ON b.parent_sku = p.sku
-        JOIN Catalog c ON b.component_sku = c.sku
-        JOIN WeeklySchedule s ON b.parent_sku = s.parent_sku
-        ORDER BY b.parent_sku, b.comp_type, b.component_sku
-    """
-    df_bom_sched = pd.read_sql(bom_join, conn)
-
-    # חישוב מלאי מתגלגל לאורך השבועות (W1 -> W8)
-    remaining_pool = {}
-    for _, r in df_bom_sched.iterrows():
-        c_sku = r["component_sku"]
-        if c_sku not in remaining_pool:
-            is_raw = (r["comp_type"] == "RAW")
-            remaining_pool[c_sku] = float(r["avail_grams"] if is_raw else r["avail_units"])
-
-    week_cols = ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8"]
-    cell_status = {}
-
-    for w_col in week_cols:
-        for row_idx, r in df_bom_sched.iterrows():
-            c_sku = r["component_sku"]
-            is_raw = (r["comp_type"] == "RAW")
-            per_unit_factor = float(r["req_weight_grams"] if is_raw else r["req_qty_units"])
-            used_val = float(r[w_col]) * per_unit_factor
-            before_val = remaining_pool.get(c_sku, 0.0)
-
-            if used_val <= before_val + 1e-6:
-                rem_val = max(0.0, before_val - used_val)
-                cell_status[(row_idx, w_col)] = {
-                    "is_ok": True,
-                    "before": before_val,
-                    "used": used_val,
-                    "rem": rem_val,
-                    "missing": 0.0
-                }
-                remaining_pool[c_sku] = rem_val
-            else:
-                missing_val = used_val - before_val
-                cell_status[(row_idx, w_col)] = {
-                    "is_ok": False,
-                    "before": before_val,
-                    "used": used_val,
-                    "rem": 0.0,
-                    "missing": missing_val
-                }
-                remaining_pool[c_sku] = 0.0
-
     rows_bom_html = ""
-    for parent_sku, group in df_bom_sched.groupby("parent_sku", sort=False):
+    for parent_sku, group in df_bom_view.groupby("parent_sku", sort=False):
         span_count = len(group)
         for idx_in_group, (row_idx, r) in enumerate(group.iterrows()):
             is_raw = (r["comp_type"] == "RAW")
@@ -797,7 +827,8 @@ elif menu == UI["m_bom"]:
             if idx_in_group == 0:
                 parent_td = (
                     f"<td class='merged-parent-col' rowspan='{span_count}'>"
-                    f"{r['parent_sku']} - {r['parent_name']}"
+                    f"<div>{r['parent_sku']}</div>"
+                    f"<div style='font-size:0.84rem; font-weight:600; opacity:0.88;'>{r['parent_name']}</div>"
                     f"</td>"
                 )
 
@@ -809,23 +840,21 @@ elif menu == UI["m_bom"]:
                 rem_str = fmt_val(st_info["rem"], is_raw)
                 miss_str = fmt_val(st_info["missing"], is_raw)
 
-                # פירוט בשורה אחת רחבה וארוכה ללא שבירת שורות
                 if is_he:
                     if st_info["is_ok"]:
-                        breakdown_html = f"<div class='cell-breakdown-wide'>לפני השימוש: <b>{before_str}</b> &nbsp;|&nbsp; שימוש השבוע: <b>{used_str}</b> &nbsp;|&nbsp; נשאר במלאי: <b>{rem_str}</b></div>"
+                        breakdown_html = f"<div class='cell-breakdown-fit'>לפני: <b>{before_str}</b><br>שימוש: <b>{used_str}</b><br>נשאר: <b>{rem_str}</b></div>"
                     else:
-                        breakdown_html = f"<div class='cell-breakdown-wide'>לפני השימוש: <b>{before_str}</b> &nbsp;|&nbsp; דרישה השבוע: <b>{used_str}</b> &nbsp;|&nbsp; נשאר: <b>0</b> &nbsp;|&nbsp; <span style='color:#ef4444;'>חסר: <b>{miss_str}-</b></span></div>"
+                        breakdown_html = f"<div class='cell-breakdown-fit'>לפני: <b>{before_str}</b><br>דרישה: <b>{used_str}</b><br>נשאר: <b>0</b><br><span style='color:#ef4444;'>חסר: <b>{miss_str}-</b></span></div>"
                 else:
                     if st_info["is_ok"]:
-                        breakdown_html = f"<div class='cell-breakdown-wide'>Before: <b>{before_str}</b> &nbsp;|&nbsp; Used: <b>{used_str}</b> &nbsp;|&nbsp; Remaining: <b>{rem_str}</b></div>"
+                        breakdown_html = f"<div class='cell-breakdown-fit'>Before: <b>{before_str}</b><br>Used: <b>{used_str}</b><br>Rem: <b>{rem_str}</b></div>"
                     else:
-                        breakdown_html = f"<div class='cell-breakdown-wide'>Before: <b>{before_str}</b> &nbsp;|&nbsp; Needed: <b>{used_str}</b> &nbsp;|&nbsp; Remaining: <b>0</b> &nbsp;|&nbsp; <span style='color:#ef4444;'>Short: <b>-{miss_str}</b></span></div>"
+                        breakdown_html = f"<div class='cell-breakdown-fit'>Before: <b>{before_str}</b><br>Need: <b>{used_str}</b><br>Rem: <b>0</b><br><span style='color:#ef4444;'>Short: <b>-{miss_str}</b></span></div>"
 
                 if st_info["is_ok"]:
                     main_label = rem_str
                     td_cls = "stock-ok"
                 else:
-                    # הצגת המינוס בצורה נקייה בלי שהאותיות יקפצו
                     scaled_miss = st_info["missing"] / (w_factor if is_raw else 1.0)
                     num_m = (f"{scaled_miss:,.2f}".rstrip("0").rstrip(".") if (is_raw and use_kg) else f"{scaled_miss:,.0f}")
                     unit_m = w_label if is_raw else u_label
@@ -847,7 +876,7 @@ elif menu == UI["m_bom"]:
             rows_bom_html += (
                 f"<tr{tr_class}>"
                 f"{parent_td}"
-                f"<td style='text-align:right;'><b>{r['component_sku']}</b> - {r['comp_name']} <span style='opacity:0.75;'>({tr_type(r['comp_type'])})</span></td>"
+                f"<td style='text-align:right;'><b>{r['component_sku']}</b> - {r['comp_name']}</td>"
                 f"<td><b>{per_unit_disp}</b></td>"
                 f"<td><b>{init_stock_disp}</b></td>"
                 f"{week_tds_html}"
@@ -855,19 +884,19 @@ elif menu == UI["m_bom"]:
             )
 
     bom_html = (
-        f"<div class='table-scroll-wrap'><table class='matrix-table'>"
+        f"<table class='matrix-table'>"
         f"<thead>"
         f"<tr>"
-        f"<th rowspan='2' style='text-align:center;'>{'מק\"ט אב' if is_he else 'Parent SKU'}</th>"
-        f"<th rowspan='2' style='text-align:right;'>{'מק\"ט בן / רכיב בעץ (חומר/אריזה/מדבקה)' if is_he else 'Child Component SKU'}</th>"
-        f"<th rowspan='2'>{'למוצר 1' if is_he else 'Per 1 Unit'}</th>"
-        f"<th rowspan='2'>{'מלאי התחלתי' if is_he else 'Initial Stock'}</th>"
-        f"<th colspan='4'>{month1_name}</th><th colspan='4'>{month2_name}</th>"
+        f"<th rowspan='2' style='width:12%; text-align:center;'>{'מק\"ט אב' if is_he else 'Parent SKU'}</th>"
+        f"<th rowspan='2' style='width:18%; text-align:right;'>{'מק\"ט בן / רכיב בעץ' if is_he else 'Child Component SKU'}</th>"
+        f"<th rowspan='2' style='width:7%;'>{'למוצר 1' if is_he else 'Per 1'}</th>"
+        f"<th rowspan='2' style='width:9%;'>{'מלאי התחלתי' if is_he else 'Init Stock'}</th>"
+        f"<th colspan='4' style='width:27%;'>{month1_name}</th><th colspan='4' style='width:27%;'>{month2_name}</th>"
         f"</tr><tr>"
         f"<th>{PLAN_PERIODS[0][2]}</th><th>{PLAN_PERIODS[1][2]}</th><th>{PLAN_PERIODS[2][2]}</th><th>{PLAN_PERIODS[3][2]}</th>"
         f"<th>{PLAN_PERIODS[4][2]}</th><th>{PLAN_PERIODS[5][2]}</th><th>{PLAN_PERIODS[6][2]}</th><th>{PLAN_PERIODS[7][2]}</th>"
         f"</tr></thead>"
-        f"<tbody>{rows_bom_html}</tbody></table></div>"
+        f"<tbody>{rows_bom_html}</tbody></table>"
     )
     st.markdown(bom_html, unsafe_allow_html=True)
 
