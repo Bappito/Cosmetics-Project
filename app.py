@@ -102,7 +102,7 @@ PLAN_PERIODS = [
     ("W8", "דצמבר 2026" if is_he else "Dec 2026", "שבוע 8" if is_he else "Week 8"),
 ]
 
-# --- CSS נקי, תומך מצב כהה/בהיר, כפתור שפה צף וצביעת תאי מלאי בירוק/אדום ---
+# --- CSS נקי, תומך מצב כהה/בהיר, כפתור שפה צף ותאי מלאי מתקפלים בלחיצה ---
 st.markdown(f"""
 <style>
 .stApp, .main, .block-container {{
@@ -223,18 +223,56 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checke
 .matrix-table tr.group-end td {{
     border-bottom: 2.5px solid rgba(124, 58, 237, 0.55) !important;
 }}
-/* צביעת תאי מלאי מספיק (ירוק) ומלאי חסר במינוס (אדום) ללא אייקונים */
+/* עיצוב תאי מלאי מספיק (ירוק) ומלאי חסר במינוס (אדום) עם לחיצה לפתיחת פירוט */
 .matrix-table td.stock-ok {{
     background-color: rgba(34, 197, 94, 0.22) !important;
     border: 1px solid rgba(34, 197, 94, 0.55) !important;
-    font-weight: 700;
-    direction: ltr;
+    padding: 6px 8px !important;
+    vertical-align: top;
 }}
 .matrix-table td.stock-short {{
     background-color: rgba(239, 68, 68, 0.26) !important;
     border: 1px solid rgba(239, 68, 68, 0.65) !important;
-    font-weight: 700;
+    padding: 6px 8px !important;
+    vertical-align: top;
+}}
+.cell-details {{
+    cursor: pointer;
+    user-select: none;
+}}
+.cell-details summary {{
+    list-style: none;
+    outline: none;
+    display: block;
+}}
+.cell-details summary::-webkit-details-marker {{
+    display: none;
+}}
+.cell-main-val {{
+    font-size: 1.16rem;
+    font-weight: 800;
     direction: ltr;
+    display: inline-block;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: transform 0.1s ease;
+}}
+.cell-details:hover .cell-main-val {{
+    transform: scale(1.06);
+    text-decoration: underline;
+}}
+.cell-breakdown {{
+    margin-top: 6px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background-color: var(--background-color);
+    border: 1px solid rgba(128,128,128,0.4);
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-align: {UI['align']};
+    direction: {UI['dir']};
+    line-height: 1.45;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
 }}
 .legend-box {{
     display: flex;
@@ -242,6 +280,7 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checke
     align-items: center;
     margin-bottom: 8px;
     font-size: 0.9rem;
+    flex-wrap: wrap;
 }}
 .legend-pill-ok {{
     display: inline-block;
@@ -428,7 +467,6 @@ if menu == UI["m_inv"]:
     df_cat["wh_translated"] = df_cat["primary_warehouse"].apply(tr_wh)
     df_cat["type_translated"] = df_cat["item_type"].apply(tr_type)
 
-    # חישוב ערך מאוחד לתצוגה ועריכה: אם RAW -> לפי משקל, אחרת -> לפי יחידות בלבד
     def get_stock_value(row):
         if row["item_type"] == "RAW":
             return round(float(row["weight_grams"]) / w_factor, 3)
@@ -449,7 +487,6 @@ if menu == UI["m_inv"]:
     df_cat["stock_display_str"] = df_cat.apply(get_stock_formatted, axis=1)
     df_cat["moq_display_str"] = df_cat.apply(get_moq_formatted, axis=1)
 
-    # חישוב שווי מלאי (לחומר גלם המחיר הוא לק"ג, לשאר הפריטים המחיר הוא ליחידה)
     def calc_row_value(row):
         if row["item_type"] == "RAW":
             return (float(row["weight_grams"]) / 1000.0) * float(row["item_price"])
@@ -482,7 +519,6 @@ if menu == UI["m_inv"]:
     if q_txt:
         df_v = df_v[df_v["sku"].str.contains(q_txt, case=False, na=False) | df_v["name"].str.contains(q_txt, case=False, na=False)]
 
-    # --- טבלת מלאי מימין לשמאל: עמודה אחת ברורה למלאי שמציגה רק משקל לחומרי גלם ורק יח' לאריזות/מדבקות ---
     inv_rows_html = ""
     for _, r in df_v.iterrows():
         inv_rows_html += (
@@ -579,7 +615,7 @@ if menu == UI["m_inv"]:
             st.rerun()
 
 # ==============================================================================
-# 2. עצי מוצר ותוכנית עבודה: תא ירוק = כמות נדרשת, תא אדום = מינוס של הכמות החסרה (ללא סמלים)
+# 2. עצי מוצר ותוכנית עבודה: תא ירוק מציג כמה יישאר בגדול + לחיצה מציגה פירוט מלא!
 # ==============================================================================
 elif menu == UI["m_bom"]:
     st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_bom"]}</h2></div>', unsafe_allow_html=True)
@@ -654,12 +690,13 @@ elif menu == UI["m_bom"]:
 
     st.divider()
 
-    st.subheader("2. נגזרת עצי מוצר לפי חודשים ושבועות (חומרי גלם, אריזות ומדבקות)" if is_he else "2. BOM Component Breakdown by Months & Weeks")
+    st.subheader("2. נגזרת עצי מוצר לפי חודשים ושבועות (לחץ על כל תא לפירוט מלא)" if is_he else "2. BOM Component Breakdown (Click any cell for details)")
 
     legend_html = (
         f"<div class='legend-box'>"
-        f"<span class='legend-pill-ok'>{'ירוק = יש מספיק מלאי' if is_he else 'Green = Sufficient Stock'}</span>"
+        f"<span class='legend-pill-ok'>{'ירוק = המלאי שיישאר אחרי השימוש באותו שבוע' if is_he else 'Green = Remaining Stock After Week Usage'}</span>"
         f"<span class='legend-pill-short'>{'אדום = במינוס הכמות שחסרה במלאי' if is_he else 'Red = Minus Missing Quantity'}</span>"
+        f"<span style='opacity:0.8;'>💡 {'לחץ על כל תא בטבלה כדי לראות: כמה היה לפני השימוש, כמה השתמשנו באותו שבוע, וכמה נשאר' if is_he else 'Click any cell to see: Before Usage, Used This Week, and Remaining'}</span>"
         f"</div>"
     )
     st.markdown(legend_html, unsafe_allow_html=True)
@@ -678,7 +715,7 @@ elif menu == UI["m_bom"]:
     """
     df_bom_sched = pd.read_sql(bom_join, conn)
 
-    # חישוב מלאי מצטבר לאורך השבועות (W1 -> W8)
+    # חישוב מלאי מתגלגל לאורך השבועות (W1 -> W8): שומר כמה היה לפני, כמה נצרך, וכמה נשאר
     remaining_pool = {}
     for _, r in df_bom_sched.iterrows():
         c_sku = r["component_sku"]
@@ -687,6 +724,7 @@ elif menu == UI["m_bom"]:
             remaining_pool[c_sku] = float(r["avail_grams"] if is_raw else r["avail_units"])
 
     week_cols = ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8"]
+    # (row_idx, w_col) -> dict(is_ok, before_val, used_val, rem_val, missing_val)
     cell_status = {}
 
     for w_col in week_cols:
@@ -694,18 +732,31 @@ elif menu == UI["m_bom"]:
             c_sku = r["component_sku"]
             is_raw = (r["comp_type"] == "RAW")
             per_unit_factor = float(r["req_weight_grams"] if is_raw else r["req_qty_units"])
-            req_val = float(r[w_col]) * per_unit_factor
-            avail_now = remaining_pool.get(c_sku, 0.0)
+            used_val = float(r[w_col]) * per_unit_factor
+            before_val = remaining_pool.get(c_sku, 0.0)
 
-            if req_val <= avail_now + 1e-6:
-                cell_status[(row_idx, w_col)] = (True, req_val, 0.0)
-                remaining_pool[c_sku] = max(0.0, avail_now - req_val)
+            if used_val <= before_val + 1e-6:
+                rem_val = max(0.0, before_val - used_val)
+                cell_status[(row_idx, w_col)] = {
+                    "is_ok": True,
+                    "before": before_val,
+                    "used": used_val,
+                    "rem": rem_val,
+                    "missing": 0.0
+                }
+                remaining_pool[c_sku] = rem_val
             else:
-                missing_val = req_val - avail_now
-                cell_status[(row_idx, w_col)] = (False, req_val, missing_val)
+                missing_val = used_val - before_val
+                cell_status[(row_idx, w_col)] = {
+                    "is_ok": False,
+                    "before": before_val,
+                    "used": used_val,
+                    "rem": 0.0,
+                    "missing": missing_val
+                }
                 remaining_pool[c_sku] = 0.0
 
-    # בניית שורות הטבלה: אם יש מספיק -> ירוק עם הכמות, אם חסר -> אדום עם מינוס הכמות החסרה בלבד (ללא ווי וללא איקס)
+    # בניית שורות הטבלה: תא ירוק מציג בגדול כמה יישאר, תא אדום מציג בגדול כמה חסר במינוס, ולחיצה פותחת את הפירוט
     rows_bom_html = ""
     for parent_sku, group in df_bom_sched.groupby("parent_sku", sort=False):
         span_count = len(group)
@@ -728,11 +779,46 @@ elif menu == UI["m_bom"]:
 
             week_tds_html = ""
             for w_col in week_cols:
-                is_ok, req_val, missing_val = cell_status[(row_idx, w_col)]
-                if is_ok:
-                    week_tds_html += f"<td class='stock-ok'>{req_val:,.0f} {unit_suffix}</td>"
+                st_info = cell_status[(row_idx, w_col)]
+                before_v = st_info["before"]
+                used_v = st_info["used"]
+                rem_v = st_info["rem"]
+                miss_v = st_info["missing"]
+
+                if is_he:
+                    breakdown_html = (
+                        f"<div class='cell-breakdown'>"
+                        f"<div>לפני השימוש: <b>{before_v:,.0f} {unit_suffix}</b></div>"
+                        f"<div>שימוש השבוע: <b>{used_v:,.0f} {unit_suffix}</b></div>"
+                        f"<div>נשאר במלאי: <b>{rem_v:,.0f} {unit_suffix}</b></div>"
+                        + (f"<div style='color:#ef4444;'>חסר: <b>-{miss_v:,.0f} {unit_suffix}</b></div>" if not st_info["is_ok"] else "")
+                        + f"</div>"
+                    )
                 else:
-                    week_tds_html += f"<td class='stock-short'>-{missing_val:,.0f} {unit_suffix}</td>"
+                    breakdown_html = (
+                        f"<div class='cell-breakdown'>"
+                        f"<div>Before usage: <b>{before_v:,.0f} {unit_suffix}</b></div>"
+                        f"<div>Used this week: <b>{used_v:,.0f} {unit_suffix}</b></div>"
+                        f"<div>Remaining: <b>{rem_v:,.0f} {unit_suffix}</b></div>"
+                        + (f"<div style='color:#ef4444;'>Shortage: <b>-{miss_v:,.0f} {unit_suffix}</b></div>" if not st_info["is_ok"] else "")
+                        + f"</div>"
+                    )
+
+                if st_info["is_ok"]:
+                    main_label = f"{rem_v:,.0f} {unit_suffix}"
+                    td_cls = "stock-ok"
+                else:
+                    main_label = f"-{miss_v:,.0f} {unit_suffix}"
+                    td_cls = "stock-short"
+
+                week_tds_html += (
+                    f"<td class='{td_cls}'>"
+                    f"<details class='cell-details'>"
+                    f"<summary><span class='cell-main-val'>{main_label}</span></summary>"
+                    f"{breakdown_html}"
+                    f"</details>"
+                    f"</td>"
+                )
 
             rows_bom_html += (
                 f"<tr{tr_class}>"
@@ -748,10 +834,10 @@ elif menu == UI["m_bom"]:
         f"<table class='matrix-table'>"
         f"<thead>"
         f"<tr>"
-        f"<th rowspan='2' style='width:16%; text-align:center;'>{'מק\"ט אב' if is_he else 'Parent SKU'}</th>"
+        f"<th rowspan='2' style='width:15%; text-align:center;'>{'מק\"ט אב' if is_he else 'Parent SKU'}</th>"
         f"<th rowspan='2' style='text-align:right;'>{'מק\"ט בן / רכיב בעץ (חומר/אריזה/מדבקה)' if is_he else 'Child Component SKU'}</th>"
         f"<th rowspan='2'>{'למוצר 1' if is_he else 'Per 1 Unit'}</th>"
-        f"<th rowspan='2'>{'קיים במלאי כעת' if is_he else 'Current Stock'}</th>"
+        f"<th rowspan='2'>{'מלאי התחלתי' if is_he else 'Initial Stock'}</th>"
         f"<th colspan='4'>{month1_name}</th><th colspan='4'>{month2_name}</th>"
         f"</tr><tr>"
         f"<th>{PLAN_PERIODS[0][2]}</th><th>{PLAN_PERIODS[1][2]}</th><th>{PLAN_PERIODS[2][2]}</th><th>{PLAN_PERIODS[3][2]}</th>"
@@ -788,7 +874,7 @@ elif menu == UI["m_bom"]:
             st.rerun()
 
 # ==============================================================================
-# 3. העברות בין 8 המחסנים (מותאם אוטומטית למשקל או ליחידות לפי הפריט הנבחר)
+# 3. העברות בין 8 המחסנים
 # ==============================================================================
 elif menu == UI["m_wh"]:
     st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_wh"]}</h2></div>', unsafe_allow_html=True)
@@ -914,3 +1000,4 @@ elif menu == UI["m_ai"]:
                 conn.execute("UPDATE Catalog SET qty_units = qty_units + ? WHERE sku=?", (val, s_code))
                 conn.commit()
                 st.success(f"נוספו {val} יח' ל-{s_code}!")
+                
