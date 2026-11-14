@@ -102,7 +102,7 @@ PLAN_PERIODS = [
     ("W8", "דצמבר 2026" if is_he else "Dec 2026", "שבוע 8" if is_he else "Week 8"),
 ]
 
-# --- CSS מותאם ל-100% מרוחב המסך ללא גלילה אופקית (גלילה למעלה-למטה בלבד) ---
+# --- CSS מותאם ל-100% מרוחב המסך ללא גלילה אופקית ---
 st.markdown(f"""
 <style>
 .stApp, .main, .block-container {{
@@ -111,8 +111,8 @@ st.markdown(f"""
     font-family: 'Segoe UI', Tahoma, sans-serif;
     padding-top: 1rem !important;
     padding-bottom: 4rem !important;
-    padding-left: 1.2rem !important;
-    padding-right: 1.2rem !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
     max-width: 100% !important;
     overflow-x: hidden !important;
 }}
@@ -168,7 +168,6 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checke
     background-color: rgba(124, 58, 237, 0.12);
     font-weight: 600 !important;
 }}
-/* טבלאות שנכנסות ב-100% בדף אחד ללא גלילה לצדדים */
 .rtl-table {{
     width: 100% !important;
     table-layout: auto;
@@ -196,11 +195,11 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checke
     direction: rtl !important;
     text-align: center;
     margin: 8px 0 18px 0;
-    font-size: 0.86rem;
+    font-size: 0.85rem;
 }}
 .matrix-table th, .matrix-table td {{
     border: 1px solid rgba(128,128,128,0.35);
-    padding: 7px 5px;
+    padding: 6px 4px;
     color: var(--text-color);
     word-wrap: break-word;
     overflow-wrap: break-word;
@@ -208,12 +207,12 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checke
 .matrix-table thead tr:first-child th {{
     background-color: rgba(124, 58, 237, 0.18);
     font-weight: 700;
-    font-size: 0.94rem;
+    font-size: 0.92rem;
 }}
 .matrix-table thead tr:nth-child(2) th {{
     background-color: var(--secondary-background-color);
     font-weight: 600;
-    font-size: 0.84rem;
+    font-size: 0.82rem;
 }}
 .matrix-table td.parent-col {{
     text-align: right !important;
@@ -225,27 +224,38 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checke
     text-align: center !important;
     vertical-align: middle !important;
     font-weight: 800;
-    font-size: 0.96rem;
+    font-size: 0.94rem;
     background: linear-gradient(135deg, rgba(124, 58, 237, 0.14) 0%, rgba(124, 58, 237, 0.05) 100%);
     border-left: 3px solid #7c3aed !important;
-    padding: 10px 8px !important;
+    padding: 8px 6px !important;
     line-height: 1.35;
 }}
 .matrix-table tr.group-end td {{
     border-bottom: 2.5px solid rgba(124, 58, 237, 0.55) !important;
 }}
-/* עיצוב תאי מלאי מספיק (ירוק) ומלאי חסר במינוס (אדום) מותאם לרוחב הדף */
 .matrix-table td.stock-ok {{
     background-color: rgba(34, 197, 94, 0.22) !important;
     border: 1px solid rgba(34, 197, 94, 0.55) !important;
-    padding: 6px 4px !important;
+    padding: 6px 3px !important;
     vertical-align: middle;
 }}
 .matrix-table td.stock-short {{
     background-color: rgba(239, 68, 68, 0.26) !important;
     border: 1px solid rgba(239, 68, 68, 0.65) !important;
-    padding: 6px 4px !important;
+    padding: 6px 3px !important;
     vertical-align: middle;
+}}
+.matrix-table td.summary-ok {{
+    background-color: rgba(34, 197, 94, 0.34) !important;
+    border: 2px solid rgba(34, 197, 94, 0.8) !important;
+    font-weight: 800;
+    font-size: 0.95rem;
+}}
+.matrix-table td.summary-short {{
+    background-color: rgba(239, 68, 68, 0.38) !important;
+    border: 2px solid rgba(239, 68, 68, 0.85) !important;
+    font-weight: 800;
+    font-size: 0.95rem;
 }}
 .cell-details {{
     cursor: pointer;
@@ -260,10 +270,10 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checke
     display: none;
 }}
 .cell-main-val {{
-    font-size: 1.02rem;
+    font-size: 0.98rem;
     font-weight: 800;
     display: inline-block;
-    padding: 1px 3px;
+    padding: 1px 2px;
     border-radius: 4px;
     transition: transform 0.1s ease;
 }}
@@ -271,18 +281,17 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checke
     transform: scale(1.05);
     text-decoration: underline;
 }}
-/* פירוט שנפתח בלחיצה מבלי לגרום לגלילה אופקית בדף */
 .cell-breakdown-fit {{
-    margin-top: 5px;
-    padding: 5px 6px;
+    margin-top: 4px;
+    padding: 4px 5px;
     border-radius: 6px;
     background-color: var(--background-color);
     border: 1px solid rgba(128,128,128,0.45);
-    font-size: 0.76rem;
+    font-size: 0.74rem;
     font-weight: 600;
     text-align: {UI['align']};
     direction: {UI['dir']};
-    line-height: 1.35;
+    line-height: 1.3;
     box-shadow: 0 2px 6px rgba(0,0,0,0.14);
 }}
 .legend-box {{
@@ -309,7 +318,6 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checke
     border: 1px solid rgba(239, 68, 68, 0.65);
     font-weight: 700;
 }}
-/* טאב קטן צף בפינה הימנית התחתונה להחלפת שפה */
 div.st-key-floating_lang_btn {{
     position: fixed !important;
     bottom: 18px !important;
@@ -466,18 +474,25 @@ w_label = ("ק\"ג" if is_he else "kg") if use_kg else ("גרם" if is_he else "
 u_label = "יח'" if is_he else "u"
 
 def fmt_val(val_in_base, is_raw_item):
+    """מפרמט מספר (חיובי או שלילי) לפי קילוגרם/גרם או יחידות, עם הצגת סימן מינוס תקנית."""
+    is_neg = (val_in_base < -1e-6)
+    abs_val = abs(val_in_base)
     if is_raw_item:
-        scaled = val_in_base / w_factor
+        scaled = abs_val / w_factor
         num_str = f"{scaled:,.2f}".rstrip("0").rstrip(".") if use_kg else f"{scaled:,.0f}"
-        return f"{num_str} {w_label}"
+        unit_m = w_label
     else:
-        return f"{val_in_base:,.0f} {u_label}"
+        num_str = f"{abs_val:,.0f}"
+        unit_m = u_label
+    if is_neg:
+        return f"<span dir='ltr'>-{num_str}</span> {unit_m}"
+    return f"{num_str} {unit_m}"
 
 # --- כפתור שפה צף בפינה הימנית התחתונה של המסך ---
 st.button(UI["lang_btn"], on_click=toggle_language, key="floating_lang_btn")
 
 # ==============================================================================
-# 1. מסך מלאי ומחסנים - מותאם ב-100% לרוחב המסך ללא גלילה לצדדים
+# 1. מסך מלאי ומחסנים
 # ==============================================================================
 if menu == UI["m_inv"]:
     st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_inv"]}</h2></div>', unsafe_allow_html=True)
@@ -632,7 +647,7 @@ if menu == UI["m_inv"]:
             st.rerun()
 
 # ==============================================================================
-# 2. עצי מוצר ותוכנית עבודה: חיפוש לפי מק"ט אב או מק"ט בן + הכל נכנס בדף אחד בלי גלילה לצדדים!
+# 2. עצי מוצר ותוכנית עבודה: סוכם חוסרים מצטברים משבוע לשבוע + עמודת סה"כ חוסר מצטבר!
 # ==============================================================================
 elif menu == UI["m_bom"]:
     st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_bom"]}</h2></div>', unsafe_allow_html=True)
@@ -664,13 +679,14 @@ elif menu == UI["m_bom"]:
     """
     df_bom_sched = pd.read_sql(bom_join, conn)
 
-    # --- חישוב מלאי מתגלגל על כל הנתונים (כדי שהיתרות יהיו תמיד מדויקות גם כשמסננים!) ---
-    remaining_pool = {}
+    # --- חישוב מאזן ומלאי מתגלגל שסוכם גם את החוסרים משבוע לשבוע (Cumulative Rolling Balance) ---
+    # אם בשבוע 2 חסר -100 ובשבוע 3 נדרש עוד 150, המאזן בשבוע 3 יראה -250 (סכום כל החוסרים עד כה!)
+    running_balance = {}
     for _, r in df_bom_sched.iterrows():
         c_sku = r["component_sku"]
-        if c_sku not in remaining_pool:
+        if c_sku not in running_balance:
             is_raw = (r["comp_type"] == "RAW")
-            remaining_pool[c_sku] = float(r["avail_grams"] if is_raw else r["avail_units"])
+            running_balance[c_sku] = float(r["avail_grams"] if is_raw else r["avail_units"])
 
     week_cols = ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8"]
     cell_status = {}
@@ -681,28 +697,24 @@ elif menu == UI["m_bom"]:
             is_raw = (r["comp_type"] == "RAW")
             per_unit_factor = float(r["req_weight_grams"] if is_raw else r["req_qty_units"])
             used_val = float(r[w_col]) * per_unit_factor
-            before_val = remaining_pool.get(c_sku, 0.0)
 
-            if used_val <= before_val + 1e-6:
-                rem_val = max(0.0, before_val - used_val)
-                cell_status[(row_idx, w_col)] = {
-                    "is_ok": True,
-                    "before": before_val,
-                    "used": used_val,
-                    "rem": rem_val,
-                    "missing": 0.0
-                }
-                remaining_pool[c_sku] = rem_val
-            else:
-                missing_val = used_val - before_val
-                cell_status[(row_idx, w_col)] = {
-                    "is_ok": False,
-                    "before": before_val,
-                    "used": used_val,
-                    "rem": 0.0,
-                    "missing": missing_val
-                }
-                remaining_pool[c_sku] = 0.0
+            before_bal = running_balance.get(c_sku, 0.0)
+            after_bal = before_bal - used_val
+            running_balance[c_sku] = after_bal
+
+            is_ok = (after_bal >= -1e-6)
+            # החוסר שנוסף השבוע בלבד לעומת סך החוסר המצטבר
+            short_this_week = used_val if before_bal < 0 else max(0.0, used_val - before_bal)
+            cum_shortage = abs(after_bal) if not is_ok else 0.0
+
+            cell_status[(row_idx, w_col)] = {
+                "is_ok": is_ok,
+                "before_bal": before_bal,
+                "used": used_val,
+                "after_bal": after_bal,
+                "short_this_week": short_this_week,
+                "cum_shortage": cum_shortage
+            }
 
     # --- סרגל חיפוש וסינון לפי מק"ט אב או מק"ט בן ---
     all_lbl = "הכל" if is_he else "All"
@@ -720,7 +732,6 @@ elif menu == UI["m_bom"]:
     with s_col3:
         sel_child_filter = st.selectbox("סנן לפי מק\"ט בן (רכיב):" if is_he else "Filter by Child SKU:", child_opts)
 
-    # סינון הטבלאות לפי בחירת המשתמש
     df_bom_view = df_bom_sched.copy()
     if sel_parent_filter != all_lbl:
         p_code_sel = sel_parent_filter.split(" - ")[0]
@@ -737,7 +748,6 @@ elif menu == UI["m_bom"]:
             df_bom_view["comp_name"].str.contains(q, case=False, na=False)
         ]
 
-    # סינון טבלת מק"טי האב העליונה כך שתציג את מק"טי האב הרלוונטיים לחיפוש
     relevant_parents = list(df_bom_view["parent_sku"].unique())
     df_sched_view = df_sched[df_sched["sku"].isin(relevant_parents)] if (sel_parent_filter != all_lbl or sel_child_filter != all_lbl or bom_search_txt.strip()) else df_sched
 
@@ -749,19 +759,22 @@ elif menu == UI["m_bom"]:
 
     rows_sched_html = ""
     for _, row in df_sched_view.iterrows():
+        tot_p = int(row["W1"] + row["W2"] + row["W3"] + row["W4"] + row["W5"] + row["W6"] + row["W7"] + row["W8"])
         rows_sched_html += (
             f"<tr>"
             f"<td class='parent-col'>{row['parent_label']}</td>"
             f"<td>{int(row['W1'])} {u_label}</td><td>{int(row['W2'])} {u_label}</td><td>{int(row['W3'])} {u_label}</td><td>{int(row['W4'])} {u_label}</td>"
             f"<td>{int(row['W5'])} {u_label}</td><td>{int(row['W6'])} {u_label}</td><td>{int(row['W7'])} {u_label}</td><td>{int(row['W8'])} {u_label}</td>"
+            f"<td><b>{tot_p:,} {u_label}</b></td>"
             f"</tr>"
         )
 
     html_table = (
         f"<table class='matrix-table'>"
         f"<thead>"
-        f"<tr><th rowspan='2' style='width:20%; text-align:right;'>{parent_col_title}</th>"
-        f"<th colspan='4' style='width:40%;'>{month1_name}</th><th colspan='4' style='width:40%;'>{month2_name}</th></tr>"
+        f"<tr><th rowspan='2' style='width:18%; text-align:right;'>{parent_col_title}</th>"
+        f"<th colspan='4' style='width:37%;'>{month1_name}</th><th colspan='4' style='width:37%;'>{month2_name}</th>"
+        f"<th rowspan='2' style='width:8%;'>{'סה\"כ ייצור' if is_he else 'Total'}</th></tr>"
         f"<tr>"
         f"<th>{PLAN_PERIODS[0][2]}</th><th>{PLAN_PERIODS[1][2]}</th><th>{PLAN_PERIODS[2][2]}</th><th>{PLAN_PERIODS[3][2]}</th>"
         f"<th>{PLAN_PERIODS[4][2]}</th><th>{PLAN_PERIODS[5][2]}</th><th>{PLAN_PERIODS[6][2]}</th><th>{PLAN_PERIODS[7][2]}</th>"
@@ -799,16 +812,16 @@ elif menu == UI["m_bom"]:
     st.divider()
 
     st.subheader(
-        f"2. נגזרת עצי מוצר לפי חודשים ושבועות (מוצג ב-{w_label} לחומרי גלם וביח' לאריזות)"
+        f"2. נגזרת עצי מוצר וסכימת חוסרים מצטברת (מוצג ב-{w_label} לחומרי גלם וביח' לאריזות)"
         if is_he else
-        f"2. BOM Component Breakdown (Displayed in {w_label} for Raw Materials & Units for Packaging)"
+        f"2. BOM Breakdown & Cumulative Shortage (Displayed in {w_label} & Units)"
     )
 
     legend_html = (
         f"<div class='legend-box'>"
-        f"<span class='legend-pill-ok'>{'ירוק = המלאי שיישאר אחרי השימוש באותו שבוע' if is_he else 'Green = Remaining Stock After Week Usage'}</span>"
-        f"<span class='legend-pill-short'>{'אדום = במינוס הכמות שחסרה במלאי' if is_he else 'Red = Minus Missing Quantity'}</span>"
-        f"<span style='opacity:0.85;'>💡 {'לחץ על כל תא כדי לראות: לפני השימוש | שימוש השבוע | נשאר במלאי' if is_he else 'Click any cell to see: Before | Used | Remaining'}</span>"
+        f"<span class='legend-pill-ok'>{'ירוק = המלאי שנשאר לאחר השימוש' if is_he else 'Green = Remaining Stock'}</span>"
+        f"<span class='legend-pill-short'>{'אדום = סך החוסר המצטבר (סוכם את כל החוסרים עד לאותו שבוע)' if is_he else 'Red = Cumulative Shortage Across Weeks'}</span>"
+        f"<span style='opacity:0.85;'>💡 {'לחץ על כל תא כדי לראות: מאזן פתיחה | צריכה השבוע | מאזן/חוסר מצטבר' if is_he else 'Click any cell for breakdown'}</span>"
         f"</div>"
     )
     st.markdown(legend_html, unsafe_allow_html=True)
@@ -828,38 +841,57 @@ elif menu == UI["m_bom"]:
                 parent_td = (
                     f"<td class='merged-parent-col' rowspan='{span_count}'>"
                     f"<div>{r['parent_sku']}</div>"
-                    f"<div style='font-size:0.84rem; font-weight:600; opacity:0.88;'>{r['parent_name']}</div>"
+                    f"<div style='font-size:0.82rem; font-weight:600; opacity:0.88;'>{r['parent_name']}</div>"
                     f"</td>"
                 )
 
             week_tds_html = ""
             for w_col in week_cols:
                 st_info = cell_status[(row_idx, w_col)]
-                before_str = fmt_val(st_info["before"], is_raw)
+                before_str = fmt_val(st_info["before_bal"], is_raw)
                 used_str = fmt_val(st_info["used"], is_raw)
-                rem_str = fmt_val(st_info["rem"], is_raw)
-                miss_str = fmt_val(st_info["missing"], is_raw)
+                after_str = fmt_val(st_info["after_bal"], is_raw)
+                short_wk_str = fmt_val(-st_info["short_this_week"], is_raw)
 
                 if is_he:
                     if st_info["is_ok"]:
-                        breakdown_html = f"<div class='cell-breakdown-fit'>לפני: <b>{before_str}</b><br>שימוש: <b>{used_str}</b><br>נשאר: <b>{rem_str}</b></div>"
+                        breakdown_html = (
+                            f"<div class='cell-breakdown-fit'>"
+                            f"לפני השימוש: <b>{before_str}</b><br>"
+                            f"שימוש השבוע: <b>{used_str}</b><br>"
+                            f"נשאר במלאי: <b>{after_str}</b>"
+                            f"</div>"
+                        )
                     else:
-                        breakdown_html = f"<div class='cell-breakdown-fit'>לפני: <b>{before_str}</b><br>דרישה: <b>{used_str}</b><br>נשאר: <b>0</b><br><span style='color:#ef4444;'>חסר: <b>{miss_str}-</b></span></div>"
+                        breakdown_html = (
+                            f"<div class='cell-breakdown-fit'>"
+                            f"יתרה קודמת: <b>{before_str}</b><br>"
+                            f"דרישה השבוע: <b>{used_str}</b><br>"
+                            f"חוסר השבוע: <b>{short_wk_str}</b><br>"
+                            f"<span style='color:#ef4444;'>סה\"כ חוסר מצטבר: <b>{after_str}</b></span>"
+                            f"</div>"
+                        )
                 else:
                     if st_info["is_ok"]:
-                        breakdown_html = f"<div class='cell-breakdown-fit'>Before: <b>{before_str}</b><br>Used: <b>{used_str}</b><br>Rem: <b>{rem_str}</b></div>"
+                        breakdown_html = (
+                            f"<div class='cell-breakdown-fit'>"
+                            f"Before: <b>{before_str}</b><br>"
+                            f"Used: <b>{used_str}</b><br>"
+                            f"Remaining: <b>{after_str}</b>"
+                            f"</div>"
+                        )
                     else:
-                        breakdown_html = f"<div class='cell-breakdown-fit'>Before: <b>{before_str}</b><br>Need: <b>{used_str}</b><br>Rem: <b>0</b><br><span style='color:#ef4444;'>Short: <b>-{miss_str}</b></span></div>"
+                        breakdown_html = (
+                            f"<div class='cell-breakdown-fit'>"
+                            f"Prev Bal: <b>{before_str}</b><br>"
+                            f"Week Need: <b>{used_str}</b><br>"
+                            f"Week Short: <b>{short_wk_str}</b><br>"
+                            f"<span style='color:#ef4444;'>Total Cum. Short: <b>{after_str}</b></span>"
+                            f"</div>"
+                        )
 
-                if st_info["is_ok"]:
-                    main_label = rem_str
-                    td_cls = "stock-ok"
-                else:
-                    scaled_miss = st_info["missing"] / (w_factor if is_raw else 1.0)
-                    num_m = (f"{scaled_miss:,.2f}".rstrip("0").rstrip(".") if (is_raw and use_kg) else f"{scaled_miss:,.0f}")
-                    unit_m = w_label if is_raw else u_label
-                    main_label = f"<span dir='ltr'>-{num_m}</span> {unit_m}"
-                    td_cls = "stock-short"
+                main_label = after_str
+                td_cls = "stock-ok" if st_info["is_ok"] else "stock-short"
 
                 week_tds_html += (
                     f"<td class='{td_cls}'>"
@@ -869,6 +901,11 @@ elif menu == UI["m_bom"]:
                     f"</details>"
                     f"</td>"
                 )
+
+            # עמודת סיכום סופית לשורה: מציגה את המאזן הסופי המצטבר בסוף שבוע 8
+            final_info = cell_status[(row_idx, "W8")]
+            final_str = fmt_val(final_info["after_bal"], is_raw)
+            sum_cls = "summary-ok" if final_info["is_ok"] else "summary-short"
 
             per_unit_disp = fmt_val(per_unit_base, is_raw)
             init_stock_disp = fmt_val(initial_stock_base, is_raw)
@@ -880,6 +917,7 @@ elif menu == UI["m_bom"]:
                 f"<td><b>{per_unit_disp}</b></td>"
                 f"<td><b>{init_stock_disp}</b></td>"
                 f"{week_tds_html}"
+                f"<td class='{sum_cls}'>{final_str}</td>"
                 f"</tr>"
             )
 
@@ -887,11 +925,12 @@ elif menu == UI["m_bom"]:
         f"<table class='matrix-table'>"
         f"<thead>"
         f"<tr>"
-        f"<th rowspan='2' style='width:12%; text-align:center;'>{'מק\"ט אב' if is_he else 'Parent SKU'}</th>"
-        f"<th rowspan='2' style='width:18%; text-align:right;'>{'מק\"ט בן / רכיב בעץ' if is_he else 'Child Component SKU'}</th>"
-        f"<th rowspan='2' style='width:7%;'>{'למוצר 1' if is_he else 'Per 1'}</th>"
-        f"<th rowspan='2' style='width:9%;'>{'מלאי התחלתי' if is_he else 'Init Stock'}</th>"
-        f"<th colspan='4' style='width:27%;'>{month1_name}</th><th colspan='4' style='width:27%;'>{month2_name}</th>"
+        f"<th rowspan='2' style='width:11%; text-align:center;'>{'מק\"ט אב' if is_he else 'Parent SKU'}</th>"
+        f"<th rowspan='2' style='width:16%; text-align:right;'>{'מק\"ט בן / רכיב בעץ' if is_he else 'Child Component SKU'}</th>"
+        f"<th rowspan='2' style='width:6%;'>{'למוצר 1' if is_he else 'Per 1'}</th>"
+        f"<th rowspan='2' style='width:8%;'>{'מלאי התחלתי' if is_he else 'Init Stock'}</th>"
+        f"<th colspan='4' style='width:25%;'>{month1_name}</th><th colspan='4' style='width:25%;'>{month2_name}</th>"
+        f"<th rowspan='2' style='width:9%;'>{'סה\"כ מאזן / חוסר מצטבר' if is_he else 'Total Cum. Balance'}</th>"
         f"</tr><tr>"
         f"<th>{PLAN_PERIODS[0][2]}</th><th>{PLAN_PERIODS[1][2]}</th><th>{PLAN_PERIODS[2][2]}</th><th>{PLAN_PERIODS[3][2]}</th>"
         f"<th>{PLAN_PERIODS[4][2]}</th><th>{PLAN_PERIODS[5][2]}</th><th>{PLAN_PERIODS[6][2]}</th><th>{PLAN_PERIODS[7][2]}</th>"
