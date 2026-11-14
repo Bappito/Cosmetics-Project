@@ -1,614 +1,763 @@
 import streamlit as st
 import sqlite3
 import pandas as pd
-import plotly.express as px
-import json
-from html import escape as html_escape
+import re
 from datetime import datetime, timedelta
 
-try:
-    from google import genai
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
+st.set_page_config(page_title="Cosmetics ERP", layout="wide", page_icon="🧪")
 
-# --- הגדרות עמוד ועיצוב UI ---
-st.set_page_config(page_title="Cosmetics Priority ERP & AI", layout="wide", page_icon="🧪")
+# --- ניהול שפה ב-Session State ---
+if "lang" not in st.session_state:
+    st.session_state.lang = "he"
 
-st.markdown("""
-    <style>
-    .stApp { direction: rtl; text-align: right; font-family: 'Segoe UI', Tahoma, sans-serif; }
-    div[data-testid="stSidebarNav"] { direction: rtl; }
-    .stDataFrame, .stTable { direction: rtl; }
-    div[data-testid="stMetric"] {
-        background-color: #1e293b; border: 1px solid #334155;
-        padding: 14px; border-radius: 10px;
+def toggle_language():
+    st.session_state.lang = "en" if st.session_state.lang == "he" else "he"
+
+lang = st.session_state.lang
+is_he = (lang == "he")
+
+# --- מיפוי דו-לשוני מלא ל-8 המחסנים ולסוגי הפריטים ---
+WH_NAMES = {
+    "he": {
+        "WH_RAW": "מחסן חומר",
+        "WH_LINE": "קו ייצור",
+        "WH_QA": "מחסן איכות",
+        "WH_BULK": "מחסן חומר מוכן",
+        "WH_PACK": "מחסן מלאי אריזות",
+        "WH_FG": "מחסן תצורה מוכנה",
+        "WH_VENDOR": "מחסן ספקים",
+        "WH_SCRAP": "מחסן חומרה פגומה"
+    },
+    "en": {
+        "WH_RAW": "Raw Material WH",
+        "WH_LINE": "Production Line",
+        "WH_QA": "Quality Assurance WH",
+        "WH_BULK": "Ready Bulk WH",
+        "WH_PACK": "Packaging Stock WH",
+        "WH_FG": "Finished Goods WH",
+        "WH_VENDOR": "Vendors WH",
+        "WH_SCRAP": "Defective / Scrap WH"
     }
-    .priority-header {
-        background: linear-gradient(90deg, #0f172a 0%, #3b0764 100%);
-        padding: 16px 22px; border-radius: 10px; color: white;
-        margin-bottom: 18px; border-right: 6px solid #c084fc;
+}
+
+WH_TO_KEY = {}
+for k, v in WH_NAMES["he"].items():
+    WH_TO_KEY[v] = k
+for k, v in WH_NAMES["en"].items():
+    WH_TO_KEY[v] = k
+
+TYPE_NAMES = {
+    "he": {"RAW": "חומר גלם", "PKG": "אריזה", "LBL": "מדבקה", "FG": "מוצר מוגמר"},
+    "en": {"RAW": "Raw Material", "PKG": "Packaging", "LBL": "Label", "FG": "Finished Good"}
+}
+TYPE_TO_KEY = {}
+for k, v in TYPE_NAMES["he"].items():
+    TYPE_TO_KEY[v] = k
+for k, v in TYPE_NAMES["en"].items():
+    TYPE_TO_KEY[v] = k
+
+def tr_wh(wh_val):
+    key = WH_TO_KEY.get(wh_val, wh_val)
+    return WH_NAMES[lang].get(key, wh_val)
+
+def tr_type(t_val):
+    key = TYPE_TO_KEY.get(t_val, t_val)
+    return TYPE_NAMES[lang].get(key, t_val)
+
+UI = {
+    "he": {
+        "dir": "rtl", "align": "right",
+        "nav_hdr": "תפריט מערכת",
+        "m_inv": "📦 מלאי ומחסנים",
+        "m_bom": "🗓️ עצי מוצר ותוכנית שבועות/חודשים",
+        "m_wh": "🔄 העברות בין מחסנים",
+        "m_po": "🚚 הזמנות רכש (PO) ו-SAP",
+        "m_ai": "🤖 סוכן פקודות מהיר",
+        "lang_btn": "🌐 EN | English",
+        "unit_lbl": "תצוגת משקל:",
+        "kg": "ק\"ג (kg)", "g": "גרם (g)"
+    },
+    "en": {
+        "dir": "ltr", "align": "left",
+        "nav_hdr": "ERP Menu",
+        "m_inv": "📦 Inventory & Warehouses",
+        "m_bom": "🗓️ BOM & Monthly/Weekly Plan",
+        "m_wh": "🔄 Warehouse Transfers",
+        "m_po": "🚚 Purchase Orders & SAP",
+        "m_ai": "🤖 Quick Command Agent",
+        "lang_btn": "🌐 עב | עברית",
+        "unit_lbl": "Weight Display:",
+        "kg": "kg", "g": "Grams (g)"
     }
-    .kit-card {
-        background-color: #1e293b; border: 1px solid #334155;
-        padding: 15px; border-radius: 10px; margin-bottom: 10px;
-    }
-    </style>
+}[lang]
+
+PLAN_PERIODS = [
+    ("W1", "נובמבר 2026" if is_he else "Nov 2026", "שבוע 1" if is_he else "Week 1"),
+    ("W2", "נובמבר 2026" if is_he else "Nov 2026", "שבוע 2" if is_he else "Week 2"),
+    ("W3", "נובמבר 2026" if is_he else "Nov 2026", "שבוע 3" if is_he else "Week 3"),
+    ("W4", "נובמבר 2026" if is_he else "Nov 2026", "שבוע 4" if is_he else "Week 4"),
+    ("W5", "דצמבר 2026" if is_he else "Dec 2026", "שבוע 5" if is_he else "Week 5"),
+    ("W6", "דצמבר 2026" if is_he else "Dec 2026", "שבוע 6" if is_he else "Week 6"),
+    ("W7", "דצמבר 2026" if is_he else "Dec 2026", "שבוע 7" if is_he else "Week 7"),
+    ("W8", "דצמבר 2026" if is_he else "Dec 2026", "שבוע 8" if is_he else "Week 8"),
+]
+
+# --- CSS נקי, תומך מצב כהה/בהיר, טאב שפה צף בפינה הימנית התחתונה וטבלאות מימין לשמאל ---
+st.markdown(f"""
+<style>
+.stApp, .main, .block-container {{
+    direction: {UI['dir']} !important;
+    text-align: {UI['align']} !important;
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    padding-top: 1.2rem !important;
+    padding-bottom: 4rem !important;
+}}
+section[data-testid="stSidebar"], section[data-testid="stSidebar"] > div {{
+    direction: {UI['dir']} !important;
+    text-align: {UI['align']} !important;
+}}
+a.header-anchor, [data-testid="stHeaderActionElements"] {{
+    display: none !important;
+}}
+h1, h2, h3, h4, p, label, .stMarkdown {{
+    direction: {UI['dir']} !important;
+    text-align: {UI['align']} !important;
+}}
+.clean-header {{
+    background-color: var(--secondary-background-color);
+    color: var(--text-color);
+    border: 1px solid rgba(128,128,128,0.25);
+    border-{"right" if is_he else "left"}: 5px solid #7c3aed;
+    padding: 14px 20px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+    direction: {UI['dir']} !important;
+    text-align: {UI['align']} !important;
+}}
+div[data-testid="stMetric"] {{
+    background-color: var(--secondary-background-color);
+    color: var(--text-color);
+    border: 1px solid rgba(128,128,128,0.22);
+    padding: 12px 16px;
+    border-radius: 10px;
+}}
+div[data-testid="stMetricLabel"] > div, div[data-testid="stMetricValue"] > div {{
+    color: var(--text-color) !important;
+    direction: {UI['dir']} !important;
+    text-align: {UI['align']} !important;
+}}
+section[data-testid="stSidebar"] div[role="radiogroup"] {{
+    gap: 6px;
+    direction: {UI['dir']} !important;
+}}
+section[data-testid="stSidebar"] div[role="radiogroup"] > label {{
+    background-color: var(--background-color);
+    border: 1px solid rgba(128,128,128,0.22);
+    border-radius: 8px;
+    padding: 8px 12px !important;
+    width: 100% !important;
+    direction: {UI['dir']} !important;
+    text-align: {UI['align']} !important;
+}}
+section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checked) {{
+    border: 1.5px solid #7c3aed !important;
+    background-color: rgba(124, 58, 237, 0.12);
+    font-weight: 600 !important;
+}}
+/* עיצוב טבלאות שהולכות קבוע מימין לשמאל */
+.rtl-table {{
+    width: 100%;
+    border-collapse: collapse;
+    direction: rtl !important;
+    text-align: right;
+    margin: 10px 0 18px 0;
+    font-size: 0.92rem;
+}}
+.rtl-table th, .rtl-table td {{
+    border: 1px solid rgba(128,128,128,0.32);
+    padding: 8px 10px;
+    color: var(--text-color);
+    text-align: right !important;
+}}
+.rtl-table th {{
+    background-color: var(--secondary-background-color);
+    font-weight: 700;
+}}
+.matrix-table {{
+    width: 100%;
+    border-collapse: collapse;
+    direction: rtl !important;
+    text-align: center;
+    margin: 10px 0 20px 0;
+    font-size: 0.92rem;
+}}
+.matrix-table th, .matrix-table td {{
+    border: 1px solid rgba(128,128,128,0.35);
+    padding: 8px 10px;
+    color: var(--text-color);
+}}
+.matrix-table thead tr:first-child th {{
+    background-color: rgba(124, 58, 237, 0.18);
+    font-weight: 700;
+    font-size: 0.98rem;
+}}
+.matrix-table thead tr:nth-child(2) th {{
+    background-color: var(--secondary-background-color);
+    font-weight: 600;
+}}
+.matrix-table td.parent-col {{
+    text-align: right !important;
+    font-weight: 700;
+    background-color: var(--secondary-background-color);
+    white-space: nowrap;
+}}
+/* טאב קטן צף בפינה הימנית התחתונה להחלפת שפה */
+div.st-key-floating_lang_btn {{
+    position: fixed !important;
+    bottom: 18px !important;
+    right: 22px !important;
+    z-index: 999999 !important;
+    width: auto !important;
+}}
+div.st-key-floating_lang_btn button {{
+    background-color: #7c3aed !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 999px !important;
+    padding: 6px 16px !important;
+    font-size: 0.85rem !important;
+    font-weight: 700 !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.28) !important;
+    cursor: pointer !important;
+}}
+div.st-key-floating_lang_btn button:hover {{
+    background-color: #6d28d9 !important;
+    transform: translateY(-1px);
+}}
+</style>
 """, unsafe_allow_html=True)
 
-DB_NAME = "cosmetics_priority_erp.db"
+DB_NAME = "clean_cosmetics_erp.db"
 
 def get_connection():
     return sqlite3.connect(DB_NAME, check_same_thread=False)
 
-# --- הקמת מסד הנתונים (כל חומרי הגלם נשמרים בגרמים לדיוק מלא) ---
 def init_db():
     conn = get_connection()
     c = conn.cursor()
     
-    c.execute("""CREATE TABLE IF NOT EXISTS Items (
-        item_id TEXT PRIMARY KEY,
+    c.execute("""CREATE TABLE IF NOT EXISTS Catalog (
+        sku TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        category TEXT NOT NULL,
-        warehouse_bin TEXT DEFAULT 'A-01',
-        supplier TEXT DEFAULT 'ספק כללי',
-        stock_grams REAL DEFAULT 0,
-        safety_stock_grams REAL DEFAULT 0,
-        cost_per_kg REAL DEFAULT 0
+        item_type TEXT NOT NULL,
+        qty_units REAL DEFAULT 0,
+        weight_grams REAL DEFAULT 0,
+        main_supplier TEXT DEFAULT '',
+        alt_suppliers TEXT DEFAULT '',
+        item_price REAL DEFAULT 0,
+        min_order_qty REAL DEFAULT 1,
+        last_purchase_price REAL DEFAULT 0,
+        primary_warehouse TEXT DEFAULT 'WH_RAW',
+        sap_code TEXT DEFAULT ''
     )""")
     
-    c.execute("""CREATE TABLE IF NOT EXISTS InventoryLog (
-        trans_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        trans_date TEXT,
-        item_id TEXT,
-        trans_type TEXT,
-        qty_change_grams REAL,
-        target_assembly TEXT,
-        reference TEXT
+    c.execute("""CREATE TABLE IF NOT EXISTS WarehouseStock (
+        sku TEXT,
+        wh_key TEXT,
+        qty_units REAL DEFAULT 0,
+        weight_grams REAL DEFAULT 0,
+        PRIMARY KEY (sku, wh_key)
     )""")
     
     c.execute("""CREATE TABLE IF NOT EXISTS BOM (
-        parent_id TEXT,
-        component_id TEXT,
-        grams_per_unit REAL,
-        PRIMARY KEY (parent_id, component_id)
+        parent_sku TEXT,
+        component_sku TEXT,
+        comp_type TEXT,
+        req_qty_units REAL DEFAULT 0,
+        req_weight_grams REAL DEFAULT 0,
+        PRIMARY KEY (parent_sku, component_sku)
     )""")
     
-    c.execute("""CREATE TABLE IF NOT EXISTS WorkOrders (
-        wo_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        item_id TEXT,
-        qty_ordered REAL,
-        start_date TEXT,
-        due_date TEXT,
-        status TEXT,
-        priority INTEGER DEFAULT 2
+    c.execute("""CREATE TABLE IF NOT EXISTS WeeklySchedule (
+        parent_sku TEXT PRIMARY KEY,
+        W1 REAL DEFAULT 0, W2 REAL DEFAULT 0, W3 REAL DEFAULT 0, W4 REAL DEFAULT 0,
+        W5 REAL DEFAULT 0, W6 REAL DEFAULT 0, W7 REAL DEFAULT 0, W8 REAL DEFAULT 0
     )""")
     
-    c.execute("SELECT COUNT(*) FROM Items")
+    c.execute("""CREATE TABLE IF NOT EXISTS PurchaseOrders (
+        po_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        po_number TEXT,
+        sku TEXT,
+        supplier TEXT,
+        order_qty_units REAL DEFAULT 0,
+        order_weight_grams REAL DEFAULT 0,
+        unit_price REAL DEFAULT 0,
+        order_date TEXT,
+        eta_date TEXT,
+        target_wh TEXT DEFAULT 'WH_RAW',
+        status TEXT DEFAULT 'In Transit'
+    )""")
+
+    c.execute("""CREATE TABLE IF NOT EXISTS StockMovements (
+        move_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        move_date TEXT,
+        sku TEXT,
+        from_wh TEXT,
+        to_wh TEXT,
+        qty_units REAL DEFAULT 0,
+        weight_grams REAL DEFAULT 0,
+        reference TEXT
+    )""")
+
+    c.execute("SELECT COUNT(*) FROM Catalog")
     if c.fetchone()[0] == 0:
-        items_data = [
-            ("RAW-101", "חמאת שיאה אורגנית", "RAW", "COOL-A01", "נטורל אוילס", 15000.0, 5000.0, 85.0),
-            ("RAW-102", "שמן חוחובה טהור", "RAW", "OIL-B02", "נטורל אוילס", 8500.0, 3000.0, 140.0),
-            ("RAW-103", "חומצה היאלורונית", "RAW", "ACT-S01", "כימדע קוסמטיקס", 450.0, 500.0, 1200.0),
-            ("RAW-104", "ויטמין E טוקופרול", "RAW", "ACT-S02", "כימדע קוסמטיקס", 1200.0, 400.0, 320.0),
-            ("RAW-105", "בסיס אמולסיה לקרם", "RAW", "BASE-C01", "בוטניקה סחר", 25000.0, 8000.0, 45.0),
-            ("FG-201", "קרם פנים חומצה היאלורונית 50ml", "FG", "FG-Z1", "ייצור עצמי", 40.0, 20.0, 35.0),
-            ("FG-202", "סרום הזנה ויטמין E וחוחובה 30ml", "FG", "FG-Z1", "ייצור עצמי", 15.0, 10.0, 48.0)
+        seed_items = [
+            ("RAW-101", "חמאת שיאה אורגנית / Shea Butter", "RAW", 15.0, 15000.0, "נטורל אוילס", "בוטניקה סחר", 85.0, 5.0, 82.0, "WH_RAW", "SAP-101"),
+            ("RAW-102", "שמן חוחובה טהור / Jojoba Oil", "RAW", 9.0, 9000.0, "נטורל אוילס", "גליל אוילס", 140.0, 3.0, 138.0, "WH_RAW", "SAP-102"),
+            ("RAW-103", "חומצה היאלורונית / Hyaluronic Acid", "RAW", 2.0, 800.0, "כימדע", "פארמה-כם", 1200.0, 1.0, 1150.0, "WH_QA", "SAP-103"),
+            ("PKG-301", "צנצנת זכוכית 50ml / Glass Jar 50ml", "PKG", 1200.0, 96000.0, "אריזות המרכז", "גלאס-פק", 2.8, 500.0, 2.6, "WH_PACK", "SAP-301"),
+            ("PKG-302", "בקבוק סרום 30ml / Serum Bottle 30ml", "PKG", 850.0, 42500.0, "אריזות המרכז", "אקו-בוטל", 3.2, 500.0, 3.1, "WH_PACK", "SAP-302"),
+            ("LBL-401", "מדבקת קרם פנים / Face Cream Label", "LBL", 2500.0, 2500.0, "דפוס מדבקות", "פרינט-פרו", 0.45, 1000.0, 0.40, "WH_PACK", "SAP-401"),
+            ("LBL-402", "מדבקת סרום / Serum Label", "LBL", 1800.0, 1800.0, "דפוס מדבקות", "פרינט-פרו", 0.35, 1000.0, 0.35, "WH_PACK", "SAP-402"),
+            ("FG-501", "קרם פנים היאלורוני 50ml", "FG", 60.0, 3000.0, "ייצור עצמי", "-", 45.0, 50.0, 32.0, "WH_FG", "SAP-501"),
+            ("FG-502", "סרום הזנה חוחובה 30ml", "FG", 40.0, 1200.0, "ייצור עצמי", "-", 55.0, 50.0, 38.0, "WH_FG", "SAP-502")
         ]
-        c.executemany("INSERT INTO Items VALUES (?,?,?,?,?,?,?,?)", items_data)
+        c.executemany("INSERT INTO Catalog VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", seed_items)
+        for r in seed_items:
+            c.execute("INSERT INTO WarehouseStock VALUES (?,?,?,?)", (r[0], r[10], r[3], r[4]))
+            
+        seed_bom = [
+            ("FG-501", "RAW-101", "RAW", 0.035, 35.0),
+            ("FG-501", "RAW-103", "RAW", 0.005, 5.0),
+            ("FG-501", "PKG-301", "PKG", 1.0, 80.0),
+            ("FG-501", "LBL-401", "LBL", 1.0, 1.0),
+            ("FG-502", "RAW-102", "RAW", 0.025, 25.0),
+            ("FG-502", "RAW-103", "RAW", 0.003, 3.0),
+            ("FG-502", "PKG-302", "PKG", 1.0, 50.0),
+            ("FG-502", "LBL-402", "LBL", 1.0, 1.0)
+        ]
+        c.executemany("INSERT INTO BOM VALUES (?,?,?,?,?)", seed_bom)
         
-        bom_data = [
-            ("FG-201", "RAW-105", 35.0), ("FG-201", "RAW-101", 10.0),
-            ("FG-201", "RAW-103", 3.0),  ("FG-201", "RAW-104", 2.0),
-            ("FG-202", "RAW-102", 22.0), ("FG-202", "RAW-104", 5.0), ("FG-202", "RAW-103", 3.0)
-        ]
-        c.executemany("INSERT INTO BOM VALUES (?,?,?)", bom_data)
-        
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-        log_data = [
-            (now_str, "RAW-101", "ניפוק לייצור", -1000.0, "FG-201 (אצווה #101)", "WO-1"),
-            (now_str, "RAW-103", "ניפוק לייצור", -300.0, "FG-201 (אצווה #101)", "WO-1"),
-            (now_str, "RAW-102", "קבלת סחורה מספק", 5000.0, "מלאי כללי", "PO-884")
-        ]
-        c.executemany("INSERT INTO InventoryLog (trans_date, item_id, trans_type, qty_change_grams, target_assembly, reference) VALUES (?,?,?,?,?,?)", log_data)
+        c.execute("INSERT INTO WeeklySchedule VALUES ('FG-501', 120, 150, 100, 200, 180, 160, 220, 140)")
+        c.execute("INSERT INTO WeeklySchedule VALUES ('FG-502', 80, 100, 120, 90, 110, 130, 100, 150)")
         
         today = datetime.today()
-        wo_data = [
-            ("FG-201", 100, today.strftime("%Y-%m-%d"), (today + timedelta(days=3)).strftime("%Y-%m-%d"), "בייצור", 1),
-            ("FG-202", 80, (today + timedelta(days=1)).strftime("%Y-%m-%d"), (today + timedelta(days=5)).strftime("%Y-%m-%d"), "מתוכנן", 2)
-        ]
-        c.executemany("INSERT INTO WorkOrders (item_id, qty_ordered, start_date, due_date, status, priority) VALUES (?,?,?,?,?,?)", wo_data)
+        c.execute("""
+            INSERT INTO PurchaseOrders (po_number, sku, supplier, order_qty_units, order_weight_grams, unit_price, order_date, eta_date, target_wh, status)
+            VALUES (?,?,?,?,?,?,?,?,?,?)
+        """, ("PO-101", "RAW-103", "כימדע", 5.0, 5000.0, 1180.0, today.strftime("%Y-%m-%d"), (today + timedelta(days=5)).strftime("%Y-%m-%d"), "WH_QA", "In Transit"))
         conn.commit()
     conn.close()
 
 init_db()
 conn = get_connection()
 
-# --- חישוב אחוז זמינות חומר (בגרמים) להכנת מוצר קוסמטי ---
-def calc_cosmetic_readiness(parent_id, target_units):
-    query = """
-        SELECT b.component_id, i.name, b.grams_per_unit, i.stock_grams, i.warehouse_bin, i.cost_per_kg
-        FROM BOM b
-        JOIN Items i ON b.component_id = i.item_id
-        WHERE b.parent_id = ? AND i.category = 'RAW'
-    """
-    df = pd.read_sql(query, conn, params=(parent_id,))
-    if df.empty:
-        return pd.DataFrame(), 0.0, 0
-    
-    df["נדרש לייצור (גרם)"] = df["grams_per_unit"] * target_units
-    df["נדרש לייצור (ק\"ג)"] = (df["נדרש לייצור (גרם)"] / 1000.0).round(3)
-    df["קיים במלאי (גרם)"] = df["stock_grams"]
-    df["קיים במלאי (ק\"ג)"] = (df["stock_grams"] / 1000.0).round(3)
-    df["חסר (גרם)"] = (df["נדרש לייצור (גרם)"] - df["stock_grams"]).clip(lower=0)
-    df["אחוז זמינות חומר"] = ((df["stock_grams"] / df["נדרש לייצור (גרם)"]) * 100).clip(upper=100).round(1)
-    df["יח' מוצר שניתן לייצר"] = (df["stock_grams"] // df["grams_per_unit"]).astype(int)
-    
-    return df, round(df["אחוז זמינות חומר"].mean(), 1), int(df["יח' מוצר שניתן לייצר"].min())
-
-def render_bom_demand_table(df, period_column, is_kg):
-    headers = [
-        period_column, 'מק"ט אב / מוצר', 'מק"ט בן', 'שם הרכיב',
-        'סוג רכיב', 'כמות ליחידה', 'כמות נדרשת'
-    ]
-    rows = []
-    grouped = df.groupby(
-        [period_column, "parent_id", "parent_name"], sort=True, dropna=False
-    )
-    for (period, parent_id, parent_name), components in grouped:
-        components = components.sort_values(["component_id", "component_name"])
-        rowspan = len(components)
-        for index, (_, component) in enumerate(components.iterrows()):
-            category = component["category"]
-            is_raw = category == "RAW"
-            unit = ("ק\"ג" if is_kg else "גרם") if is_raw else "יח'"
-            divisor = 1000.0 if is_raw and is_kg else 1.0
-            per_unit = component["quantity_per_unit"] / divisor
-            required = component["required_quantity"] / divisor
-            category_name = {
-                "RAW": "חומר גלם",
-                "PACKAGING": "אריזה",
-                "LABEL": "מדבקה",
-            }.get(category, category)
-            parent_cell = ""
-            if index == 0:
-                parent_cell = (
-                    f'<td rowspan="{rowspan}" class="parent-sku" '
-                    'style="vertical-align:middle; padding:8px;">'
-                    f'<strong>{html_escape(str(parent_id))}</strong><br>'
-                    f'{html_escape(str(parent_name))}</td>'
-                )
-            rows.append(
-                "<tr>"
-                f"<td>{html_escape(str(period))}</td>"
-                f"{parent_cell}"
-                f"<td>{html_escape(str(component['component_id']))}</td>"
-                f"<td>{html_escape(str(component['component_name']))}</td>"
-                f"<td>{html_escape(str(category_name))}</td>"
-                f"<td>{per_unit:,.3f} {unit}</td>"
-                f"<td>{required:,.3f} {unit}</td>"
-                "</tr>"
-            )
-
-    table_html = (
-        '<div style="overflow-x:auto; direction:rtl;">'
-        '<table style="width:100%; border-collapse:collapse; text-align:right;">'
-        "<thead><tr>"
-        + "".join(
-            f'<th style="padding:8px; border-bottom:1px solid #64748b;">'
-            f"{html_escape(header)}</th>"
-            for header in headers
-        )
-        + "</tr></thead><tbody>"
-        + "".join(rows)
-        + "</tbody></table></div>"
-    )
-    st.markdown(table_html, unsafe_allow_html=True)
-
-# --- תפריט צד וחיבור Gemini API ---
-st.sidebar.markdown("## 🧪 Priority Cosmetics")
+# --- סרגל צד נקי ---
+st.sidebar.markdown(f"### 🧪 {UI['nav_hdr']}")
 menu = st.sidebar.radio(
-    "ניווט במערכת:",
-    [
-        "📦 ניהול מלאי ותנועות (Priority)",
-        "⚙️ ייצור, פורמולות ומוכנות (%)",
-        "🎛️ סימולטור ותוכנית עבודה",
-        "🤖 סוכן AI מבצע פעולות (Gemini)"
-    ]
+    "Nav",
+    [UI["m_inv"], UI["m_bom"], UI["m_wh"], UI["m_po"], UI["m_ai"]],
+    label_visibility="collapsed"
 )
 
 st.sidebar.divider()
-unit_mode = st.sidebar.radio("⚖️ יחידת תצוגת משקל במערכת:", ["קילוגרם (kg)", "גרם (g)"])
-is_kg = unit_mode.startswith("קילוגרם")
+w_choice = st.sidebar.radio(UI["unit_lbl"], [UI["kg"], UI["g"]], horizontal=True)
+use_kg = (w_choice == UI["kg"])
+w_factor = 1000.0 if use_kg else 1.0
+w_label = UI["kg"] if use_kg else UI["g"]
 
-st.sidebar.divider()
-api_key = st.sidebar.text_input("🔑 הזן Gemini API Key:", type="password")
+# --- כפתור שפה צף בפינה הימנית התחתונה של המסך ---
+st.button(UI["lang_btn"], on_click=toggle_language, key="floating_lang_btn")
 
 # ==============================================================================
-# מודול 1: ניהול מלאי קוסמטיקה, מיקומים ויומן תנועות (30 יום אחורה)
+# 1. מסך מלאי ומחסנים - הטבלה הולכת קבוע מימין לשמאל (מק"ט בצד ימין)
 # ==============================================================================
-if menu == "📦 ניהול מלאי ותנועות (Priority)":
-    st.markdown("""
-        <div class="priority-header">
-            <h2 style="margin:0;">📦 ניהול מלאי חומרי גלם ומוצרים (Priority ERP)</h2>
-            <p style="margin:4px 0 0 0; opacity:0.85;">ניהול משקלים (ק"ג / גרם), מיקומי מחסן, עלויות ומעקב תנועות לאיזו הרכבה הלך כל חומר</p>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    df_raw = pd.read_sql("SELECT * FROM Items WHERE category = 'RAW'", conn)
-    df_raw["שווי מלאי (₪)"] = (df_raw["stock_grams"] / 1000.0) * df_raw["cost_per_kg"]
-    
-    k1, k2, k3 = st.columns(3)
-    k1.metric("סה\"כ חומרי גלם במערכת", len(df_raw))
-    k2.metric("משקל חומרי גלם כולל במחסן", f"{df_raw['stock_grams'].sum()/1000:,.2f} ק\"ג" if is_kg else f"{df_raw['stock_grams'].sum():,.0f} גרם")
-    k3.metric("שווי כספי של חומרי הגלם", f"₪{df_raw['שווי מלאי (₪)'].sum():,.0f}")
+if menu == UI["m_inv"]:
+    st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_inv"]}</h2></div>', unsafe_allow_html=True)
 
-    tab1, tab2, tab3 = st.tabs([
-        "📋 טבלת מלאי חיה (עריכה והוספה מתוך האתר)",
-        "🔄 דיווח תנועת מלאי / ניפוק להרכבה",
-        "🕒 היסטוריית תנועות מלאי (30 יום אחורה - לאיזה ייצור הלך החומר)"
-    ])
-    
-    with tab1:
-        factor = 1000.0 if is_kg else 1.0
-        unit_label = "ק\"ג" if is_kg else "גרם"
-        
-        st.subheader(f"מלאי חומרי גלם נוכחי ( מוצג ב-{unit_label} )")
-        st.caption("💡 תוכל לשנות כל כמות, מחיר או מיקום במחסן בדאבל-קליק ישירות בטבלה, או להוסיף שורה חדשה בתחתית הטבלה וללחוץ על שמירה.")
-        
-        df_disp = df_raw.copy()
-        df_disp["display_stock"] = (df_disp["stock_grams"] / factor).round(3)
-        df_disp["display_safety"] = (df_disp["safety_stock_grams"] / factor).round(3)
-        df_disp["שווי כמות נוכחית (₪)"] = ((df_disp["stock_grams"] / 1000.0) * df_disp["cost_per_kg"]).round(1)
-        
-        edited = st.data_editor(
-            df_disp[["item_id", "name", "warehouse_bin", "supplier", "display_stock", "display_safety", "cost_per_kg", "שווי כמות נוכחית (₪)"]],
+    df_cat = pd.read_sql("SELECT * FROM Catalog", conn)
+    df_cat["wh_translated"] = df_cat["primary_warehouse"].apply(tr_wh)
+    df_cat["type_translated"] = df_cat["item_type"].apply(tr_type)
+    df_cat["disp_weight"] = (df_cat["weight_grams"] / w_factor).round(3)
+
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("מק\"טים פעילים" if is_he else "Active SKUs", len(df_cat))
+    k2.metric("משקל מלאי כולל" if is_he else "Total Weight", f"{df_cat['weight_grams'].sum()/1000:,.2f} kg")
+    k3.metric("שווי מלאי" if is_he else "Inventory Value", f"₪{(df_cat['qty_units']*df_cat['item_price']).sum():,.0f}")
+    k4.metric("מתחת למינימום הזמנה" if is_he else "Below MOQ", len(df_cat[df_cat["qty_units"] < df_cat["min_order_qty"]]))
+
+    wh_options_display = list(WH_NAMES[lang].values())
+    type_options_display = list(TYPE_NAMES[lang].values())
+
+    f1, f2, f3 = st.columns(3)
+    with f1:
+        sel_wh = st.selectbox("סנן לפי מחסן:" if is_he else "Filter Warehouse:", (["הכל"] if is_he else ["All"]) + wh_options_display)
+    with f2:
+        sel_tp = st.selectbox("סנן לפי סוג:" if is_he else "Filter Type:", (["הכל"] if is_he else ["All"]) + type_options_display)
+    with f3:
+        q_txt = st.text_input("🔍 חיפוש מק\"ט / שם / ספק:" if is_he else "🔍 Search SKU / Name / Supplier:")
+
+    df_v = df_cat.copy()
+    if sel_wh not in ["הכל", "All"]:
+        df_v = df_v[df_v["wh_translated"] == sel_wh]
+    if sel_tp not in ["הכל", "All"]:
+        df_v = df_v[df_v["type_translated"] == sel_tp]
+    if q_txt:
+        df_v = df_v[df_v["sku"].str.contains(q_txt, case=False, na=False) | df_v["name"].str.contains(q_txt, case=False, na=False)]
+
+    # --- תצוגת טבלת מלאי שהולכת ב-100% מימין לשמאל באופן קבוע (מק"ט בצד ימין) ---
+    inv_rows_html = ""
+    for _, r in df_v.iterrows():
+        inv_rows_html += (
+            f"<tr>"
+            f"<td><b>{r['sku']}</b></td>"
+            f"<td>{r['name']}</td>"
+            f"<td>{r['type_translated']}</td>"
+            f"<td>{r['qty_units']:,.1f}</td>"
+            f"<td>{r['disp_weight']:,.2f} {w_label}</td>"
+            f"<td><b>{r['wh_translated']}</b></td>"
+            f"<td>{r['main_supplier']}</td>"
+            f"<td>{r['alt_suppliers']}</td>"
+            f"<td>₪{r['item_price']:,.2f}</td>"
+            f"<td>{r['min_order_qty']:,.0f}</td>"
+            f"<td>₪{r['last_purchase_price']:,.2f}</td>"
+            f"<td>{r['sap_code']}</td>"
+            f"</tr>"
+        )
+
+    inv_table_html = (
+        f'<table class="rtl-table">'
+        f'<thead><tr>'
+        f'<th>{"מק\"ט (מפתח)" if is_he else "SKU (Key)"}</th>'
+        f'<th>{"שם פריט" if is_he else "Item Name"}</th>'
+        f'<th>{"סוג" if is_he else "Type"}</th>'
+        f'<th>{"כמות (יח\')" if is_he else "Qty (Units)"}</th>'
+        f'<th>{"משקל" if is_he else "Weight"} ({w_label})</th>'
+        f'<th>{"מחסן" if is_he else "Warehouse"}</th>'
+        f'<th>{"ספק ראשי" if is_he else "Supplier"}</th>'
+        f'<th>{"ספקים חלופיים" if is_he else "Alt Suppliers"}</th>'
+        f'<th>{"מחיר פריט" if is_he else "Item Price"}</th>'
+        f'<th>{"מינימום הזמנה" if is_he else "MOQ"}</th>'
+        f'<th>{"מחיר קנייה אחרון" if is_he else "Last Price"}</th>'
+        f'<th>{"קוד SAP" if is_he else "SAP Code"}</th>'
+        f'</tr></thead>'
+        f'<tbody>{inv_rows_html}</tbody>'
+        f'</table>'
+    )
+    st.markdown(inv_table_html, unsafe_allow_html=True)
+
+    # --- טבלת עריכה (העמודות מסודרות כך שהמק"ט נמצא בצד ימין של הגריד!) ---
+    with st.expander("✏️ עריכת מלאי, הוספת מק\"ט או מחיקה (מק\"ט מימין)" if is_he else "✏️ Edit / Add / Delete Inventory Items", expanded=False):
+        rtl_cols_order = [
+            "sap_code", "last_purchase_price", "min_order_qty", "item_price",
+            "alt_suppliers", "main_supplier", "wh_translated", "disp_weight",
+            "qty_units", "type_translated", "name", "sku"
+        ]
+        edited_inv = st.data_editor(
+            df_v[rtl_cols_order],
             column_config={
-                "item_id": st.column_config.TextColumn("מק\"ט", required=True),
-                "name": st.column_config.TextColumn("שם חומר הגלם", required=True),
-                "warehouse_bin": st.column_config.TextColumn("מיקום במחסן"),
-                "supplier": st.column_config.TextColumn("ספק"),
-                "display_stock": st.column_config.NumberColumn(f"מלאי נוכחי ({unit_label})", format="%.3f" if is_kg else "%.0f"),
-                "display_safety": st.column_config.NumberColumn(f"מלאי ביטחון ({unit_label})", format="%.3f" if is_kg else "%.0f"),
-                "cost_per_kg": st.column_config.NumberColumn("מחיר ל-1 ק\"ג (₪)", format="₪%.2f"),
-                "שווי כמות נוכחית (₪)": st.column_config.NumberColumn("שווי המלאי (₪)", disabled=True, format="₪%.1f")
+                "sku": st.column_config.TextColumn("🔑 מק\"ט (מפתח)" if is_he else "SKU (Key)", required=True),
+                "name": st.column_config.TextColumn("שם פריט" if is_he else "Item Name", required=True),
+                "type_translated": st.column_config.SelectboxColumn("סוג" if is_he else "Type", options=type_options_display, required=True),
+                "qty_units": st.column_config.NumberColumn("כמות (יח')" if is_he else "Qty (Units)", format="%.2f"),
+                "disp_weight": st.column_config.NumberColumn(f"{'משקל' if is_he else 'Weight'} ({w_label})", format="%.3f" if use_kg else "%.0f"),
+                "wh_translated": st.column_config.SelectboxColumn("מחסן" if is_he else "Warehouse", options=wh_options_display, required=True),
+                "main_supplier": st.column_config.TextColumn("ספק" if is_he else "Supplier"),
+                "alt_suppliers": st.column_config.TextColumn("ספקים חלופיים" if is_he else "Alt Suppliers"),
+                "item_price": st.column_config.NumberColumn("מחיר פריט" if is_he else "Price", format="₪%.2f"),
+                "min_order_qty": st.column_config.NumberColumn("מינימום הזמנה" if is_he else "Min Order (MOQ)", format="%.1f"),
+                "last_purchase_price": st.column_config.NumberColumn("מחיר קנייה אחרון" if is_he else "Last Price", format="₪%.2f"),
+                "sap_code": st.column_config.TextColumn("קוד SAP" if is_he else "SAP Code")
+            },
+            use_container_width=True, hide_index=True, num_rows="dynamic", key="clean_inv_ed"
+        )
+
+        if st.button("💾 שמור שינויים במלאי" if is_he else "💾 Save Inventory Changes"):
+            if sel_wh in ["הכל", "All"] and sel_tp in ["הכל", "All"] and not q_txt:
+                conn.execute("DELETE FROM Catalog")
+            for _, r in edited_inv.iterrows():
+                if pd.notna(r["sku"]) and str(r["sku"]).strip():
+                    s_code = str(r["sku"]).strip()
+                    internal_wh = WH_TO_KEY.get(r["wh_translated"], "WH_RAW")
+                    internal_type = TYPE_TO_KEY.get(r["type_translated"], "RAW")
+                    grams_val = float(r["disp_weight"] or 0) * w_factor
+                    u_val = float(r["qty_units"] or 0)
+                    conn.execute("""
+                        INSERT OR REPLACE INTO Catalog VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                    """, (
+                        s_code, str(r["name"] or ""), internal_type, u_val, grams_val,
+                        str(r["main_supplier"] or ""), str(r["alt_suppliers"] or ""),
+                        float(r["item_price"] or 0), float(r["min_order_qty"] or 1),
+                        float(r["last_purchase_price"] or 0), internal_wh, str(r["sap_code"] or "")
+                    ))
+            conn.commit()
+            st.success("נשמר בהצלחה!" if is_he else "Saved successfully!")
+            st.rerun()
+
+# ==============================================================================
+# 2. עצי מוצר ותוכנית עבודה: ללא שום קוד גלוי, מק"ט אב מימין, שבועות ומעליהם חודשים
+# ==============================================================================
+elif menu == UI["m_bom"]:
+    st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_bom"]}</h2></div>', unsafe_allow_html=True)
+
+    fg_df = pd.read_sql("SELECT sku, name FROM Catalog WHERE item_type = 'FG'", conn)
+    for _, fg_r in fg_df.iterrows():
+        conn.execute("INSERT OR IGNORE INTO WeeklySchedule (parent_sku) VALUES (?)", (fg_r["sku"],))
+    conn.commit()
+
+    sched_query = """
+        SELECT c.sku || ' - ' || c.name AS parent_label, c.sku,
+               s.W1, s.W2, s.W3, s.W4, s.W5, s.W6, s.W7, s.W8
+        FROM WeeklySchedule s
+        JOIN Catalog c ON s.parent_sku = c.sku
+    """
+    df_sched = pd.read_sql(sched_query, conn)
+
+    st.subheader("1. תוכנית ייצור למק\"טי אב (חודשים מעל שבועות)" if is_he else "1. Master Production Schedule (Months over Weeks)")
+
+    parent_col_title = "מק\"ט אב ושם מוצר" if is_he else "Parent SKU & Product Name"
+    month1_name = PLAN_PERIODS[0][1]
+    month2_name = PLAN_PERIODS[4][1]
+
+    rows_sched_html = ""
+    for _, row in df_sched.iterrows():
+        rows_sched_html += (
+            f"<tr>"
+            f"<td class='parent-col'>{row['parent_label']}</td>"
+            f"<td>{int(row['W1'])}</td><td>{int(row['W2'])}</td><td>{int(row['W3'])}</td><td>{int(row['W4'])}</td>"
+            f"<td>{int(row['W5'])}</td><td>{int(row['W6'])}</td><td>{int(row['W7'])}</td><td>{int(row['W8'])}</td>"
+            f"</tr>"
+        )
+
+    html_table = (
+        f"<table class='matrix-table'>"
+        f"<thead>"
+        f"<tr><th rowspan='2' style='width:24%; text-align:right;'>{parent_col_title}</th>"
+        f"<th colspan='4'>{month1_name}</th><th colspan='4'>{month2_name}</th></tr>"
+        f"<tr>"
+        f"<th>{PLAN_PERIODS[0][2]}</th><th>{PLAN_PERIODS[1][2]}</th><th>{PLAN_PERIODS[2][2]}</th><th>{PLAN_PERIODS[3][2]}</th>"
+        f"<th>{PLAN_PERIODS[4][2]}</th><th>{PLAN_PERIODS[5][2]}</th><th>{PLAN_PERIODS[6][2]}</th><th>{PLAN_PERIODS[7][2]}</th>"
+        f"</tr></thead>"
+        f"<tbody>{rows_sched_html}</tbody></table>"
+    )
+    st.markdown(html_table, unsafe_allow_html=True)
+
+    with st.expander("✏️ עריכת כמויות בתאים לפי שבועות" if is_he else "✏️ Edit Weekly Cell Quantities", expanded=False):
+        ed_sched = st.data_editor(
+            df_sched[["W8", "W7", "W6", "W5", "W4", "W3", "W2", "W1", "parent_label"]],
+            column_config={
+                "parent_label": st.column_config.TextColumn(parent_col_title, disabled=True),
+                "W1": st.column_config.NumberColumn(f"{month1_name} | {PLAN_PERIODS[0][2]}"),
+                "W2": st.column_config.NumberColumn(f"{month1_name} | {PLAN_PERIODS[1][2]}"),
+                "W3": st.column_config.NumberColumn(f"{month1_name} | {PLAN_PERIODS[2][2]}"),
+                "W4": st.column_config.NumberColumn(f"{month1_name} | {PLAN_PERIODS[3][2]}"),
+                "W5": st.column_config.NumberColumn(f"{month2_name} | {PLAN_PERIODS[4][2]}"),
+                "W6": st.column_config.NumberColumn(f"{month2_name} | {PLAN_PERIODS[5][2]}"),
+                "W7": st.column_config.NumberColumn(f"{month2_name} | {PLAN_PERIODS[6][2]}"),
+                "W8": st.column_config.NumberColumn(f"{month2_name} | {PLAN_PERIODS[7][2]}")
+            },
+            use_container_width=True, hide_index=True
+        )
+        if st.button("💾 שמור כמויות שבועות" if is_he else "💾 Save Weekly Plan"):
+            for _, r in ed_sched.iterrows():
+                p_sku = r["parent_label"].split(" - ")[0]
+                conn.execute("""
+                    UPDATE WeeklySchedule SET W1=?, W2=?, W3=?, W4=?, W5=?, W6=?, W7=?, W8=?
+                    WHERE parent_sku=?
+                """, (r["W1"], r["W2"], r["W3"], r["W4"], r["W5"], r["W6"], r["W7"], r["W8"], p_sku))
+            conn.commit()
+            st.rerun()
+
+    st.divider()
+
+    st.subheader("2. נגזרת עצי מוצר לפי חודשים ושבועות (חומרי גלם, אריזות ומדבקות)" if is_he else "2. BOM Component Breakdown by Months & Weeks")
+
+    bom_join = """
+        SELECT b.parent_sku, p.name AS parent_name,
+               b.component_sku, c.name AS comp_name, b.comp_type,
+               b.req_qty_units, b.req_weight_grams,
+               s.W1, s.W2, s.W3, s.W4, s.W5, s.W6, s.W7, s.W8
+        FROM BOM b
+        JOIN Catalog p ON b.parent_sku = p.sku
+        JOIN Catalog c ON b.component_sku = c.sku
+        JOIN WeeklySchedule s ON b.parent_sku = s.parent_sku
+        ORDER BY b.parent_sku, b.comp_type
+    """
+    df_bom_sched = pd.read_sql(bom_join, conn)
+
+    rows_bom_html = ""
+    for _, r in df_bom_sched.iterrows():
+        is_raw = (r["comp_type"] == "RAW")
+        per_unit_factor = r["req_weight_grams"] if is_raw else r["req_qty_units"]
+        unit_suffix = "g" if is_raw else ("יח'" if is_he else "u")
+        rows_bom_html += (
+            f"<tr>"
+            f"<td class='parent-col'>{r['parent_sku']} - {r['parent_name']}</td>"
+            f"<td style='text-align:right;'>{r['component_sku']} - {r['comp_name']} ({tr_type(r['comp_type'])})</td>"
+            f"<td><b>{per_unit_factor:g} {unit_suffix}</b></td>"
+            f"<td>{r['W1']*per_unit_factor:,.0f} {unit_suffix}</td>"
+            f"<td>{r['W2']*per_unit_factor:,.0f} {unit_suffix}</td>"
+            f"<td>{r['W3']*per_unit_factor:,.0f} {unit_suffix}</td>"
+            f"<td>{r['W4']*per_unit_factor:,.0f} {unit_suffix}</td>"
+            f"<td>{r['W5']*per_unit_factor:,.0f} {unit_suffix}</td>"
+            f"<td>{r['W6']*per_unit_factor:,.0f} {unit_suffix}</td>"
+            f"<td>{r['W7']*per_unit_factor:,.0f} {unit_suffix}</td>"
+            f"<td>{r['W8']*per_unit_factor:,.0f} {unit_suffix}</td>"
+            f"</tr>"
+        )
+
+    bom_html = (
+        f"<table class='matrix-table'>"
+        f"<thead>"
+        f"<tr>"
+        f"<th rowspan='2' style='text-align:right;'>{'מק\"ט אב ושם' if is_he else 'Parent SKU & Name'}</th>"
+        f"<th rowspan='2' style='text-align:right;'>{'רכיב בעץ (חומר/אריזה/מדבקה)' if is_he else 'BOM Component'}</th>"
+        f"<th rowspan='2'>{'כמות למוצר 1' if is_he else 'Per 1 Unit'}</th>"
+        f"<th colspan='4'>{month1_name}</th><th colspan='4'>{month2_name}</th>"
+        f"</tr><tr>"
+        f"<th>{PLAN_PERIODS[0][2]}</th><th>{PLAN_PERIODS[1][2]}</th><th>{PLAN_PERIODS[2][2]}</th><th>{PLAN_PERIODS[3][2]}</th>"
+        f"<th>{PLAN_PERIODS[4][2]}</th><th>{PLAN_PERIODS[5][2]}</th><th>{PLAN_PERIODS[6][2]}</th><th>{PLAN_PERIODS[7][2]}</th>"
+        f"</tr></thead>"
+        f"<tbody>{rows_bom_html}</tbody></table>"
+    )
+    st.markdown(bom_html, unsafe_allow_html=True)
+
+    with st.expander("🛠️ עריכת רכיבי עץ מוצר (חומר גלם + אריזות + מדבקות)" if is_he else "🛠️ Edit BOM Structure", expanded=False):
+        df_b_raw = pd.read_sql("SELECT * FROM BOM", conn)
+        ed_bom = st.data_editor(
+            df_b_raw[["req_weight_grams", "req_qty_units", "comp_type", "component_sku", "parent_sku"]],
+            column_config={
+                "parent_sku": st.column_config.TextColumn("מק\"ט אב" if is_he else "Parent SKU", required=True),
+                "component_sku": st.column_config.TextColumn("מק\"ט רכיב" if is_he else "Component SKU", required=True),
+                "comp_type": st.column_config.SelectboxColumn("סוג" if is_he else "Type", options=["RAW", "PKG", "LBL"]),
+                "req_qty_units": st.column_config.NumberColumn("כמות ביחידות" if is_he else "Units Needed"),
+                "req_weight_grams": st.column_config.NumberColumn("משקל בגרמים" if is_he else "Grams Needed")
+            },
+            num_rows="dynamic", use_container_width=True, hide_index=True
+        )
+        if st.button("💾 שמור עץ מוצר" if is_he else "💾 Save BOM"):
+            conn.execute("DELETE FROM BOM")
+            for _, r in ed_bom.iterrows():
+                if pd.notna(r["parent_sku"]) and pd.notna(r["component_sku"]):
+                    conn.execute("INSERT OR REPLACE INTO BOM VALUES (?,?,?,?,?)",
+                                 (str(r["parent_sku"]), str(r["component_sku"]), str(r["comp_type"] or "RAW"),
+                                  float(r["req_qty_units"] or 0), float(r["req_weight_grams"] or 0)))
+            conn.commit()
+            st.rerun()
+
+# ==============================================================================
+# 3. העברות בין 8 המחסנים
+# ==============================================================================
+elif menu == UI["m_wh"]:
+    st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_wh"]}</h2></div>', unsafe_allow_html=True)
+
+    df_cat = pd.read_sql("SELECT sku, name, primary_warehouse FROM Catalog", conn)
+    wh_display_list = list(WH_NAMES[lang].values())
+
+    c1, c2 = st.columns(2)
+    with c1:
+        sel_item = st.selectbox("בחר פריט:" if is_he else "Select Item:", df_cat["sku"] + " - " + df_cat["name"])
+        from_wh_disp = st.selectbox("ממחסן:" if is_he else "From Warehouse:", wh_display_list, index=0)
+        to_wh_disp = st.selectbox("אל מחסן:" if is_he else "To Warehouse:", wh_display_list, index=1)
+        qty_u = st.number_input("כמות (יח'):" if is_he else "Qty (Units):", min_value=0.0, value=1.0)
+        qty_g = st.number_input("משקל (גרם):" if is_he else "Weight (Grams):", min_value=0.0, value=500.0)
+
+        if st.button("🚀 בצע העברה" if is_he else "🚀 Execute Transfer"):
+            sku_code = sel_item.split(" - ")[0]
+            f_key = WH_TO_KEY[from_wh_disp]
+            t_key = WH_TO_KEY[to_wh_disp]
+            conn.execute("UPDATE Catalog SET primary_warehouse = ? WHERE sku = ?", (t_key, sku_code))
+            conn.execute("""
+                INSERT INTO StockMovements (move_date, sku, from_wh, to_wh, qty_units, weight_grams, reference)
+                VALUES (?, ?, ?, ?, ?, ?, 'Transfer')
+            """, (datetime.now().strftime("%Y-%m-%d %H:%M"), sku_code, f_key, t_key, qty_u, qty_g))
+            conn.commit()
+            st.success("ההעברה בוצעה!" if is_he else "Transfer completed!")
+            st.rerun()
+
+    with c2:
+        df_mv = pd.read_sql("SELECT * FROM StockMovements ORDER BY move_id DESC LIMIT 30", conn)
+        if not df_mv.empty:
+            df_mv["from_wh"] = df_mv["from_wh"].apply(tr_wh)
+            df_mv["to_wh"] = df_mv["to_wh"].apply(tr_wh)
+        st.dataframe(df_mv, use_container_width=True, hide_index=True)
+
+# ==============================================================================
+# 4. הזמנות רכש (PO) עם עדכון זמני הגעה + משיכה מ-SAP
+# ==============================================================================
+elif menu == UI["m_po"]:
+    st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_po"]}</h2></div>', unsafe_allow_html=True)
+
+    t_po, t_sap = st.tabs([
+        "🚚 הזמנות רכש וזמני הגעת אספקה (ETA)" if is_he else "🚚 Purchase Orders & ETA",
+        "🔌 משיכת קובץ מ-SAP" if is_he else "🔌 SAP Data Import"
+    ])
+
+    with t_po:
+        df_po = pd.read_sql("SELECT * FROM PurchaseOrders ORDER BY po_id DESC", conn)
+        df_po["target_wh_disp"] = df_po["target_wh"].apply(tr_wh)
+        wh_display_list = list(WH_NAMES[lang].values())
+
+        ed_po = st.data_editor(
+            df_po[["status", "target_wh_disp", "eta_date", "order_date", "unit_price", "order_weight_grams", "order_qty_units", "supplier", "sku", "po_number"]],
+            column_config={
+                "po_number": st.column_config.TextColumn("מס' הזמנה" if is_he else "PO #", required=True),
+                "sku": st.column_config.TextColumn("מק\"ט" if is_he else "SKU", required=True),
+                "supplier": st.column_config.TextColumn("ספק" if is_he else "Supplier"),
+                "order_qty_units": st.column_config.NumberColumn("כמות (יח')" if is_he else "Qty (Units)"),
+                "order_weight_grams": st.column_config.NumberColumn("משקל (גרם)" if is_he else "Weight (g)"),
+                "unit_price": st.column_config.NumberColumn("מחיר" if is_he else "Price", format="₪%.2f"),
+                "order_date": st.column_config.TextColumn("תאריך הזמנה" if is_he else "Order Date"),
+                "eta_date": st.column_config.TextColumn("📅 זמן הגעה (ETA)" if is_he else "📅 ETA Date"),
+                "target_wh_disp": st.column_config.SelectboxColumn("מחסן יעד" if is_he else "Target WH", options=wh_display_list),
+                "status": st.column_config.SelectboxColumn("סטטוס" if is_he else "Status", options=["In Transit", "Delayed", "Received"])
             },
             use_container_width=True, hide_index=True, num_rows="dynamic"
         )
-        
-        if st.button("💾 שמור שינויים בטבלת המלאי"):
-            for _, r in edited.iterrows():
-                if r["item_id"] and r["name"]:
-                    s_grams = float(r["display_stock"] or 0) * factor
-                    safe_grams = float(r["display_safety"] or 0) * factor
+        if st.button("💾 שמור הזמנות רכש וזמני הגעה" if is_he else "💾 Save POs & ETA"):
+            conn.execute("DELETE FROM PurchaseOrders")
+            for _, r in ed_po.iterrows():
+                if pd.notna(r["po_number"]) and pd.notna(r["sku"]):
+                    wh_k = WH_TO_KEY.get(r["target_wh_disp"], "WH_RAW")
                     conn.execute("""
-                        INSERT OR REPLACE INTO Items (item_id, name, category, warehouse_bin, supplier, stock_grams, safety_stock_grams, cost_per_kg)
-                        VALUES (?, ?, 'RAW', ?, ?, ?, ?, ?)
-                    """, (r["item_id"], r["name"], r["warehouse_bin"] or "A-01", r["supplier"] or "כללי", s_grams, safe_grams, float(r["cost_per_kg"] or 0)))
+                        INSERT INTO PurchaseOrders (po_number, sku, supplier, order_qty_units, order_weight_grams, unit_price, order_date, eta_date, target_wh, status)
+                        VALUES (?,?,?,?,?,?,?,?,?,?)
+                    """, (str(r["po_number"]), str(r["sku"]), str(r["supplier"] or ""), float(r["order_qty_units"] or 0),
+                          float(r["order_weight_grams"] or 0), float(r["unit_price"] or 0), str(r["order_date"] or ""),
+                          str(r["eta_date"] or ""), wh_k, str(r["status"] or "In Transit")))
             conn.commit()
-            st.success("המלאי עודכן בהצלחה!")
+            st.success("נשמר!" if is_he else "Saved!")
             st.rerun()
 
-    with tab2:
-        st.subheader("עדכון תנועת מלאי (קליטת סחורה / ניפוק להרכבה)")
-        c1, c2 = st.columns(2)
-        with c1:
-            sel_raw = st.selectbox("בחר חומר גלם:", df_raw["item_id"] + " - " + df_raw["name"])
-            t_type = st.selectbox("סוג פעולה:", ["📤 ניפוק להרכבה / ייצור (-)", "📥 קבלת חומר גלם מספק (+)", "⚖️ ספירת מלאי (קביעת יתרה)"])
-            t_unit = st.radio("הזן כמות ב:", ["גרם (g)", "קילוגרם (kg)"], horizontal=True)
-            t_val = st.number_input("כמות לתנועה:", min_value=0.0, value=250.0, step=10.0)
-        with c2:
-            fg_list = pd.read_sql("SELECT item_id, name FROM Items WHERE category='FG'", conn)
-            target_assm = st.selectbox("שיוך להרכבה / מוצר (לאן הלך החומר):", ["מלאי כללי / מחסן"] + list(fg_list["item_id"] + " - " + fg_list["name"]))
-            ref_txt = st.text_input("מספר אצווה (Batch) / תעודת משלוח / הערה:", value="Batch-105")
-            
-            if st.button("בצע עדכון מלאי"):
-                code = sel_raw.split(" - ")[0]
-                grams_delta_abs = t_val * 1000.0 if t_unit.startswith("קילוגרם") else t_val
-                curr_g = df_raw[df_raw["item_id"] == code]["stock_grams"].iloc[0]
-                
-                if "ניפוק" in t_type:
-                    new_g = max(0.0, curr_g - grams_delta_abs)
-                    signed_delta = -grams_delta_abs
-                elif "קבלת" in t_type:
-                    new_g = curr_g + grams_delta_abs
-                    signed_delta = grams_delta_abs
-                else:
-                    new_g = grams_delta_abs
-                    signed_delta = grams_delta_abs - curr_g
-                    
-                conn.execute("UPDATE Items SET stock_grams = ? WHERE item_id = ?", (new_g, code))
-                conn.execute("""
-                    INSERT INTO InventoryLog (trans_date, item_id, trans_type, qty_change_grams, target_assembly, reference)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (datetime.now().strftime("%Y-%m-%d %H:%M"), code, t_type, signed_delta, target_assm, ref_txt))
+    with t_sap:
+        sap_f = st.file_uploader("העלה קובץ SAP (CSV / Excel - טרנזקציות MB52 / MARA / ME2N):" if is_he else "Upload SAP Export (CSV / XLSX):", type=["csv", "xlsx"])
+        if sap_f:
+            df_s = pd.read_csv(sap_f) if sap_f.name.endswith(".csv") else pd.read_excel(sap_f)
+            st.dataframe(df_s.head(10), use_container_width=True)
+
+# ==============================================================================
+# 5. סוכן פקודות מקומי מהיר
+# ==============================================================================
+elif menu == UI["m_ai"]:
+    st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_ai"]}</h2></div>', unsafe_allow_html=True)
+
+    st.caption("כתוב פקודה כגון: `תוסיף 5 קילו ל-RAW-101` או `תעדכן מחיר של RAW-102 ל-130`" if is_he else "Example: `add 5 kg to RAW-101`")
+    cmd_in = st.chat_input("כתוב פקודה לביצוע מיידי..." if is_he else "Type command...")
+    if cmd_in:
+        sku_m = re.search(r"([A-Za-z]+-\d+)", cmd_in)
+        nums = re.findall(r"(\d+(?:\.\d+)?)", cmd_in)
+        if sku_m and len(nums) >= 2:
+            s_code = sku_m.group(1).upper()
+            val = float(nums[0]) if nums[0] not in s_code else float(nums[-1])
+            if "מחיר" in cmd_in or "price" in cmd_in.lower():
+                conn.execute("UPDATE Catalog SET item_price=?, last_purchase_price=? WHERE sku=?", (val, val, s_code))
                 conn.commit()
-                st.success(f"המלאי עודכן ונרשם ביומן! יתרה חדשה: {new_g:,.0f} גרם ({new_g/1000:,.2f} ק\"ג)")
-                st.rerun()
-
-    with tab3:
-        st.subheader("מעקב תנועות מלאי (30 יום אחורה) - לאיזו הרכבה הלך כל חומר")
-        cutoff_date = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
-        query_log = """
-            SELECT l.trans_id AS "מס'", l.trans_date AS "תאריך ושעה", l.item_id AS "מק""ט",
-                   i.name AS "שם חומר גלם", l.trans_type AS "סוג תנועה",
-                   l.qty_change_grams AS "שינוי בגרמים (g)",
-                   ROUND(l.qty_change_grams / 1000.0, 3) AS "שינוי בק""ג (kg)",
-                   l.target_assembly AS "שויך להרכבה / מוצר", l.reference AS "אצווה / אסמכתא"
-            FROM InventoryLog l
-            LEFT JOIN Items i ON l.item_id = i.item_id
-            WHERE l.trans_date >= ?
-            ORDER BY l.trans_id DESC
-        """
-        df_log = pd.read_sql(query_log, conn, params=(cutoff_date,))
-        filter_item_log = st.selectbox("סנן היסטוריה לפי חומר גלם:", ["הצג את כל התנועות"] + list(df_raw["item_id"] + " - " + df_raw["name"]))
-        if filter_item_log != "הצג את כל התנועות":
-            f_code = filter_item_log.split(" - ")[0]
-            df_log = df_log[df_log["מק\"ט"] == f_code]
-        st.dataframe(df_log, use_container_width=True, hide_index=True)
-
-# ==============================================================================
-# מודול 2: ניהול ייצור, בניית עצי מוצר בגרמים ואחוז מוכנות חומר
-# ==============================================================================
-elif menu == "⚙️ ייצור, פורמולות ומוכנות (%)":
-    st.markdown("""
-        <div class="priority-header">
-            <h2 style="margin:0;">⚙️ ניהול ייצור, בניית עצי מוצר (בגרמים) ואחוז חומר מהמלאי</h2>
-            <p style="margin:4px 0 0 0; opacity:0.85;">בניית פורמולות קוסמטיות בגרמים, צפייה באחוז החומר הזמין במלאי לכל מוצר ודיווח אצוות ייצור</p>
-        </div>
-    """, unsafe_allow_html=True)
-
-    fg_df = pd.read_sql("SELECT * FROM Items WHERE category='FG'", conn)
-
-    tab_readiness, tab_bom_builder = st.tabs([
-        "📊 אחוז מוכנות חומרים מהמלאי וייצור אצוות",
-        "🧪 בניית ועריכת עצי מוצר (חומרי גלם, אריזות ומדבקות)"
-    ])
-
-    with tab_readiness:
-        batch_size = st.slider("בחר כמות יחידות מוצר (גודל אצווה) לבדיקת אחוז חומר קיים במלאי:", 1, 500, 100)
-        cols = st.columns(max(1, len(fg_df)))
-        for idx, (_, fg) in enumerate(fg_df.iterrows()):
-            _, pct, max_u = calc_cosmetic_readiness(fg["item_id"], batch_size)
-            color = "#22c55e" if pct == 100 else ("#f59e0b" if pct >= 70 else "#ef4444")
-            with cols[idx]:
-                st.markdown(f"""
-                    <div class="kit-card" style="border-top: 5px solid {color};">
-                        <h4 style="margin:0;">{fg['name']} ({fg['item_id']})</h4>
-                        <h2 style="margin:8px 0; color:{color};">{pct}% חומר זמין במלאי</h2>
-                        <p style="margin:0;">🧴 עבור אצווה של {batch_size} יח' | ניתן לייצר כרגע: <b>{max_u} יח' שלמות</b></p>
-                    </div>
-                """, unsafe_allow_html=True)
-                st.progress(int(pct))
-
-        st.divider()
-        sel_fg = st.selectbox("בחר מוצר קוסמטי לפירוט מדויק של חומרי הגלם והאחוזים:", fg_df["item_id"] + " - " + fg_df["name"])
-        sel_fg_code = sel_fg.split(" - ")[0]
-        df_kit, _, _ = calc_cosmetic_readiness(sel_fg_code, batch_size)
-        st.dataframe(df_kit, use_container_width=True, hide_index=True)
-
-        if st.button(f"✅ בצע ייצור של {batch_size} יח' ממוצר {sel_fg_code} (גרע גרמים מהמלאי ורשום ביומן התנועות)"):
-            for _, comp in df_kit.iterrows():
-                req_g = comp["נדרש לייצור (גרם)"]
-                conn.execute("UPDATE Items SET stock_grams = MAX(0, stock_grams - ?) WHERE item_id = ?", (req_g, comp["component_id"]))
-                conn.execute("""
-                    INSERT INTO InventoryLog (trans_date, item_id, trans_type, qty_change_grams, target_assembly, reference)
-                    VALUES (?, ?, 'ניפוק אוטומטי לייצור', ?, ?, ?)
-                """, (datetime.now().strftime("%Y-%m-%d %H:%M"), comp["component_id"], -req_g, sel_fg, f"Batch-{batch_size}u"))
-            conn.execute("UPDATE Items SET stock_grams = stock_grams + ? WHERE item_id = ?", (batch_size, sel_fg_code))
-            conn.commit()
-            st.success(f"הייצור בוצע! חומרי הגלם נגרעו בגרמים ונרשמו ביומן התנועות תחת '{sel_fg}'.")
-            st.rerun()
-
-    with tab_bom_builder:
-        st.subheader("בנייה ועדכון של עצי מוצר מתוך האתר")
-        c_b1, c_b2 = st.columns(2)
-        with c_b1:
-            st.markdown("#### 1. הוסף / עדכן רכיב בעץ מוצר")
-            target_fg = st.selectbox("בחר מוצר מוגמר:", fg_df["item_id"] + " - " + fg_df["name"], key="bom_fg")
-            component_df = pd.read_sql(
-                "SELECT item_id, name, category FROM Items "
-                "WHERE category IN ('RAW', 'PACKAGING', 'LABEL') ORDER BY item_id",
-                conn
-            )
-            target_component = st.selectbox(
-                "בחר חומר גלם, אריזה או מדבקה להוספה לעץ המוצר:",
-                component_df["item_id"] + " - " + component_df["name"],
-                key="bom_component"
-            )
-            quantity_val = st.number_input(
-                "כמות רכיב הנדרשת ליחידת מוצר אחת (גרמים לחומר גלם, יחידות לאריזה/מדבקה):",
-                min_value=0.1, value=10.0, step=0.5
-            )
-            if st.button("שמור רכיב בעץ המוצר"):
-                p_id = target_fg.split(" - ")[0]
-                c_id = target_component.split(" - ")[0]
-                conn.execute("INSERT OR REPLACE INTO BOM VALUES (?, ?, ?)", (p_id, c_id, quantity_val))
+                st.success(f"המחיר של {s_code} עודכן ל-₪{val}!")
+            elif "קילו" in cmd_in or "kg" in cmd_in.lower():
+                conn.execute("UPDATE Catalog SET weight_grams = weight_grams + ? WHERE sku=?", (val*1000.0, s_code))
                 conn.commit()
-                st.success("עץ המוצר עודכן!")
-                st.rerun()
-        with c_b2:
-            st.markdown("#### 2. הקמת מוצר קוסמטי מוגמר חדש (FG)")
-            new_fg_id = st.text_input("מק\"ט מוצר חדש (למשל FG-205):")
-            new_fg_name = st.text_input("שם המוצר הקוסמטי:")
-            if st.button("הקם מוצר חדש"):
-                if new_fg_id and new_fg_name:
-                    conn.execute("INSERT OR REPLACE INTO Items VALUES (?, ?, 'FG', 'FG-Z1', 'ייצור עצמי', 0, 10, 0)", (new_fg_id, new_fg_name))
-                    conn.commit()
-                    st.success("המוצר הוקם! כעת תוכל לשייך לו חומרי גלם, אריזות ומדבקות.")
-                    st.rerun()
-            st.markdown("#### 3. הוסף פריט אריזה או מדבקה")
-            new_component_id = st.text_input("מק\"ט אריזה/מדבקה:", key="new_component_id")
-            new_component_name = st.text_input("שם האריזה/המדבקה:", key="new_component_name")
-            new_component_category = st.selectbox(
-                "סוג הפריט:",
-                ["PACKAGING", "LABEL"],
-                format_func=lambda value: "אריזה" if value == "PACKAGING" else "מדבקה",
-                key="new_component_category"
-            )
-            if st.button("הוסף אריזה/מדבקה"):
-                if new_component_id and new_component_name:
-                    existing_component = conn.execute(
-                        "SELECT 1 FROM Items WHERE item_id = ?", (new_component_id,)
-                    ).fetchone()
-                    if existing_component:
-                        st.error("מק\"ט זה כבר קיים במערכת.")
-                    else:
-                        conn.execute(
-                            """INSERT INTO Items
-                            (item_id, name, category, warehouse_bin, supplier, stock_grams,
-                             safety_stock_grams, cost_per_kg)
-                            VALUES (?, ?, ?, 'PACK-Z1', 'ספק כללי', 0, 0, 0)""",
-                            (new_component_id, new_component_name, new_component_category)
-                        )
-                        conn.commit()
-                        st.success("הפריט נוסף למערכת; כעת ניתן לשייך אותו לעץ מוצר.")
-                        st.rerun()
-
-# ==============================================================================
-# מודול 3: סימולטור ותוכנית עבודה
-# ==============================================================================
-elif menu == "🎛️ סימולטור ותוכנית עבודה":
-    st.markdown("""
-        <div class="priority-header">
-            <h2 style="margin:0;">🎛️ סימולטור תפעולי (MRP בגרמים/ק"ג) ותוכנית עבודה</h2>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    fg_df = pd.read_sql("SELECT * FROM Items WHERE category='FG'", conn)
-    sim_reqs = {}
-    cols = st.columns(max(1, len(fg_df)))
-    for i, (_, r) in enumerate(fg_df.iterrows()):
-        with cols[i]:
-            sim_reqs[r["item_id"]] = st.number_input(f"כמות יעד לסימולציה: {r['name']}", 0, 5000, 150, step=25)
-            
-    bom_all = pd.read_sql("SELECT * FROM BOM", conn)
-    raw_all = pd.read_sql("SELECT * FROM Items WHERE category='RAW'", conn)
-    sim_rows = []
-    for _, raw in raw_all.iterrows():
-        needed_g = 0
-        for fg_id, qty in sim_reqs.items():
-            m = bom_all[(bom_all["parent_id"] == fg_id) & (bom_all["component_id"] == raw["item_id"])]
-            if not m.empty:
-                needed_g += qty * m.iloc[0]["grams_per_unit"]
-        short_g = max(0.0, needed_g - raw["stock_grams"])
-        sim_rows.append({
-            "מק\"ט": raw["item_id"], "שם חומר גלם": raw["name"], "מיקום": raw["warehouse_bin"],
-            "נדרש לסימולציה (ק\"ג)": round(needed_g / 1000.0, 2),
-            "קיים במלאי (ק\"ג)": round(raw["stock_grams"] / 1000.0, 2),
-            "חוסר לרכש (ק\"ג)": round(short_g / 1000.0, 2),
-            "עלות השלמת חוסר (₪)": round((short_g / 1000.0) * raw["cost_per_kg"], 1)
-        })
-    st.dataframe(pd.DataFrame(sim_rows), use_container_width=True, hide_index=True)
-
-    st.divider()
-    st.subheader("נגזרת עצי מוצר לפי חודשים ושבועות (חומרי גלם, אריזות ומדבקות)")
-    st.caption(
-        "הדרישות מחושבות מהזמנות הייצור הקיימות לפי תאריך היעד שלהן. "
-        "חומרי גלם מוצגים בגרם/ק״ג, ואריזות ומדבקות ביחידות."
-    )
-    demand_df = pd.read_sql(
-        """
-        SELECT w.item_id AS parent_id, parent.name AS parent_name,
-               w.qty_ordered, w.due_date, b.component_id,
-               component.name AS component_name, component.category,
-               b.grams_per_unit AS quantity_per_unit
-        FROM WorkOrders w
-        JOIN Items parent ON parent.item_id = w.item_id
-        JOIN BOM b ON b.parent_id = w.item_id
-        JOIN Items component ON component.item_id = b.component_id
-        WHERE w.status IN ('בייצור', 'מתוכנן')
-        """,
-        conn
-    )
-    if demand_df.empty:
-        st.info("אין כרגע הזמנות ייצור פעילות עם רכיבים בעץ מוצר.")
-    else:
-        demand_df["due_date"] = pd.to_datetime(demand_df["due_date"], errors="coerce")
-        missing_dates = int(demand_df["due_date"].isna().sum())
-        if missing_dates:
-            st.warning(f"{missing_dates} שורות ללא תאריך יעד תקין לא נכללו בדוח.")
-        demand_df = demand_df.dropna(subset=["due_date"]).copy()
-        if demand_df.empty:
-            st.info("אין הזמנות פעילות עם תאריך יעד תקין להצגה.")
-        else:
-            demand_df["חודש"] = demand_df["due_date"].dt.strftime("%Y-%m")
-            demand_df["שבוע"] = demand_df["due_date"].dt.strftime("%G-W%V")
-            demand_df["required_quantity"] = (
-                demand_df["qty_ordered"] * demand_df["quantity_per_unit"]
-            )
-            aggregation_columns = [
-                "parent_id", "parent_name", "component_id", "component_name",
-                "category", "quantity_per_unit"
-            ]
-            monthly_demand = demand_df.groupby(
-                ["חודש"] + aggregation_columns, as_index=False
-            )["required_quantity"].sum()
-            weekly_demand = demand_df.groupby(
-                ["שבוע"] + aggregation_columns, as_index=False
-            )["required_quantity"].sum()
-            month_tab, week_tab = st.tabs(["לפי חודש", "לפי שבוע"])
-            with month_tab:
-                render_bom_demand_table(monthly_demand, "חודש", is_kg)
-            with week_tab:
-                render_bom_demand_table(weekly_demand, "שבוע", is_kg)
-
-# ==============================================================================
-# מודול 4: סוכן Gemini שמבצע פעולות ישירות על מסד הנתונים (Autonomous SQL Agent)
-# ==============================================================================
-elif menu == "🤖 סוכן AI מבצע פעולות (Gemini)":
-    st.markdown("""
-        <div class="priority-header">
-            <h2 style="margin:0;">🤖 סוכן AI אקטיבי - תגיד לי מה לשנות והמערכת תבצע לבד!</h2>
-            <p style="margin:4px 0 0 0; opacity:0.85;">בקש ממני להוסיף חומרי גלם, לעדכן כמויות בק"ג/גרם, לבנות עצי מוצר או לרשום תנועות – ואני אבצע את הפקודה ב-SQL</p>
-        </div>
-    """, unsafe_allow_html=True)
-
-    items_str = pd.read_sql("SELECT * FROM Items", conn).to_string(index=False)
-    bom_str = pd.read_sql("SELECT * FROM BOM", conn).to_string(index=False)
-
-    agent_prompt = f"""
-    אתה סוכן AI אוטונומי עם הרשאת כתיבה ישירה למסד נתונים SQLite של מערכת ERP למפעל קוסמטיקה.
-    מבנה הטבלאות:
-    1. Items(item_id TEXT PRIMARY KEY, name TEXT, category TEXT ['RAW'/'FG'], warehouse_bin TEXT, supplier TEXT, stock_grams REAL, safety_stock_grams REAL, cost_per_kg REAL)
-    2. BOM(parent_id TEXT, component_id TEXT, grams_per_unit REAL)
-    3. InventoryLog(trans_id INTEGER PRIMARY KEY AUTOINCREMENT, trans_date TEXT, item_id TEXT, trans_type TEXT, qty_change_grams REAL, target_assembly TEXT, reference TEXT)
-
-    נתונים נוכחיים בטבלת Items:
-    {items_str}
-    נתונים נוכחיים בטבלת BOM:
-    {bom_str}
-
-    הנחיה קריטית:
-    החזר תמיד אובייקט JSON תקני בלבד (ללא סימני markdown ```json) במבנה הבא:
-    {{
-        "reply": "הסבר קצר וידידותי בעברית למשתמש על מה שעשית או תשובה לשאלתו",
-        "sql_commands": ["פקודת SQL ראשונה לביצוע אם המשתמש ביקש לשנות/להוסיף/למחוק נתונים", "פקודה שנייה..."]
-    }}
-    אם המשתמש רק שואל שאלה בלי לבקש שינוי בנתונים, החזר רשימה ריקה ב-sql_commands: [].
-    זכור: כל הכמויות של חומרי גלם (RAW) בטבלת Items נשמרות בגרמים (stock_grams). אם המשתמש אומר 5 ק"ג, הכנס 5000 גרם.
-    """
-
-    user_req = st.chat_input("כתוב לי פקודה, למשל: 'תוסיף 3 קילו חמאת שיאה למלאי' או 'תקים חומר גלם חדש שמן קוקוס מקט RAW-109'...")
-    if user_req:
-        if not api_key:
-            st.error("הזן את ה-Gemini API Key שלך בתיבה שבסרגל הצדדי (ימין למטה) כדי שאוכל לבצע פעולות!")
-        else:
-            try:
-                client = genai.Client(api_key=api_key)
-                resp = client.models.generate_content(
-                    model="gemini-3.8-flash",
-                    contents=f"{agent_prompt}\n\nבקשת המשתמש: {user_req}"
-                )
-                raw_text = resp.text.strip().replace("```json", "").replace("```", "").strip()
-                data = json.loads(raw_text)
-                
-                if data.get("sql_commands"):
-                    for sql in data["sql_commands"]:
-                        conn.execute(sql)
-                    conn.commit()
-                    st.success("⚡ הפעולה בוצעה אוטומטית במסד הנתונים!")
-                    st.code("\n".join(data["sql_commands"]), language="sql")
-                st.info(data.get("reply", "בוצע!"))
-            except Exception as e:
-                st.error(f"שגיאה בביצוע הפעולה: {e}")
+                st.success(f"נוספו {val} ק\"ג ל-{s_code}!")
+            else:
+                conn.execute("UPDATE Catalog SET qty_units = qty_units + ? WHERE sku=?", (val, s_code))
+                conn.commit()
+                st.success(f"נוספו {val} יח' ל-{s_code}!")
