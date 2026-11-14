@@ -102,7 +102,7 @@ PLAN_PERIODS = [
     ("W8", "דצמבר 2026" if is_he else "Dec 2026", "שבוע 8" if is_he else "Week 8"),
 ]
 
-# --- CSS נקי, תומך מצב כהה/בהיר, טאב שפה צף בפינה הימנית התחתונה וטבלאות מימין לשמאל ---
+# --- CSS נקי, תומך מצב כהה/בהיר, כפתור שפה צף ומיזוג תאי מק"ט אב ---
 st.markdown(f"""
 <style>
 .stApp, .main, .block-container {{
@@ -210,6 +210,20 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checke
     font-weight: 700;
     background-color: var(--secondary-background-color);
     white-space: nowrap;
+}}
+/* עיצוב תא מק"ט אב מאוחד (גדול וממורכז אנכית מול כל מק"טי הבן שלו) */
+.matrix-table td.merged-parent-col {{
+    text-align: center !important;
+    vertical-align: middle !important;
+    font-weight: 800;
+    font-size: 1.05rem;
+    background: linear-gradient(135deg, rgba(124, 58, 237, 0.14) 0%, rgba(124, 58, 237, 0.05) 100%);
+    border-left: 3px solid #7c3aed !important;
+    padding: 14px 16px !important;
+    line-height: 1.4;
+}}
+.matrix-table tr.group-end td {{
+    border-bottom: 2.5px solid rgba(124, 58, 237, 0.55) !important;
 }}
 /* טאב קטן צף בפינה הימנית התחתונה להחלפת שפה */
 div.st-key-floating_lang_btn {{
@@ -405,7 +419,6 @@ if menu == UI["m_inv"]:
     if q_txt:
         df_v = df_v[df_v["sku"].str.contains(q_txt, case=False, na=False) | df_v["name"].str.contains(q_txt, case=False, na=False)]
 
-    # --- תצוגת טבלת מלאי שהולכת ב-100% מימין לשמאל באופן קבוע (מק"ט בצד ימין) ---
     inv_rows_html = ""
     for _, r in df_v.iterrows():
         inv_rows_html += (
@@ -446,7 +459,6 @@ if menu == UI["m_inv"]:
     )
     st.markdown(inv_table_html, unsafe_allow_html=True)
 
-    # --- טבלת עריכה (העמודות מסודרות כך שהמק"ט נמצא בצד ימין של הגריד!) ---
     with st.expander("✏️ עריכת מלאי, הוספת מק\"ט או מחיקה (מק\"ט מימין)" if is_he else "✏️ Edit / Add / Delete Inventory Items", expanded=False):
         rtl_cols_order = [
             "sap_code", "last_purchase_price", "min_order_qty", "item_price",
@@ -495,7 +507,7 @@ if menu == UI["m_inv"]:
             st.rerun()
 
 # ==============================================================================
-# 2. עצי מוצר ותוכנית עבודה: ללא שום קוד גלוי, מק"ט אב מימין, שבועות ומעליהם חודשים
+# 2. עצי מוצר ותוכנית עבודה: תא מק"ט אב מאוחד בגדול (rowspan) מול כל מק"טי הבן שלו
 # ==============================================================================
 elif menu == UI["m_bom"]:
     st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_bom"]}</h2></div>', unsafe_allow_html=True)
@@ -581,37 +593,52 @@ elif menu == UI["m_bom"]:
         JOIN Catalog p ON b.parent_sku = p.sku
         JOIN Catalog c ON b.component_sku = c.sku
         JOIN WeeklySchedule s ON b.parent_sku = s.parent_sku
-        ORDER BY b.parent_sku, b.comp_type
+        ORDER BY b.parent_sku, b.comp_type, b.component_sku
     """
     df_bom_sched = pd.read_sql(bom_join, conn)
 
+    # בניית שורות עם איחוד תאי מק"ט אב (rowspan) לתא אחד גדול לכל קבוצת בנים
     rows_bom_html = ""
-    for _, r in df_bom_sched.iterrows():
-        is_raw = (r["comp_type"] == "RAW")
-        per_unit_factor = r["req_weight_grams"] if is_raw else r["req_qty_units"]
-        unit_suffix = "g" if is_raw else ("יח'" if is_he else "u")
-        rows_bom_html += (
-            f"<tr>"
-            f"<td class='parent-col'>{r['parent_sku']} - {r['parent_name']}</td>"
-            f"<td style='text-align:right;'>{r['component_sku']} - {r['comp_name']} ({tr_type(r['comp_type'])})</td>"
-            f"<td><b>{per_unit_factor:g} {unit_suffix}</b></td>"
-            f"<td>{r['W1']*per_unit_factor:,.0f} {unit_suffix}</td>"
-            f"<td>{r['W2']*per_unit_factor:,.0f} {unit_suffix}</td>"
-            f"<td>{r['W3']*per_unit_factor:,.0f} {unit_suffix}</td>"
-            f"<td>{r['W4']*per_unit_factor:,.0f} {unit_suffix}</td>"
-            f"<td>{r['W5']*per_unit_factor:,.0f} {unit_suffix}</td>"
-            f"<td>{r['W6']*per_unit_factor:,.0f} {unit_suffix}</td>"
-            f"<td>{r['W7']*per_unit_factor:,.0f} {unit_suffix}</td>"
-            f"<td>{r['W8']*per_unit_factor:,.0f} {unit_suffix}</td>"
-            f"</tr>"
-        )
+    for parent_sku, group in df_bom_sched.groupby("parent_sku", sort=False):
+        span_count = len(group)
+        for idx, (_, r) in enumerate(group.iterrows()):
+            is_raw = (r["comp_type"] == "RAW")
+            per_unit_factor = r["req_weight_grams"] if is_raw else r["req_qty_units"]
+            unit_suffix = "g" if is_raw else ("יח'" if is_he else "u")
+            is_last_in_group = (idx == span_count - 1)
+            tr_class = " class='group-end'" if is_last_in_group else ""
+
+            parent_td = ""
+            if idx == 0:
+                parent_td = (
+                    f"<td class='merged-parent-col' rowspan='{span_count}'>"
+                    f"<div style='font-size:1.1rem;'>{r['parent_sku']}</div>"
+                    f"<div style='font-size:0.9rem; opacity:0.85; font-weight:600;'>{r['parent_name']}</div>"
+                    f"</td>"
+                )
+
+            rows_bom_html += (
+                f"<tr{tr_class}>"
+                f"{parent_td}"
+                f"<td style='text-align:right;'><b>{r['component_sku']}</b> - {r['comp_name']} <span style='opacity:0.75;'>({tr_type(r['comp_type'])})</span></td>"
+                f"<td><b>{per_unit_factor:g} {unit_suffix}</b></td>"
+                f"<td>{r['W1']*per_unit_factor:,.0f} {unit_suffix}</td>"
+                f"<td>{r['W2']*per_unit_factor:,.0f} {unit_suffix}</td>"
+                f"<td>{r['W3']*per_unit_factor:,.0f} {unit_suffix}</td>"
+                f"<td>{r['W4']*per_unit_factor:,.0f} {unit_suffix}</td>"
+                f"<td>{r['W5']*per_unit_factor:,.0f} {unit_suffix}</td>"
+                f"<td>{r['W6']*per_unit_factor:,.0f} {unit_suffix}</td>"
+                f"<td>{r['W7']*per_unit_factor:,.0f} {unit_suffix}</td>"
+                f"<td>{r['W8']*per_unit_factor:,.0f} {unit_suffix}</td>"
+                f"</tr>"
+            )
 
     bom_html = (
         f"<table class='matrix-table'>"
         f"<thead>"
         f"<tr>"
-        f"<th rowspan='2' style='text-align:right;'>{'מק\"ט אב ושם' if is_he else 'Parent SKU & Name'}</th>"
-        f"<th rowspan='2' style='text-align:right;'>{'רכיב בעץ (חומר/אריזה/מדבקה)' if is_he else 'BOM Component'}</th>"
+        f"<th rowspan='2' style='width:18%; text-align:center;'>{'מק\"ט אב' if is_he else 'Parent SKU'}</th>"
+        f"<th rowspan='2' style='text-align:right;'>{'מק\"ט בן / רכיב בעץ (חומר/אריזה/מדבקה)' if is_he else 'Child Component SKU'}</th>"
         f"<th rowspan='2'>{'כמות למוצר 1' if is_he else 'Per 1 Unit'}</th>"
         f"<th colspan='4'>{month1_name}</th><th colspan='4'>{month2_name}</th>"
         f"</tr><tr>"
