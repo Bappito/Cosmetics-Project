@@ -102,7 +102,7 @@ PLAN_PERIODS = [
     ("W8", "דצמבר 2026" if is_he else "Dec 2026", "שבוע 8" if is_he else "Week 8"),
 ]
 
-# --- CSS נקי, תומך מצב כהה/בהיר, כפתור שפה צף ומיזוג תאי מק"ט אב ---
+# --- CSS נקי, תומך מצב כהה/בהיר, כפתור שפה צף וצביעת תאי מלאי בירוק/אדום ---
 st.markdown(f"""
 <style>
 .stApp, .main, .block-container {{
@@ -211,7 +211,7 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checke
     background-color: var(--secondary-background-color);
     white-space: nowrap;
 }}
-/* עיצוב תא מק"ט אב מאוחד (גדול וממורכז אנכית מול כל מק"טי הבן שלו) */
+/* עיצוב תא מק"ט אב מאוחד */
 .matrix-table td.merged-parent-col {{
     text-align: center !important;
     vertical-align: middle !important;
@@ -224,6 +224,47 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checke
 }}
 .matrix-table tr.group-end td {{
     border-bottom: 2.5px solid rgba(124, 58, 237, 0.55) !important;
+}}
+/* צביעת תאי מלאי מספיק (ירוק) ומלאי חסר (אדום) - מותאם למצב בהיר וכהה */
+.matrix-table td.stock-ok {{
+    background-color: rgba(34, 197, 94, 0.20) !important;
+    border: 1px solid rgba(34, 197, 94, 0.55) !important;
+    font-weight: 700;
+}}
+.matrix-table td.stock-short {{
+    background-color: rgba(239, 68, 68, 0.24) !important;
+    border: 1px solid rgba(239, 68, 68, 0.65) !important;
+    font-weight: 700;
+}}
+.short-sub {{
+    display: block;
+    font-size: 0.74rem;
+    font-weight: 600;
+    opacity: 0.92;
+    margin-top: 2px;
+}}
+.legend-box {{
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+}}
+.legend-pill-ok {{
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 6px;
+    background-color: rgba(34, 197, 94, 0.22);
+    border: 1px solid rgba(34, 197, 94, 0.6);
+    font-weight: 700;
+}}
+.legend-pill-short {{
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 6px;
+    background-color: rgba(239, 68, 68, 0.25);
+    border: 1px solid rgba(239, 68, 68, 0.65);
+    font-weight: 700;
 }}
 /* טאב קטן צף בפינה הימנית התחתונה להחלפת שפה */
 div.st-key-floating_lang_btn {{
@@ -507,7 +548,7 @@ if menu == UI["m_inv"]:
             st.rerun()
 
 # ==============================================================================
-# 2. עצי מוצר ותוכנית עבודה: תא מק"ט אב מאוחד בגדול (rowspan) מול כל מק"טי הבן שלו
+# 2. עצי מוצר ותוכנית עבודה: תא מק"ט אב מאוחד + סימון ירוק/אדום לפי זמינות מלאי!
 # ==============================================================================
 elif menu == UI["m_bom"]:
     st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_bom"]}</h2></div>', unsafe_allow_html=True)
@@ -584,10 +625,20 @@ elif menu == UI["m_bom"]:
 
     st.subheader("2. נגזרת עצי מוצר לפי חודשים ושבועות (חומרי גלם, אריזות ומדבקות)" if is_he else "2. BOM Component Breakdown by Months & Weeks")
 
+    # מקרא צבעים ברור מעל הטבלה
+    legend_html = (
+        f"<div class='legend-box'>"
+        f"<span class='legend-pill-ok'>✓ {'ירוק = יש מספיק מלאי' if is_he else 'Green = Sufficient Stock'}</span>"
+        f"<span class='legend-pill-short'>⚠️ {'אדום = חוסר במלאי (מציג כמה חסר)' if is_he else 'Red = Stock Shortage'}</span>"
+        f"</div>"
+    )
+    st.markdown(legend_html, unsafe_allow_html=True)
+
     bom_join = """
         SELECT b.parent_sku, p.name AS parent_name,
                b.component_sku, c.name AS comp_name, b.comp_type,
                b.req_qty_units, b.req_weight_grams,
+               c.qty_units AS avail_units, c.weight_grams AS avail_grams,
                s.W1, s.W2, s.W3, s.W4, s.W5, s.W6, s.W7, s.W8
         FROM BOM b
         JOIN Catalog p ON b.parent_sku = p.sku
@@ -597,19 +648,48 @@ elif menu == UI["m_bom"]:
     """
     df_bom_sched = pd.read_sql(bom_join, conn)
 
-    # בניית שורות עם איחוד תאי מק"ט אב (rowspan) לתא אחד גדול לכל קבוצת בנים
+    # חישוב זמינות מלאי מצטברת לאורך השבועות (W1 -> W8) עבור כל רכיב בן
+    # כך שאם חומר גלם משמש בכמה שבועות או בכמה מוצרי אב, המערכת מזהה בדיוק באיזה שבוע ייגמר המלאי!
+    remaining_pool = {}
+    for _, r in df_bom_sched.iterrows():
+        c_sku = r["component_sku"]
+        if c_sku not in remaining_pool:
+            is_raw = (r["comp_type"] == "RAW")
+            remaining_pool[c_sku] = float(r["avail_grams"] if is_raw else r["avail_units"])
+
+    week_cols = ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8"]
+    cell_status = {}  # (row_index, week_col) -> (is_ok, req_val, missing_val)
+
+    for w_col in week_cols:
+        for row_idx, r in df_bom_sched.iterrows():
+            c_sku = r["component_sku"]
+            is_raw = (r["comp_type"] == "RAW")
+            per_unit_factor = float(r["req_weight_grams"] if is_raw else r["req_qty_units"])
+            req_val = float(r[w_col]) * per_unit_factor
+            avail_now = remaining_pool.get(c_sku, 0.0)
+
+            if req_val <= avail_now + 1e-6:
+                cell_status[(row_idx, w_col)] = (True, req_val, 0.0)
+                remaining_pool[c_sku] = max(0.0, avail_now - req_val)
+            else:
+                missing_val = req_val - avail_now
+                cell_status[(row_idx, w_col)] = (False, req_val, missing_val)
+                remaining_pool[c_sku] = 0.0
+
+    # בניית שורות הטבלה עם איחוד תאי מק"ט אב (rowspan) וצביעת כל תא בירוק או אדום
     rows_bom_html = ""
     for parent_sku, group in df_bom_sched.groupby("parent_sku", sort=False):
         span_count = len(group)
-        for idx, (_, r) in enumerate(group.iterrows()):
+        for idx_in_group, (row_idx, r) in enumerate(group.iterrows()):
             is_raw = (r["comp_type"] == "RAW")
             per_unit_factor = r["req_weight_grams"] if is_raw else r["req_qty_units"]
             unit_suffix = "g" if is_raw else ("יח'" if is_he else "u")
-            is_last_in_group = (idx == span_count - 1)
+            initial_stock = r["avail_grams"] if is_raw else r["avail_units"]
+            is_last_in_group = (idx_in_group == span_count - 1)
             tr_class = " class='group-end'" if is_last_in_group else ""
 
             parent_td = ""
-            if idx == 0:
+            if idx_in_group == 0:
                 parent_td = (
                     f"<td class='merged-parent-col' rowspan='{span_count}'>"
                     f"<div style='font-size:1.1rem;'>{r['parent_sku']}</div>"
@@ -617,19 +697,27 @@ elif menu == UI["m_bom"]:
                     f"</td>"
                 )
 
+            week_tds_html = ""
+            for w_col in week_cols:
+                is_ok, req_val, missing_val = cell_status[(row_idx, w_col)]
+                if is_ok:
+                    week_tds_html += f"<td class='stock-ok'>✓ {req_val:,.0f} {unit_suffix}</td>"
+                else:
+                    short_txt = f"{'חסר' if is_he else 'Short'}: {missing_val:,.0f} {unit_suffix}"
+                    week_tds_html += (
+                        f"<td class='stock-short'>"
+                        f"⚠️ {req_val:,.0f} {unit_suffix}"
+                        f"<span class='short-sub'>({short_txt})</span>"
+                        f"</td>"
+                    )
+
             rows_bom_html += (
                 f"<tr{tr_class}>"
                 f"{parent_td}"
                 f"<td style='text-align:right;'><b>{r['component_sku']}</b> - {r['comp_name']} <span style='opacity:0.75;'>({tr_type(r['comp_type'])})</span></td>"
                 f"<td><b>{per_unit_factor:g} {unit_suffix}</b></td>"
-                f"<td>{r['W1']*per_unit_factor:,.0f} {unit_suffix}</td>"
-                f"<td>{r['W2']*per_unit_factor:,.0f} {unit_suffix}</td>"
-                f"<td>{r['W3']*per_unit_factor:,.0f} {unit_suffix}</td>"
-                f"<td>{r['W4']*per_unit_factor:,.0f} {unit_suffix}</td>"
-                f"<td>{r['W5']*per_unit_factor:,.0f} {unit_suffix}</td>"
-                f"<td>{r['W6']*per_unit_factor:,.0f} {unit_suffix}</td>"
-                f"<td>{r['W7']*per_unit_factor:,.0f} {unit_suffix}</td>"
-                f"<td>{r['W8']*per_unit_factor:,.0f} {unit_suffix}</td>"
+                f"<td><b>{initial_stock:,.0f} {unit_suffix}</b></td>"
+                f"{week_tds_html}"
                 f"</tr>"
             )
 
@@ -637,9 +725,10 @@ elif menu == UI["m_bom"]:
         f"<table class='matrix-table'>"
         f"<thead>"
         f"<tr>"
-        f"<th rowspan='2' style='width:18%; text-align:center;'>{'מק\"ט אב' if is_he else 'Parent SKU'}</th>"
+        f"<th rowspan='2' style='width:16%; text-align:center;'>{'מק\"ט אב' if is_he else 'Parent SKU'}</th>"
         f"<th rowspan='2' style='text-align:right;'>{'מק\"ט בן / רכיב בעץ (חומר/אריזה/מדבקה)' if is_he else 'Child Component SKU'}</th>"
-        f"<th rowspan='2'>{'כמות למוצר 1' if is_he else 'Per 1 Unit'}</th>"
+        f"<th rowspan='2'>{'למוצר 1' if is_he else 'Per 1 Unit'}</th>"
+        f"<th rowspan='2'>{'קיים במלאי כעת' if is_he else 'Current Stock'}</th>"
         f"<th colspan='4'>{month1_name}</th><th colspan='4'>{month2_name}</th>"
         f"</tr><tr>"
         f"<th>{PLAN_PERIODS[0][2]}</th><th>{PLAN_PERIODS[1][2]}</th><th>{PLAN_PERIODS[2][2]}</th><th>{PLAN_PERIODS[3][2]}</th>"
