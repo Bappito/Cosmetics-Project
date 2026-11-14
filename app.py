@@ -69,7 +69,7 @@ UI = {
         "dir": "rtl", "align": "right",
         "nav_hdr": "תפריט מערכת",
         "m_inv": "📦 מלאי ומחסנים",
-        "m_bom": "🗓️ עצי מוצר ותוכנית שבועות/חודשים",
+        "m_bom": "🗓️ עצי מוצר וסימולציית שבועות/חודשים",
         "m_wh": "🔄 העברות בין מחסנים",
         "m_po": "🚚 הזמנות רכש (PO) ו-SAP",
         "m_ai": "🤖 סוכן פקודות מהיר",
@@ -81,7 +81,7 @@ UI = {
         "dir": "ltr", "align": "left",
         "nav_hdr": "ERP Menu",
         "m_inv": "📦 Inventory & Warehouses",
-        "m_bom": "🗓️ BOM & Monthly/Weekly Plan",
+        "m_bom": "🗓️ BOM & Monthly/Weekly Simulation",
         "m_wh": "🔄 Warehouse Transfers",
         "m_po": "🚚 Purchase Orders & SAP",
         "m_ai": "🤖 Quick Command Agent",
@@ -220,15 +220,21 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checke
     background-color: var(--secondary-background-color);
     padding: 8px 10px !important;
 }}
-.matrix-table td.merged-parent-col {{
+.matrix-table td.merged-child-col {{
     text-align: center !important;
     vertical-align: middle !important;
     font-weight: 800;
     font-size: 0.94rem;
-    background: linear-gradient(135deg, rgba(124, 58, 237, 0.14) 0%, rgba(124, 58, 237, 0.05) 100%);
+    background: linear-gradient(135deg, rgba(124, 58, 237, 0.16) 0%, rgba(124, 58, 237, 0.05) 100%);
     border-left: 3px solid #7c3aed !important;
     padding: 8px 6px !important;
     line-height: 1.35;
+}}
+.matrix-table td.merged-stock-col {{
+    text-align: center !important;
+    vertical-align: middle !important;
+    font-weight: 800;
+    background-color: rgba(128, 128, 128, 0.08);
 }}
 .matrix-table tr.group-end td {{
     border-bottom: 2.5px solid rgba(124, 58, 237, 0.55) !important;
@@ -250,12 +256,24 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checke
     border: 2px solid rgba(34, 197, 94, 0.8) !important;
     font-weight: 800;
     font-size: 0.95rem;
+    vertical-align: middle !important;
 }}
 .matrix-table td.summary-short {{
     background-color: rgba(239, 68, 68, 0.38) !important;
     border: 2px solid rgba(239, 68, 68, 0.85) !important;
     font-weight: 800;
     font-size: 0.95rem;
+    vertical-align: middle !important;
+}}
+.shared-badge {{
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background-color: rgba(124, 58, 237, 0.22);
+    border: 1px solid rgba(124, 58, 237, 0.55);
+    font-size: 0.72rem;
+    font-weight: 700;
 }}
 .cell-details {{
     cursor: pointer;
@@ -474,7 +492,6 @@ w_label = ("ק\"ג" if is_he else "kg") if use_kg else ("גרם" if is_he else "
 u_label = "יח'" if is_he else "u"
 
 def fmt_val(val_in_base, is_raw_item):
-    """מפרמט מספר (חיובי או שלילי) לפי קילוגרם/גרם או יחידות, עם הצגת סימן מינוס תקנית."""
     is_neg = (val_in_base < -1e-6)
     abs_val = abs(val_in_base)
     if is_raw_item:
@@ -647,7 +664,7 @@ if menu == UI["m_inv"]:
             st.rerun()
 
 # ==============================================================================
-# 2. עצי מוצר ותוכנית עבודה: סוכם חוסרים מצטברים משבוע לשבוע + עמודת סה"כ חוסר מצטבר!
+# 2. עצי מוצר וסימולציה: מק"ט האב משויך תחת מק"ט הבן (Where-Used) לזיהוי רכיבים משותפים!
 # ==============================================================================
 elif menu == UI["m_bom"]:
     st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_bom"]}</h2></div>', unsafe_allow_html=True)
@@ -665,9 +682,10 @@ elif menu == UI["m_bom"]:
     """
     df_sched = pd.read_sql(sched_query, conn)
 
+    # מיון לפי מק"ט בן (component_sku) כדי שכל מק"טי האב שמשתמשים באותו מק"ט בן יופיעו תחתיו!
     bom_join = """
-        SELECT b.parent_sku, p.name AS parent_name,
-               b.component_sku, c.name AS comp_name, b.comp_type,
+        SELECT b.component_sku, c.name AS comp_name, b.comp_type,
+               b.parent_sku, p.name AS parent_name,
                b.req_qty_units, b.req_weight_grams,
                c.qty_units AS avail_units, c.weight_grams AS avail_grams,
                s.W1, s.W2, s.W3, s.W4, s.W5, s.W6, s.W7, s.W8
@@ -675,12 +693,11 @@ elif menu == UI["m_bom"]:
         JOIN Catalog p ON b.parent_sku = p.sku
         JOIN Catalog c ON b.component_sku = c.sku
         JOIN WeeklySchedule s ON b.parent_sku = s.parent_sku
-        ORDER BY b.parent_sku, b.comp_type, b.component_sku
+        ORDER BY b.comp_type, b.component_sku, b.parent_sku
     """
     df_bom_sched = pd.read_sql(bom_join, conn)
 
-    # --- חישוב מאזן ומלאי מתגלגל שסוכם גם את החוסרים משבוע לשבוע (Cumulative Rolling Balance) ---
-    # אם בשבוע 2 חסר -100 ובשבוע 3 נדרש עוד 150, המאזן בשבוע 3 יראה -250 (סכום כל החוסרים עד כה!)
+    # --- חישוב מאזן ומלאי מתגלגל לפי מק"ט בן לאורך השבועות (סוכם צריכה מכל מק"טי האב המשויכים אליו) ---
     running_balance = {}
     for _, r in df_bom_sched.iterrows():
         c_sku = r["component_sku"]
@@ -691,61 +708,77 @@ elif menu == UI["m_bom"]:
     week_cols = ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8"]
     cell_status = {}
 
+    # חישוב סך הדרישה השבועית של כל מק"ט בן מכל מק"טי האב יחד
+    comp_weekly_total_used = {}
+    for w_col in week_cols:
+        for c_sku, grp in df_bom_sched.groupby("component_sku", sort=False):
+            tot_w = 0.0
+            for _, r in grp.iterrows():
+                is_raw = (r["comp_type"] == "RAW")
+                factor = float(r["req_weight_grams"] if is_raw else r["req_qty_units"])
+                tot_w += float(r[w_col]) * factor
+            comp_weekly_total_used[(c_sku, w_col)] = tot_w
+
     for w_col in week_cols:
         for row_idx, r in df_bom_sched.iterrows():
             c_sku = r["component_sku"]
             is_raw = (r["comp_type"] == "RAW")
             per_unit_factor = float(r["req_weight_grams"] if is_raw else r["req_qty_units"])
-            used_val = float(r[w_col]) * per_unit_factor
+            used_by_this_parent = float(r[w_col]) * per_unit_factor
+            tot_used_by_all_parents = comp_weekly_total_used[(c_sku, w_col)]
 
             before_bal = running_balance.get(c_sku, 0.0)
-            after_bal = before_bal - used_val
+            after_bal = before_bal - used_by_this_parent
             running_balance[c_sku] = after_bal
 
             is_ok = (after_bal >= -1e-6)
-            # החוסר שנוסף השבוע בלבד לעומת סך החוסר המצטבר
-            short_this_week = used_val if before_bal < 0 else max(0.0, used_val - before_bal)
-            cum_shortage = abs(after_bal) if not is_ok else 0.0
+            short_this_step = used_by_this_parent if before_bal < 0 else max(0.0, used_by_this_parent - before_bal)
 
             cell_status[(row_idx, w_col)] = {
                 "is_ok": is_ok,
                 "before_bal": before_bal,
-                "used": used_val,
+                "used_parent": used_by_this_parent,
+                "tot_used_all_parents": tot_used_by_all_parents,
                 "after_bal": after_bal,
-                "short_this_week": short_this_week,
-                "cum_shortage": cum_shortage
+                "short_this_step": short_this_step
             }
 
-    # --- סרגל חיפוש וסינון לפי מק"ט אב או מק"ט בן ---
+    # שמירת המאזן הסופי של כל מק"ט בן בסוף שבוע 8 (אחרי כל מק"טי האב המשויכים אליו)
+    final_comp_balance = {}
+    for c_sku, grp in df_bom_sched.groupby("component_sku", sort=False):
+        last_row_idx = grp.index[-1]
+        final_comp_balance[c_sku] = cell_status[(last_row_idx, "W8")]
+
+    # --- סרגל חיפוש וסינון לפי מק"ט בן או מק"ט אב ---
     all_lbl = "הכל" if is_he else "All"
-    parent_opts = [all_lbl] + list((df_sched["sku"] + " - " + df_sched["parent_name"]).unique())
     child_opts = [all_lbl] + list((df_bom_sched["component_sku"] + " - " + df_bom_sched["comp_name"]).unique())
+    parent_opts = [all_lbl] + list((df_sched["sku"] + " - " + df_sched["parent_name"]).unique())
 
     s_col1, s_col2, s_col3 = st.columns([2, 1.5, 1.5])
     with s_col1:
         bom_search_txt = st.text_input(
-            "🔍 חיפוש חופשי לפי מק\"ט אב או מק\"ט בן (או שם פריט):" if is_he else "🔍 Search by Parent SKU, Child SKU, or Name:",
-            placeholder="למשל: FG-501 / RAW-103 / קרם / חומצה..." if is_he else "e.g., FG-501 / RAW-103..."
+            "🔍 חיפוש חופשי לפי מק\"ט בן או מק\"ט אב (או שם פריט):" if is_he else "🔍 Search by Child SKU, Parent SKU, or Name:",
+            placeholder="למשל: RAW-103 / FG-501 / חומצה / קרם..." if is_he else "e.g., RAW-103 / FG-501..."
         )
     with s_col2:
-        sel_parent_filter = st.selectbox("סנן לפי מק\"ט אב:" if is_he else "Filter by Parent SKU:", parent_opts)
-    with s_col3:
         sel_child_filter = st.selectbox("סנן לפי מק\"ט בן (רכיב):" if is_he else "Filter by Child SKU:", child_opts)
+    with s_col3:
+        sel_parent_filter = st.selectbox("סנן לפי מק\"ט אב משויך:" if is_he else "Filter by Linked Parent SKU:", parent_opts)
 
     df_bom_view = df_bom_sched.copy()
-    if sel_parent_filter != all_lbl:
-        p_code_sel = sel_parent_filter.split(" - ")[0]
-        df_bom_view = df_bom_view[df_bom_view["parent_sku"] == p_code_sel]
     if sel_child_filter != all_lbl:
         c_code_sel = sel_child_filter.split(" - ")[0]
         df_bom_view = df_bom_view[df_bom_view["component_sku"] == c_code_sel]
+    if sel_parent_filter != all_lbl:
+        p_code_sel = sel_parent_filter.split(" - ")[0]
+        df_bom_view = df_bom_view[df_bom_view["parent_sku"] == p_code_sel]
     if bom_search_txt.strip():
         q = bom_search_txt.strip()
         df_bom_view = df_bom_view[
-            df_bom_view["parent_sku"].str.contains(q, case=False, na=False) |
-            df_bom_view["parent_name"].str.contains(q, case=False, na=False) |
             df_bom_view["component_sku"].str.contains(q, case=False, na=False) |
-            df_bom_view["comp_name"].str.contains(q, case=False, na=False)
+            df_bom_view["comp_name"].str.contains(q, case=False, na=False) |
+            df_bom_view["parent_sku"].str.contains(q, case=False, na=False) |
+            df_bom_view["parent_name"].str.contains(q, case=False, na=False)
         ]
 
     relevant_parents = list(df_bom_view["parent_sku"].unique())
@@ -812,23 +845,25 @@ elif menu == UI["m_bom"]:
     st.divider()
 
     st.subheader(
-        f"2. נגזרת עצי מוצר וסכימת חוסרים מצטברת (מוצג ב-{w_label} לחומרי גלם וביח' לאריזות)"
+        f"2. סימולציית מלאי לפי מק\"ט בן ומק\"טי האב המשויכים אליו (מוצג ב-{w_label} לחו\"ג וביח' לאריזות)"
         if is_he else
-        f"2. BOM Breakdown & Cumulative Shortage (Displayed in {w_label} & Units)"
+        f"2. Child Component Simulation & Linked Parent SKUs (Displayed in {w_label} & Units)"
     )
 
     legend_html = (
         f"<div class='legend-box'>"
         f"<span class='legend-pill-ok'>{'ירוק = המלאי שנשאר לאחר השימוש' if is_he else 'Green = Remaining Stock'}</span>"
-        f"<span class='legend-pill-short'>{'אדום = סך החוסר המצטבר (סוכם את כל החוסרים עד לאותו שבוע)' if is_he else 'Red = Cumulative Shortage Across Weeks'}</span>"
-        f"<span style='opacity:0.85;'>💡 {'לחץ על כל תא כדי לראות: מאזן פתיחה | צריכה השבוע | מאזן/חוסר מצטבר' if is_he else 'Click any cell for breakdown'}</span>"
+        f"<span class='legend-pill-short'>{'אדום = סך החוסר המצטבר (כולל צריכה של מק\"טי אב משותפים)' if is_he else 'Red = Cumulative Shortage Across Shared Parents'}</span>"
+        f"<span style='opacity:0.85;'>💡 {'מק\"ט הבן מוצג מימין, ולצידו משויכים כל מק\"טי האב שצורכים אותו' if is_he else 'Child SKU is on the right, with all linked Parent SKUs beside it'}</span>"
         f"</div>"
     )
     st.markdown(legend_html, unsafe_allow_html=True)
 
+    # --- בניית הטבלה מקובצת לפי מק"ט בן (Child SKU) כאשר מק"טי האב משויכים אליו ---
     rows_bom_html = ""
-    for parent_sku, group in df_bom_view.groupby("parent_sku", sort=False):
+    for comp_sku, group in df_bom_view.groupby("component_sku", sort=False):
         span_count = len(group)
+        is_shared = (span_count > 1)
         for idx_in_group, (row_idx, r) in enumerate(group.iterrows()):
             is_raw = (r["comp_type"] == "RAW")
             per_unit_base = float(r["req_weight_grams"] if is_raw else r["req_qty_units"])
@@ -836,29 +871,46 @@ elif menu == UI["m_bom"]:
             is_last_in_group = (idx_in_group == span_count - 1)
             tr_class = " class='group-end'" if is_last_in_group else ""
 
-            parent_td = ""
+            child_td = ""
+            init_stock_td = ""
+            final_sum_td = ""
+
             if idx_in_group == 0:
-                parent_td = (
-                    f"<td class='merged-parent-col' rowspan='{span_count}'>"
-                    f"<div>{r['parent_sku']}</div>"
-                    f"<div style='font-size:0.82rem; font-weight:600; opacity:0.88;'>{r['parent_name']}</div>"
+                shared_tag = (
+                    f"<span class='shared-badge'>🔗 {'משותף ל-' + str(span_count) + ' מק\"טי אב' if is_he else 'Shared by ' + str(span_count) + ' Parents'}</span>"
+                    if is_shared else ""
+                )
+                child_td = (
+                    f"<td class='merged-child-col' rowspan='{span_count}'>"
+                    f"<div>{r['component_sku']}</div>"
+                    f"<div style='font-size:0.82rem; font-weight:600; opacity:0.9;'>{r['comp_name']}</div>"
+                    f"{shared_tag}"
                     f"</td>"
                 )
+                init_stock_disp = fmt_val(initial_stock_base, is_raw)
+                init_stock_td = f"<td class='merged-stock-col' rowspan='{span_count}'>{init_stock_disp}</td>"
+
+                fin_info = final_comp_balance[comp_sku]
+                fin_str = fmt_val(fin_info["after_bal"], is_raw)
+                sum_cls = "summary-ok" if fin_info["is_ok"] else "summary-short"
+                final_sum_td = f"<td class='{sum_cls}' rowspan='{span_count}'>{fin_str}</td>"
 
             week_tds_html = ""
             for w_col in week_cols:
                 st_info = cell_status[(row_idx, w_col)]
                 before_str = fmt_val(st_info["before_bal"], is_raw)
-                used_str = fmt_val(st_info["used"], is_raw)
+                used_parent_str = fmt_val(st_info["used_parent"], is_raw)
+                tot_used_str = fmt_val(st_info["tot_used_all_parents"], is_raw)
                 after_str = fmt_val(st_info["after_bal"], is_raw)
-                short_wk_str = fmt_val(-st_info["short_this_week"], is_raw)
 
                 if is_he:
+                    shared_line = f"סה\"כ כל האבות השבוע: <b>{tot_used_str}</b><br>" if is_shared else ""
                     if st_info["is_ok"]:
                         breakdown_html = (
                             f"<div class='cell-breakdown-fit'>"
-                            f"לפני השימוש: <b>{before_str}</b><br>"
-                            f"שימוש השבוע: <b>{used_str}</b><br>"
+                            f"לפני ({r['parent_sku']}): <b>{before_str}</b><br>"
+                            f"שימוש ל-{r['parent_sku']}: <b>{used_parent_str}</b><br>"
+                            f"{shared_line}"
                             f"נשאר במלאי: <b>{after_str}</b>"
                             f"</div>"
                         )
@@ -866,17 +918,19 @@ elif menu == UI["m_bom"]:
                         breakdown_html = (
                             f"<div class='cell-breakdown-fit'>"
                             f"יתרה קודמת: <b>{before_str}</b><br>"
-                            f"דרישה השבוע: <b>{used_str}</b><br>"
-                            f"חוסר השבוע: <b>{short_wk_str}</b><br>"
+                            f"דרישה ל-{r['parent_sku']}: <b>{used_parent_str}</b><br>"
+                            f"{shared_line}"
                             f"<span style='color:#ef4444;'>סה\"כ חוסר מצטבר: <b>{after_str}</b></span>"
                             f"</div>"
                         )
                 else:
+                    shared_line = f"All Parents Week: <b>{tot_used_str}</b><br>" if is_shared else ""
                     if st_info["is_ok"]:
                         breakdown_html = (
                             f"<div class='cell-breakdown-fit'>"
-                            f"Before: <b>{before_str}</b><br>"
-                            f"Used: <b>{used_str}</b><br>"
+                            f"Before ({r['parent_sku']}): <b>{before_str}</b><br>"
+                            f"Used ({r['parent_sku']}): <b>{used_parent_str}</b><br>"
+                            f"{shared_line}"
                             f"Remaining: <b>{after_str}</b>"
                             f"</div>"
                         )
@@ -884,9 +938,9 @@ elif menu == UI["m_bom"]:
                         breakdown_html = (
                             f"<div class='cell-breakdown-fit'>"
                             f"Prev Bal: <b>{before_str}</b><br>"
-                            f"Week Need: <b>{used_str}</b><br>"
-                            f"Week Short: <b>{short_wk_str}</b><br>"
-                            f"<span style='color:#ef4444;'>Total Cum. Short: <b>{after_str}</b></span>"
+                            f"Need ({r['parent_sku']}): <b>{used_parent_str}</b><br>"
+                            f"{shared_line}"
+                            f"<span style='color:#ef4444;'>Cum. Short: <b>{after_str}</b></span>"
                             f"</div>"
                         )
 
@@ -902,22 +956,16 @@ elif menu == UI["m_bom"]:
                     f"</td>"
                 )
 
-            # עמודת סיכום סופית לשורה: מציגה את המאזן הסופי המצטבר בסוף שבוע 8
-            final_info = cell_status[(row_idx, "W8")]
-            final_str = fmt_val(final_info["after_bal"], is_raw)
-            sum_cls = "summary-ok" if final_info["is_ok"] else "summary-short"
-
             per_unit_disp = fmt_val(per_unit_base, is_raw)
-            init_stock_disp = fmt_val(initial_stock_base, is_raw)
 
             rows_bom_html += (
                 f"<tr{tr_class}>"
-                f"{parent_td}"
-                f"<td style='text-align:right;'><b>{r['component_sku']}</b> - {r['comp_name']}</td>"
+                f"{child_td}"
+                f"<td style='text-align:right;'><b>{r['parent_sku']}</b> - {r['parent_name']}</td>"
                 f"<td><b>{per_unit_disp}</b></td>"
-                f"<td><b>{init_stock_disp}</b></td>"
+                f"{init_stock_td}"
                 f"{week_tds_html}"
-                f"<td class='{sum_cls}'>{final_str}</td>"
+                f"{final_sum_td}"
                 f"</tr>"
             )
 
@@ -925,12 +973,12 @@ elif menu == UI["m_bom"]:
         f"<table class='matrix-table'>"
         f"<thead>"
         f"<tr>"
-        f"<th rowspan='2' style='width:11%; text-align:center;'>{'מק\"ט אב' if is_he else 'Parent SKU'}</th>"
-        f"<th rowspan='2' style='width:16%; text-align:right;'>{'מק\"ט בן / רכיב בעץ' if is_he else 'Child Component SKU'}</th>"
-        f"<th rowspan='2' style='width:6%;'>{'למוצר 1' if is_he else 'Per 1'}</th>"
-        f"<th rowspan='2' style='width:8%;'>{'מלאי התחלתי' if is_he else 'Init Stock'}</th>"
-        f"<th colspan='4' style='width:25%;'>{month1_name}</th><th colspan='4' style='width:25%;'>{month2_name}</th>"
-        f"<th rowspan='2' style='width:9%;'>{'סה\"כ מאזן / חוסר מצטבר' if is_he else 'Total Cum. Balance'}</th>"
+        f"<th rowspan='2' style='width:14%; text-align:center;'>{'מק\"ט בן (רכיב)' if is_he else 'Child Component SKU'}</th>"
+        f"<th rowspan='2' style='width:14%; text-align:right;'>{'מק\"ט אב משויך' if is_he else 'Linked Parent SKU'}</th>"
+        f"<th rowspan='2' style='width:6%;'>{'לאב 1' if is_he else 'Per 1'}</th>"
+        f"<th rowspan='2' style='width:8%;'>{'מלאי התחלתי לבן' if is_he else 'Child Init Stock'}</th>"
+        f"<th colspan='4' style='width:24.5%;'>{month1_name}</th><th colspan='4' style='width:24.5%;'>{month2_name}</th>"
+        f"<th rowspan='2' style='width:9%;'>{'סה\"כ מאזן / חוסר מצטבר לבן' if is_he else 'Total Child Balance'}</th>"
         f"</tr><tr>"
         f"<th>{PLAN_PERIODS[0][2]}</th><th>{PLAN_PERIODS[1][2]}</th><th>{PLAN_PERIODS[2][2]}</th><th>{PLAN_PERIODS[3][2]}</th>"
         f"<th>{PLAN_PERIODS[4][2]}</th><th>{PLAN_PERIODS[5][2]}</th><th>{PLAN_PERIODS[6][2]}</th><th>{PLAN_PERIODS[7][2]}</th>"
@@ -939,26 +987,26 @@ elif menu == UI["m_bom"]:
     )
     st.markdown(bom_html, unsafe_allow_html=True)
 
-    with st.expander("🛠️ עריכת רכיבי עץ מוצר" if is_he else "🛠️ Edit BOM Structure", expanded=False):
-        df_b_raw = pd.read_sql("SELECT * FROM BOM", conn)
+    with st.expander("🛠️ עריכת שיוך מק\"ט אב למק\"ט בן (BOM)" if is_he else "🛠️ Edit Child-to-Parent BOM Links", expanded=False):
+        df_b_raw = pd.read_sql("SELECT * FROM BOM ORDER BY component_sku, parent_sku", conn)
         df_b_raw["amount_per_unit"] = df_b_raw.apply(
             lambda r: (r["req_weight_grams"] / w_factor) if r["comp_type"] == "RAW" else r["req_qty_units"], axis=1
         )
         ed_bom = st.data_editor(
-            df_b_raw[["amount_per_unit", "comp_type", "component_sku", "parent_sku"]],
+            df_b_raw[["amount_per_unit", "comp_type", "parent_sku", "component_sku"]],
             column_config={
-                "parent_sku": st.column_config.TextColumn("מק\"ט אב" if is_he else "Parent SKU", required=True),
-                "component_sku": st.column_config.TextColumn("מק\"ט רכיב" if is_he else "Component SKU", required=True),
+                "component_sku": st.column_config.TextColumn("מק\"ט בן (רכיב)" if is_he else "Child SKU", required=True),
+                "parent_sku": st.column_config.TextColumn("מק\"ט אב משויך" if is_he else "Linked Parent SKU", required=True),
                 "comp_type": st.column_config.SelectboxColumn("סוג (RAW=משקל, PKG/LBL=יח')" if is_he else "Type", options=["RAW", "PKG", "LBL"], required=True),
                 "amount_per_unit": st.column_config.NumberColumn(
-                    f"כמות למוצר 1 ({w_label} לחו\"ג / יח' לאריזה ומדבקה)" if is_he else f"Amount per 1 unit ({w_label} or units)",
+                    f"כמות ליחידת אב ({w_label} לחו\"ג / יח' לאריזה)" if is_he else f"Amount per 1 Parent ({w_label} or units)",
                     format="%.4f" if use_kg else "%.1f",
                     required=True
                 )
             },
             num_rows="dynamic", use_container_width=True, hide_index=True
         )
-        if st.button("💾 שמור עץ מוצר" if is_he else "💾 Save BOM"):
+        if st.button("💾 שמור שיוכי עץ מוצר" if is_he else "💾 Save BOM Links"):
             conn.execute("DELETE FROM BOM")
             for _, r in ed_bom.iterrows():
                 if pd.notna(r["parent_sku"]) and pd.notna(r["component_sku"]):
