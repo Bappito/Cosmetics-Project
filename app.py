@@ -81,7 +81,7 @@ UI = {
         "m_inv": "🗄️ מחסני מלאי (חומר גלם | בלקים | אריזות)",
         "m_sim_prod": "🧪 1. סימולטור קו ייצור (חו\"ג ⬅ בלקים)",
         "m_sim_pack": "📦 2. סימולטור אריזה (בלקים + אריזות)",
-        "m_sim_work": "📊 3. סימולטור עבודה מסכם (תמונת מצב נקייה)",
+        "m_sim_work": "📊 3. סימולטור עבודה מסכם (לפי שבועות וחודשים)",
         "m_wh": "🔄 העברות בין מחסנים ורכש (SAP)",
         "m_ai": "🤖 סוכן פקודות מהיר",
         "lang_btn": "🌐 EN | English",
@@ -94,7 +94,7 @@ UI = {
         "m_inv": "🗄️ Warehouses (Raw | Bulks | Packaging)",
         "m_sim_prod": "🧪 1. Production Line Simulator (Raw ⬅ Bulk)",
         "m_sim_pack": "📦 2. Packaging Simulator (Bulks + Pack)",
-        "m_sim_work": "📊 3. Master Work Simulator (Clean Overview)",
+        "m_sim_work": "📊 3. Master Work Simulator (Weekly/Monthly)",
         "m_wh": "🔄 Transfers & Purchase Orders (SAP)",
         "m_ai": "🤖 Quick Command Agent",
         "lang_btn": "🌐 עב | עברית",
@@ -104,17 +104,17 @@ UI = {
 }[lang]
 
 PLAN_PERIODS = [
-    ("W1", "נובמבר 2026" if is_he else "Nov 2026", "שבוע 1" if is_he else "Week 1"),
-    ("W2", "נובמבר 2026" if is_he else "Nov 2026", "שבוע 2" if is_he else "Week 2"),
-    ("W3", "נובמבר 2026" if is_he else "Nov 2026", "שבוע 3" if is_he else "Week 3"),
-    ("W4", "נובמבר 2026" if is_he else "Nov 2026", "שבוע 4" if is_he else "Week 4"),
-    ("W5", "דצמבר 2026" if is_he else "Dec 2026", "שבוע 5" if is_he else "Week 5"),
-    ("W6", "דצמבר 2026" if is_he else "Dec 2026", "שבוע 6" if is_he else "Week 6"),
-    ("W7", "דצמבר 2026" if is_he else "Dec 2026", "שבוע 7" if is_he else "Week 7"),
-    ("W8", "דצמבר 2026" if is_he else "Dec 2026", "שבוע 8" if is_he else "Week 8"),
+    ("W1", "נובמבר 2026" if is_he else "Nov 2026", "שבוע 1 (15-21/11)" if is_he else "Week 1 (Nov 15)"),
+    ("W2", "נובמבר 2026" if is_he else "Nov 2026", "שבוע 2 (22-28/11)" if is_he else "Week 2 (Nov 22)"),
+    ("W3", "נובמבר 2026" if is_he else "Nov 2026", "שבוע 3 (29/11-05/12)" if is_he else "Week 3 (Nov 29)"),
+    ("W4", "נובמבר 2026" if is_he else "Nov 2026", "שבוע 4 (06-12/12)" if is_he else "Week 4 (Dec 06)"),
+    ("W5", "דצמבר 2026" if is_he else "Dec 2026", "שבוע 5 (13-19/12)" if is_he else "Week 5 (Dec 13)"),
+    ("W6", "דצמבר 2026" if is_he else "Dec 2026", "שבוע 6 (20-26/12)" if is_he else "Week 6 (Dec 20)"),
+    ("W7", "דצמבר 2026" if is_he else "Dec 2026", "שבוע 7 (27/12-02/01)" if is_he else "Week 7 (Dec 27)"),
+    ("W8", "דצמבר 2026" if is_he else "Dec 2026", "שבוע 8 (03-09/01)" if is_he else "Week 8 (Jan 03)"),
 ]
 
-# --- CSS מותאם ל-100% מרוחב המסך + עיצוב נקי לסימולטור העבודה ---
+# --- CSS מותאם ל-100% מרוחב המסך ללא גלילה אופקית ---
 st.markdown(f"""
 <style>
 .stApp, .main, .block-container {{
@@ -149,6 +149,13 @@ h1, h2, h3, h4, p, label, .stMarkdown {{
     margin-bottom: 14px;
     direction: {UI['dir']} !important;
     text-align: {UI['align']} !important;
+}}
+.plan-box {{
+    background-color: var(--secondary-background-color);
+    border: 1px solid rgba(2, 132, 199, 0.4);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 14px;
 }}
 div[data-testid="stMetric"] {{
     background-color: var(--secondary-background-color);
@@ -225,7 +232,7 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checke
 .matrix-table thead tr:nth-child(2) th {{
     background-color: var(--secondary-background-color);
     font-weight: 600;
-    font-size: 0.82rem;
+    font-size: 0.80rem;
 }}
 .matrix-table td.parent-col {{
     text-align: right !important;
@@ -237,7 +244,7 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checke
     text-align: center !important;
     vertical-align: middle !important;
     font-weight: 800;
-    font-size: 0.93rem;
+    font-size: 0.92rem;
     background: linear-gradient(135deg, rgba(2, 132, 199, 0.16) 0%, rgba(2, 132, 199, 0.05) 100%);
     border-left: 3px solid #0284c7 !important;
     padding: 8px 6px !important;
@@ -247,7 +254,7 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checke
     text-align: center !important;
     vertical-align: middle !important;
     font-weight: 800;
-    font-size: 0.93rem;
+    font-size: 0.92rem;
     background: linear-gradient(135deg, rgba(168, 85, 247, 0.18) 0%, rgba(168, 85, 247, 0.05) 100%);
     border-left: 3px solid #a855f7 !important;
     padding: 8px 6px !important;
@@ -278,14 +285,14 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checke
     background-color: rgba(34, 197, 94, 0.34) !important;
     border: 2px solid rgba(34, 197, 94, 0.8) !important;
     font-weight: 800;
-    font-size: 0.95rem;
+    font-size: 0.93rem;
     vertical-align: middle !important;
 }}
 .matrix-table td.summary-short {{
     background-color: rgba(239, 68, 68, 0.38) !important;
     border: 2px solid rgba(239, 68, 68, 0.85) !important;
     font-weight: 800;
-    font-size: 0.95rem;
+    font-size: 0.93rem;
     vertical-align: middle !important;
 }}
 .shared-badge {{
@@ -318,41 +325,6 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checke
     font-size: 0.72rem;
     font-weight: 700;
 }}
-/* כרטיסי מנהלים נקיים לסימולטור העבודה */
-.work-card {{
-    background-color: var(--secondary-background-color);
-    color: var(--text-color);
-    border: 1px solid rgba(128,128,128,0.28);
-    border-radius: 14px;
-    padding: 18px 20px;
-    margin-bottom: 14px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.06);
-}}
-.work-card-title {{
-    font-size: 1.2rem;
-    font-weight: 800;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid rgba(128,128,128,0.25);
-}}
-.work-stat-grid {{
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    text-align: center;
-    margin-bottom: 12px;
-}}
-.work-stat-box {{
-    background-color: var(--background-color);
-    border: 1px solid rgba(128,128,128,0.22);
-    border-radius: 10px;
-    padding: 10px 8px;
-}}
-.work-stat-num {{
-    font-size: 1.35rem;
-    font-weight: 800;
-    margin-top: 4px;
-}}
 .cell-details {{
     cursor: pointer;
     user-select: none;
@@ -366,20 +338,27 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checke
     display: none;
 }}
 .cell-main-val {{
-    font-size: 0.98rem;
+    font-size: 0.95rem;
     font-weight: 800;
     display: inline-block;
     padding: 1px 2px;
     border-radius: 4px;
+    line-height: 1.25;
     transition: transform 0.1s ease;
 }}
 .cell-details:hover .cell-main-val {{
-    transform: scale(1.05);
+    transform: scale(1.04);
     text-decoration: underline;
+}}
+.cell-sub-plan {{
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    opacity: 0.88;
 }}
 .cell-breakdown-fit {{
     margin-top: 4px;
-    padding: 4px 5px;
+    padding: 5px 6px;
     border-radius: 6px;
     background-color: var(--background-color);
     border: 1px solid rgba(128,128,128,0.45);
@@ -387,7 +366,7 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checke
     font-weight: 600;
     text-align: {UI['align']};
     direction: {UI['dir']};
-    line-height: 1.3;
+    line-height: 1.35;
     box-shadow: 0 2px 6px rgba(0,0,0,0.14);
 }}
 .legend-box {{
@@ -602,11 +581,52 @@ def fmt_val(val_in_base, is_weight_based):
 
 st.button(UI["lang_btn"], on_click=toggle_language, key="floating_lang_btn")
 
-# --- פונקציית רינדור לטבלאות סימולטור שבועיות (תומכת בשילוב בלקים במשקל + אריזות ביחידות) ---
+# --- רכיב תכנון מהיר ("כמה אני מתכנן ולמתי") שמופיע בכל הסימולטורים ---
+def render_quick_planner(df_sched_sub, unit_name, key_prefix):
+    st.markdown("<div class='plan-box'>", unsafe_allow_html=True)
+    st.markdown(
+        f"**📅 {'תכנון ייצור: קבע כמה את/ה מתכנן/ת לייצר ולמתי (חודש ושבוע)' if is_he else 'Production Planner: Set Planned Quantity & Target Week'}**"
+    )
+    period_labels = [f"{p[0]} | {p[1]} - {p[2]}" for p in PLAN_PERIODS]
+    c_p1, c_p2, c_p3, c_p4 = st.columns([2.2, 2.2, 1.5, 1.5])
+    with c_p1:
+        sel_parent_plan = st.selectbox(
+            "בחר מק\"ט אב לתכנון:" if is_he else "Select Parent SKU:",
+            df_sched_sub["parent_label"],
+            key=f"{key_prefix}_plan_sku"
+        )
+    with c_p2:
+        sel_week_plan = st.selectbox(
+            "למתי (בחר חודש ושבוע):" if is_he else "When (Month & Week):",
+            period_labels,
+            key=f"{key_prefix}_plan_wk"
+        )
+    w_code_selected = sel_week_plan.split(" | ")[0]
+    p_sku_selected = sel_parent_plan.split(" - ")[0]
+    curr_planned_val = float(df_sched_sub[df_sched_sub["sku"] == p_sku_selected][w_code_selected].iloc[0])
+
+    with c_p3:
+        new_planned_qty = st.number_input(
+            f"{'כמות מתוכננת' if is_he else 'Planned Qty'} ({unit_name}):",
+            min_value=0.0, value=curr_planned_val, step=10.0 if unit_name == u_label else 1.0,
+            key=f"{key_prefix}_plan_qty"
+        )
+    with c_p4:
+        st.write("")
+        if st.button("📅 עדכן תכנון לשבוע זה" if is_he else "📅 Update Plan", key=f"{key_prefix}_plan_btn", use_container_width=True):
+            conn.execute(f"UPDATE WeeklySchedule SET {w_code_selected} = ? WHERE parent_sku = ?", (new_planned_qty, p_sku_selected))
+            conn.commit()
+            st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# --- פונקציית רינדור לסימולטור קו ייצור וסימולטור אריזה ---
 def render_where_used_simulator(df_sched_sub, df_bom_sub, parent_unit_str, sim_key_prefix):
     week_cols = ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8"]
     month1_name = PLAN_PERIODS[0][1]
     month2_name = PLAN_PERIODS[4][1]
+
+    # פאנל תכנון מהיר ("כמה מתוכנן ולמתי")
+    render_quick_planner(df_sched_sub, parent_unit_str, sim_key_prefix)
 
     running_balance = {}
     for _, r in df_bom_sub.iterrows():
@@ -678,31 +698,33 @@ def render_where_used_simulator(df_sched_sub, df_bom_sub, parent_unit_str, sim_k
             df_bom_view["parent_name"].str.contains(q, case=False, na=False)
         ]
 
-    # טבלה 1: תוכנית שבועית למק"טי האב
+    # טבלה 1: תוכנית שבועית למק"טי האב (כמה מתוכנן ולמתי)
     rows_sched_html = ""
     for _, row in df_sched_sub.iterrows():
         tot_p = int(row["W1"] + row["W2"] + row["W3"] + row["W4"] + row["W5"] + row["W6"] + row["W7"] + row["W8"])
         rows_sched_html += (
             f"<tr>"
             f"<td class='parent-col'>{row['parent_label']}</td>"
-            f"<td>{int(row['W1'])} {parent_unit_str}</td><td>{int(row['W2'])} {parent_unit_str}</td><td>{int(row['W3'])} {parent_unit_str}</td><td>{int(row['W4'])} {parent_unit_str}</td>"
-            f"<td>{int(row['W5'])} {parent_unit_str}</td><td>{int(row['W6'])} {parent_unit_str}</td><td>{int(row['W7'])} {parent_unit_str}</td><td>{int(row['W8'])} {parent_unit_str}</td>"
+            f"<td><b>{int(row['W1'])}</b> {parent_unit_str}</td><td><b>{int(row['W2'])}</b> {parent_unit_str}</td>"
+            f"<td><b>{int(row['W3'])}</b> {parent_unit_str}</td><td><b>{int(row['W4'])}</b> {parent_unit_str}</td>"
+            f"<td><b>{int(row['W5'])}</b> {parent_unit_str}</td><td><b>{int(row['W6'])}</b> {parent_unit_str}</td>"
+            f"<td><b>{int(row['W7'])}</b> {parent_unit_str}</td><td><b>{int(row['W8'])}</b> {parent_unit_str}</td>"
             f"<td><b>{tot_p:,} {parent_unit_str}</b></td>"
             f"</tr>"
         )
 
     st.markdown(
         f"<table class='matrix-table'><thead>"
-        f"<tr><th rowspan='2' style='width:18%; text-align:right;'>{'מק\"ט אב ותוכנית שבועית' if is_he else 'Parent SKU Schedule'}</th>"
+        f"<tr><th rowspan='2' style='width:18%; text-align:right;'>{'מק\"ט אב ותוכנית ייצור מתוכננת' if is_he else 'Parent SKU Planned Schedule'}</th>"
         f"<th colspan='4' style='width:37%;'>{month1_name}</th><th colspan='4' style='width:37%;'>{month2_name}</th>"
-        f"<th rowspan='2' style='width:8%;'>{'סה\"כ' if is_he else 'Total'}</th></tr>"
+        f"<th rowspan='2' style='width:8%;'>{'סה\"כ מתוכנן' if is_he else 'Total Planned'}</th></tr>"
         f"<tr><th>{PLAN_PERIODS[0][2]}</th><th>{PLAN_PERIODS[1][2]}</th><th>{PLAN_PERIODS[2][2]}</th><th>{PLAN_PERIODS[3][2]}</th>"
         f"<th>{PLAN_PERIODS[4][2]}</th><th>{PLAN_PERIODS[5][2]}</th><th>{PLAN_PERIODS[6][2]}</th><th>{PLAN_PERIODS[7][2]}</th></tr>"
         f"</thead><tbody>{rows_sched_html}</tbody></table>",
         unsafe_allow_html=True
     )
 
-    with st.expander("✏️ עריכת כמויות שבועות" if is_he else "✏️ Edit Weekly Quantities", expanded=False):
+    with st.expander("✏️ עריכת כל טבלת השבועות בבת אחת" if is_he else "✏️ Edit All Weeks Table", expanded=False):
         ed_s = st.data_editor(
             df_sched_sub[["W8", "W7", "W6", "W5", "W4", "W3", "W2", "W1", "parent_label"]],
             use_container_width=True, hide_index=True, key=f"{sim_key_prefix}_sched_ed"
@@ -715,7 +737,7 @@ def render_where_used_simulator(df_sched_sub, df_bom_sub, parent_unit_str, sim_k
             conn.commit()
             st.rerun()
 
-    # טבלה 2: סימולציית המלאי לפי מק"ט בן (כולל הבחנה ברורה בין בלקים לאריזות/חו"ג)
+    # טבלה 2: סימולציית המלאי לפי מק"ט בן
     rows_bom_html = ""
     for comp_sku, group in df_bom_view.groupby("component_sku", sort=False):
         span_count = len(group)
@@ -767,13 +789,15 @@ def render_where_used_simulator(df_sched_sub, df_bom_sub, parent_unit_str, sim_k
                 used_parent_str = fmt_val(st_info["used_parent"], is_w)
                 tot_used_str = fmt_val(st_info["tot_used_all_parents"], is_w)
                 after_str = fmt_val(st_info["after_bal"], is_w)
+                planned_parent_w = int(r[w_col])
 
                 shared_line = f"סה\"כ כל האבות: <b>{tot_used_str}</b><br>" if (is_shared and is_he) else ""
                 if is_he:
                     breakdown_html = (
                         f"<div class='cell-breakdown-fit'>"
-                        f"לפני: <b>{before_str}</b><br>"
-                        f"שימוש ל-{r['parent_sku']}: <b>{used_parent_str}</b><br>"
+                        f"תכנון ל-{r['parent_sku']}: <b>{planned_parent_w} {parent_unit_str}</b><br>"
+                        f"לפני השימוש: <b>{before_str}</b><br>"
+                        f"נדרש השבוע: <b>{used_parent_str}</b><br>"
                         f"{shared_line}"
                         f"{'נשאר במלאי' if st_info['is_ok'] else '<span style=\"color:#ef4444;\">חוסר מצטבר</span>'}: <b>{after_str}</b>"
                         f"</div>"
@@ -781,8 +805,9 @@ def render_where_used_simulator(df_sched_sub, df_bom_sub, parent_unit_str, sim_k
                 else:
                     breakdown_html = (
                         f"<div class='cell-breakdown-fit'>"
+                        f"Planned ({r['parent_sku']}): <b>{planned_parent_w} {parent_unit_str}</b><br>"
                         f"Before: <b>{before_str}</b><br>"
-                        f"Used ({r['parent_sku']}): <b>{used_parent_str}</b><br>"
+                        f"Needed: <b>{used_parent_str}</b><br>"
                         f"Balance: <b>{after_str}</b>"
                         f"</div>"
                     )
@@ -797,7 +822,6 @@ def render_where_used_simulator(df_sched_sub, df_bom_sub, parent_unit_str, sim_k
                     f"</td>"
                 )
 
-            # עבור מילוי בלק לתוך צנצנת בודדת (למשל 50 גרם ליחידה), נציג בגרמים כדי שיהיה אינטואיטיבי וקריא
             if c_tp == "BULK" and per_unit_base < 1000:
                 per_unit_disp = f"{per_unit_base:g} {'גרם' if is_he else 'g'}"
             else:
@@ -941,7 +965,7 @@ if menu == UI["m_inv"]:
 # ==============================================================================
 elif menu == UI["m_sim_prod"]:
     st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_sim_prod"]}</h2></div>', unsafe_allow_html=True)
-    st.info("🧪 **סימולטור קו ייצור:** לוקח מידע **אך ורק ממחסן חומרי גלם (`RAW`)**, מחשב את צריכת החומרים לבישול הבלקים, ובלחיצת כפתור מעביר את החומר המוכן אל **מחסן בלקים (`BULK`)**.")
+    st.info("🧪 **סימולטור קו ייצור:** קבע כמה ק\"ג בלק את/ה מתכנן/ת לייצר ולמתי – המערכת בודקת את **מחסן חומרי הגלם (`RAW`)** ומראה מתי יהיה חוסר.")
 
     bulk_df = pd.read_sql("SELECT sku, name FROM Catalog WHERE item_type = 'BULK'", conn)
     for _, b_r in bulk_df.iterrows():
@@ -1010,16 +1034,7 @@ elif menu == UI["m_sim_prod"]:
 # ==============================================================================
 elif menu == UI["m_sim_pack"]:
     st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_sim_pack"]}</h2></div>', unsafe_allow_html=True)
-    st.info("📦 **סימולטור אריזה משולב:** שואב במקביל את **החומר המוכן ממחסן הבלקים (`🛢️ BULK` - במשקל)** יחד עם **כל רכיבי האריזה ממחסן האריזות (`📦 PKG` - בקבוקים, צנצנות, מכסים, מתזים ומדבקות - ביחידות)**.")
-
-    # תצוגה מהירה בראש הדף של מלאי הבלקים (החומר המוכן) מול מלאי האריזות
-    df_cat_pack = pd.read_sql("SELECT * FROM Catalog WHERE item_type IN ('BULK', 'PKG')", conn)
-    pk1, pk2, pk3 = st.columns(3)
-    bulk_avail_str = fmt_val(df_cat_pack[df_cat_pack["item_type"] == "BULK"]["weight_grams"].sum(), True)
-    pkg_avail_str = fmt_val(df_cat_pack[df_cat_pack["item_type"] == "PKG"]["qty_units"].sum(), False)
-    pk1.metric("🛢️ סה\"כ חומר מוכן במחסן בלקים" if is_he else "Ready Material in Bulks WH", bulk_avail_str)
-    pk2.metric("📦 סה\"כ פריטים במחסן אריזות" if is_he else "Total Items in Packaging WH", pkg_avail_str)
-    pk3.metric("🔗 מקורות מחוברים לסימולטור" if is_he else "Connected Warehouses", "מחסן בלקים + מחסן אריזות" if is_he else "Bulks WH + Packaging WH")
+    st.info("📦 **סימולטור אריזה משולב:** קבע כמה יחידות מוצר סופי את/ה מתכנן/ת לארוז ולמתי – המערכת בודקת במקביל את **החומר המוכן ממחסן הבלקים (`🛢️ BULK`)** ואת **האריזות ממחסן האריזות (`📦 PKG`)**.")
 
     fg_df = pd.read_sql("SELECT sku, name FROM Catalog WHERE item_type = 'FG'", conn)
     for _, f_r in fg_df.iterrows():
@@ -1034,7 +1049,6 @@ elif menu == UI["m_sim_pack"]:
         WHERE c.item_type = 'FG'
     """, conn)
 
-    # שליפת עץ האריזה המלא: גם החומר מהבלקים (BULK) וגם האריזות (PKG) מופיעים יחד בטבלה!
     df_bom_pack = pd.read_sql("""
         SELECT b.component_sku, c.name AS comp_name, c.item_type AS comp_type,
                b.parent_sku, p.name AS parent_name,
@@ -1049,7 +1063,6 @@ elif menu == UI["m_sim_pack"]:
         ORDER BY CASE WHEN c.item_type = 'BULK' THEN 0 ELSE 1 END, b.component_sku, b.parent_sku
     """, conn)
 
-    # אפשרות סינון מהירה בין: הצג הכל (בלקים + אריזות יחד), רק בלקים, או רק אריזות
     view_mode_pack = st.radio(
         "תצוגת רכיבים בסימולטור האריזה:" if is_he else "Show in Packaging Simulator:",
         [
@@ -1065,32 +1078,6 @@ elif menu == UI["m_sim_pack"]:
         df_bom_pack = df_bom_pack[df_bom_pack["comp_type"] == "PKG"]
 
     render_where_used_simulator(df_sched_pack, df_bom_pack, u_label, "pack")
-
-    with st.expander("🛠️ עריכת עץ אריזה (חיבור בלקים + בקבוקים + מכסים + מדבקות למוצר)" if is_he else "🛠️ Edit Packaging BOM (Link Bulks & Packaging)", expanded=False):
-        df_bp_edit = pd.read_sql("""
-            SELECT parent_sku, component_sku, comp_type, req_qty_units, req_weight_grams
-            FROM BOM WHERE parent_sku IN (SELECT sku FROM Catalog WHERE item_type='FG')
-        """, conn)
-        ed_bp = st.data_editor(
-            df_bp_edit[["req_weight_grams", "req_qty_units", "comp_type", "component_sku", "parent_sku"]],
-            column_config={
-                "parent_sku": st.column_config.TextColumn("מק\"ט מוצר סופי (FG)", required=True),
-                "component_sku": st.column_config.TextColumn("מק\"ט בלק או אריזה", required=True),
-                "comp_type": st.column_config.SelectboxColumn("מקור (BULK=בלק, PKG=אריזה)", options=["BULK", "PKG"], required=True),
-                "req_qty_units": st.column_config.NumberColumn("יחידות אריזה למוצר 1 (עבור PKG)"),
-                "req_weight_grams": st.column_config.NumberColumn("גרם בלק למילוי יחידה 1 (עבור BULK)")
-            },
-            num_rows="dynamic", use_container_width=True, hide_index=True
-        )
-        if st.button("💾 שמור עץ אריזה"):
-            conn.execute("DELETE FROM BOM WHERE parent_sku IN (SELECT sku FROM Catalog WHERE item_type='FG')")
-            for _, r in ed_bp.iterrows():
-                if pd.notna(r["parent_sku"]) and pd.notna(r["component_sku"]):
-                    conn.execute("INSERT OR REPLACE INTO BOM VALUES (?,?,?,?,?)",
-                                 (str(r["parent_sku"]), str(r["component_sku"]), str(r["comp_type"]),
-                                  float(r["req_qty_units"] or 0), float(r["req_weight_grams"] or 0)))
-            conn.commit()
-            st.rerun()
 
     st.divider()
     st.subheader("📦 ביצוע פעולת מילוי ואריזה (גריעה ממחסן בלקים וממחסן אריזות)")
@@ -1120,174 +1107,232 @@ elif menu == UI["m_sim_pack"]:
         st.rerun()
 
 # ==============================================================================
-# דף 4 (סימולטור 3): 📊 סימולטור עבודה מסכם - עיצוב נקי, ברור וללא בלאגן!
+# דף 4 (סימולטור 3): 📊 סימולטור עבודה מסכם - מק"ט אב מימין + חודשים ושבועות + כמה מתוכנן וכמה אפשר להכין + פירוט חוסרים בלחיצה!
 # ==============================================================================
 elif menu == UI["m_sim_work"]:
     st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_sim_work"]}</h2></div>', unsafe_allow_html=True)
+    st.info(
+        "📊 **סימולטור עבודה מסכם לפי חודשים ושבועות:** מציג לכל **מק\"ט אב** כמה יחידות **מתוכנן** לייצר בכל שבוע, כמה יחידות **אפשר להכין בפועל** (משילוב חו\"ג + בלקים + אריזות), ומתי יווצר חוסר. **לחץ על כל תא שבועי** כדי לראות בדיוק אילו רכיבים חסרים באותו שבוע וכמה חסר מהם!"
+    )
 
-    fg_df = pd.read_sql("SELECT * FROM Catalog WHERE item_type = 'FG'", conn)
+    fg_df = pd.read_sql("SELECT sku, name FROM Catalog WHERE item_type = 'FG'", conn)
+    for _, f_r in fg_df.iterrows():
+        conn.execute("INSERT OR IGNORE INTO WeeklySchedule (parent_sku) VALUES (?)", (f_r["sku"],))
+    conn.commit()
+
+    df_sched_work = pd.read_sql("""
+        SELECT c.sku || ' - ' || c.name AS parent_label, c.sku, c.name AS parent_name,
+               s.W1, s.W2, s.W3, s.W4, s.W5, s.W6, s.W7, s.W8
+        FROM WeeklySchedule s
+        JOIN Catalog c ON s.parent_sku = c.sku
+        WHERE c.item_type = 'FG'
+    """, conn)
+
+    # פאנל תכנון ייצור ("כמה אני מתכנן ולמתי") גם בסימולטור העבודה!
+    render_quick_planner(df_sched_work, u_label, "work_master")
+
     cat_all = pd.read_sql("SELECT * FROM Catalog", conn).set_index("sku")
     bom_all = pd.read_sql("SELECT * FROM BOM", conn)
 
-    # חישוב דרישות וחוסרים לכל המוצרים
-    target_inputs = {}
-    cols_top = st.columns(max(1, len(fg_df)))
+    week_cols = ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8"]
+    month1_name = PLAN_PERIODS[0][1]
+    month2_name = PLAN_PERIODS[4][1]
 
-    for idx, (_, fg_row) in enumerate(fg_df.iterrows()):
-        f_sku = fg_row["sku"]
-        sched_row = pd.read_sql("SELECT W1+W2+W3+W4+W5+W6+W7+W8 AS tot FROM WeeklySchedule WHERE parent_sku=?", conn, params=(f_sku,))
-        default_tot = int(sched_row["tot"].iloc[0]) if not sched_row.empty else 500
+    # --- סימולציית עבודה מתגלגלת שבוע-אחר-שבוע (W1 -> W8) על פני כל 3 המחסנים (PKG + BULK + RAW) ---
+    rem_pkg = {sku: float(r["qty_units"]) for sku, r in cat_all[cat_all["item_type"] == "PKG"].iterrows()}
+    rem_bulk_g = {sku: float(r["weight_grams"]) for sku, r in cat_all[cat_all["item_type"] == "BULK"].iterrows()}
+    rem_raw_g = {sku: float(r["weight_grams"]) for sku, r in cat_all[cat_all["item_type"] == "RAW"].iterrows()}
 
-        with cols_top[idx]:
-            target_u = st.number_input(
-                f"🎯 יעד ייצור כולל: {f_sku} - {fg_row['name']}",
-                min_value=1, value=default_tot, step=50, key=f"work_t_{f_sku}"
-            )
-            target_inputs[f_sku] = target_u
+    # תוצאות לכל (fg_sku, week_col)
+    work_sim_cells = {}
 
+    for w_col in week_cols:
+        for _, fg_row in df_sched_work.iterrows():
+            f_sku = fg_row["sku"]
+            planned_u = int(fg_row[w_col])
             sub_bom = bom_all[bom_all["parent_sku"] == f_sku]
-            max_by_existing_bulk = 999999
-            max_by_raw_to_bulk = 999999
-            max_by_packaging = 999999
-            bottleneck_str = "אין צוואר בקבוק"
 
-            for _, b_r in sub_bom.iterrows():
-                c_sku = b_r["component_sku"]
+            shortages_list = []
+            max_makeable_this_week = planned_u
+
+            # 1. בדיקת כל האריזות (PKG) ובלקים (BULK) שנדרשים ל-planned_u
+            for _, br in sub_bom.iterrows():
+                c_sku = br["component_sku"]
                 if c_sku not in cat_all.index:
                     continue
-                comp_item = cat_all.loc[c_sku]
+                c_name = cat_all.loc[c_sku]["name"]
 
-                if b_r["comp_type"] == "BULK":
-                    req_g_per_unit = float(b_r["req_weight_grams"])
-                    existing_bulk_g = float(comp_item["weight_grams"])
-                    possible_from_bulk = int(existing_bulk_g // req_g_per_unit) if req_g_per_unit > 0 else 999999
+                if br["comp_type"] == "PKG":
+                    req_u_per_fg = float(br["req_qty_units"])
+                    req_u_total = planned_u * req_u_per_fg
+                    avail_u = rem_pkg.get(c_sku, 0.0)
 
-                    raw_bom = bom_all[bom_all["parent_sku"] == c_sku]
-                    max_extra_bulk_kg = 999999.0
-                    for _, rb in raw_bom.iterrows():
-                        r_sku = rb["component_sku"]
-                        if r_sku in cat_all.index:
-                            raw_avail_g = float(cat_all.loc[r_sku]["weight_grams"])
-                            req_raw_per_kg_bulk = float(rb["req_weight_grams"])
-                            if req_raw_per_kg_bulk > 0:
-                                max_extra_bulk_kg = min(max_extra_bulk_kg, raw_avail_g / req_raw_per_kg_bulk)
+                    can_by_this_pkg = int(max(0.0, avail_u) // req_u_per_fg) if req_u_per_fg > 0 else planned_u
+                    max_makeable_this_week = min(max_makeable_this_week, can_by_this_pkg)
 
-                    extra_bulk_g = (max_extra_bulk_kg * 1000.0) if max_extra_bulk_kg < 999999.0 else 0.0
-                    possible_total_bulk = int((existing_bulk_g + extra_bulk_g) // req_g_per_unit) if req_g_per_unit > 0 else 999999
+                    after_u = avail_u - req_u_total
+                    rem_pkg[c_sku] = after_u
+                    if after_u < -1e-6:
+                        shortages_list.append(f"📦 {c_sku} ({c_name}): <b>{fmt_val(after_u, False)}</b>")
 
-                    max_by_existing_bulk = min(max_by_existing_bulk, possible_from_bulk)
-                    max_by_raw_to_bulk = min(max_by_raw_to_bulk, possible_total_bulk)
-                else:
-                    req_u_per_unit = float(b_r["req_qty_units"])
-                    avail_u = float(comp_item["qty_units"])
-                    possible_pkg = int(avail_u // req_u_per_unit) if req_u_per_unit > 0 else 999999
-                    if possible_pkg < max_by_packaging:
-                        max_by_packaging = possible_pkg
-                        bottleneck_str = f"{comp_item['name']} ({possible_pkg:,} {u_label})"
+                elif br["comp_type"] == "BULK":
+                    req_g_per_fg = float(br["req_weight_grams"])
+                    req_g_total = planned_u * req_g_per_fg
+                    avail_b_g = rem_bulk_g.get(c_sku, 0.0)
 
-            can_pack_now = min(max_by_existing_bulk, max_by_packaging)
-            can_make_total = min(max_by_raw_to_bulk, max_by_packaging)
-            missing_units = max(0, target_u - can_make_total)
+                    # אם יש מספיק בלק מוכן במחסן בלקים:
+                    if avail_b_g >= req_g_total - 1e-6:
+                        rem_bulk_g[c_sku] = avail_b_g - req_g_total
+                    else:
+                        # חסר בלק מוכן -> נבדוק כמה בלק נוסף אפשר לבשל מחומרי הגלם שבמחסן חו"ג!
+                        used_from_existing_bulk = max(0.0, avail_b_g)
+                        needed_extra_bulk_g = req_g_total - used_from_existing_bulk
+                        needed_extra_bulk_kg = needed_extra_bulk_g / 1000.0
 
-            status_color = "#22c55e" if missing_units == 0 else "#ef4444"
-            missing_display = f"<span dir='ltr'>-{missing_units:,}</span> {u_label}" if missing_units > 0 else f"0 (מוכן ליעד!)"
+                        raw_bom = bom_all[bom_all["parent_sku"] == c_sku]
+                        max_cookable_bulk_kg = needed_extra_bulk_kg
+                        raw_missing_for_bulk = []
 
-            # כרטיס מנהלים נקי וברור לכל מוצר
-            card_html = (
-                f"<div class='work-card' style='border-top: 5px solid {status_color};'>"
-                f"<div class='work-card-title'>🧴 {f_sku} - {fg_row['name']}</div>"
-                f"<div class='work-stat-grid'>"
-                f"<div class='work-stat-box'><div>אריזה מיידית (מבלק קיים)</div><div class='work-stat-num' style='color:#0284c7;'>{can_pack_now:,} {u_label}</div></div>"
-                f"<div class='work-stat-box'><div>סה\"כ ניתן להכין בפועל</div><div class='work-stat-num' style='color:#22c55e;'>{can_make_total:,} {u_label}</div></div>"
-                f"<div class='work-stat-box'><div>חסר להשלמת היעד</div><div class='work-stat-num' style='color:{status_color};'>{missing_display}</div></div>"
-                f"</div>"
-                f"<div style='font-size:0.88rem; opacity:0.9;'>🔒 <b>צוואר בקבוק באריזה:</b> {bottleneck_str}</div>"
-                f"</div>"
-            )
-            st.markdown(card_html, unsafe_allow_html=True)
+                        for _, rb in raw_bom.iterrows():
+                            r_sku = rb["component_sku"]
+                            if r_sku not in cat_all.index:
+                                continue
+                            r_name = cat_all.loc[r_sku]["name"]
+                            req_raw_g_per_kg = float(rb["req_weight_grams"])
+                            req_raw_total_g = needed_extra_bulk_kg * req_raw_g_per_kg
+                            avail_r_g = rem_raw_g.get(r_sku, 0.0)
 
-    st.divider()
+                            can_kg_by_raw = (max(0.0, avail_r_g) / req_raw_g_per_kg) if req_raw_g_per_kg > 0 else needed_extra_bulk_kg
+                            max_cookable_bulk_kg = min(max_cookable_bulk_kg, can_kg_by_raw)
 
-    # --- חלק 2: טבלה נקייה וממוקדת של "מה חסר לי וכמה חסר ממנו" ---
-    col_hdr, col_toggle = st.columns([3, 1])
-    with col_hdr:
-        st.subheader("🚨 ריכוז מה שחסר לך כרגע להשלמת העבודה (מכל 3 המחסנים)")
-    with col_toggle:
-        show_all_items = st.checkbox("הצג גם פריטים שלא חסרים (ירוקים)", value=False)
+                            after_r_g = avail_r_g - req_raw_total_g
+                            rem_raw_g[r_sku] = after_r_g
+                            if after_r_g < -1e-6:
+                                raw_missing_for_bulk.append(f"🧪 {r_sku} ({r_name}): <b>{fmt_val(after_r_g, True)}</b>")
 
-    total_pkg_req = {}
-    total_bulk_req_grams = {}
-    for f_sku, t_qty in target_inputs.items():
-        sub_b = bom_all[bom_all["parent_sku"] == f_sku]
-        for _, br in sub_b.iterrows():
-            c_sku = br["component_sku"]
-            if br["comp_type"] == "BULK":
-                total_bulk_req_grams[c_sku] = total_bulk_req_grams.get(c_sku, 0.0) + (t_qty * float(br["req_weight_grams"]))
+                        total_usable_bulk_g = used_from_existing_bulk + (max_cookable_bulk_kg * 1000.0)
+                        can_by_bulk_and_raw = int(total_usable_bulk_g // req_g_per_fg) if req_g_per_fg > 0 else planned_u
+                        max_makeable_this_week = min(max_makeable_this_week, can_by_bulk_and_raw)
+
+                        after_b_g = avail_b_g - req_g_total
+                        rem_bulk_g[c_sku] = after_b_g
+                        shortages_list.append(f"🛢️ {c_sku} ({c_name}): <b>{fmt_val(after_b_g, True)}</b>")
+                        shortages_list.extend(raw_missing_for_bulk)
+
+            is_week_ok = (len(shortages_list) == 0)
+            missing_fg_units = max(0, planned_u - max_makeable_this_week)
+
+            work_sim_cells[(f_sku, w_col)] = {
+                "planned": planned_u,
+                "makeable": max_makeable_this_week,
+                "missing_fg": missing_fg_units,
+                "is_ok": is_week_ok,
+                "shortages": shortages_list
+            }
+
+    # --- הצגת טבלת סימולטור העבודה: מק"ט אב מימין + חודשים מעל שבועות + מתוכנן מול אפשרי להכנה + לחיצה לפירוט חוסרים ---
+    st.subheader("📋 טבלת סימולטור עבודה לפי מק\"ט אב, חודשים ושבועות (לחץ על כל תא לפירוט מה חסר וכמה)" if is_he else "📋 Master Work Schedule & Shortages by Parent SKU")
+
+    legend_w = (
+        f"<div class='legend-box'>"
+        f"<span class='legend-pill-ok'>{'ירוק = ניתן להכין את כל הכמות המתוכננת לשבוע זה' if is_he else 'Green = All Planned Units Can Be Made'}</span>"
+        f"<span class='legend-pill-short'>{'אדום = חוסר בשבוע זה (מציג כמה מתוכנן, כמה אפשר להכין, ובלחיצה מה חסר וכמה)' if is_he else 'Red = Shortage in Week (Click to see missing items)'}</span>"
+        f"</div>"
+    )
+    st.markdown(legend_w, unsafe_allow_html=True)
+
+    rows_work_html = ""
+    for _, fg_row in df_sched_work.iterrows():
+        f_sku = fg_row["sku"]
+        f_label = fg_row["parent_label"]
+        tot_planned_all = 0
+        tot_makeable_all = 0
+
+        week_tds = ""
+        for w_col in week_cols:
+            c_data = work_sim_cells[(f_sku, w_col)]
+            p_u = c_data["planned"]
+            m_u = c_data["makeable"]
+            miss_u = c_data["missing_fg"]
+            tot_planned_all += p_u
+            tot_makeable_all += m_u
+
+            if c_data["is_ok"]:
+                td_cls = "stock-ok"
+                top_txt = f"{'אפשרי' if is_he else 'Can Make'}: {m_u:,} {u_label}"
+                sub_txt = f"<span class='cell-sub-plan'>{'מתוכנן' if is_he else 'Planned'}: {p_u:,} {u_label}</span>"
+                details_body = (
+                    f"<div class='cell-breakdown-fit'>"
+                    f"מתוכנן לשבוע: <b>{p_u:,} {u_label}</b><br>"
+                    f"ניתן להכין: <b>{m_u:,} {u_label}</b><br>"
+                    f"<span style='color:#22c55e;'>✓ אין חוסרים בשבוע זה!</span>"
+                    f"</div>"
+                )
             else:
-                total_pkg_req[c_sku] = total_pkg_req.get(c_sku, 0.0) + (t_qty * float(br["req_qty_units"]))
+                td_cls = "stock-short"
+                top_txt = f"{'אפשרי' if is_he else 'Can Make'}: {m_u:,} / {p_u:,} {u_label}"
+                sub_txt = f"<span class='cell-sub-plan' style='color:#ef4444; font-weight:800;'>{'חסר למוצר' if is_he else 'Short'}: <span dir='ltr'>-{miss_u:,}</span> {u_label}</span>"
+                short_items_html = "<br>".join(c_data["shortages"])
+                details_body = (
+                    f"<div class='cell-breakdown-fit'>"
+                    f"מתוכנן לשבוע: <b>{p_u:,} {u_label}</b> | ניתן להכין: <b>{m_u:,} {u_label}</b><br>"
+                    f"<hr style='margin:4px 0; border-color:rgba(128,128,128,0.3);'>"
+                    f"<b>{'מה חסר וכמה (מצטבר):' if is_he else 'Missing Components:'}</b><br>"
+                    f"{short_items_html}"
+                    f"</div>"
+                )
 
-    total_raw_req_grams = {}
-    for b_sku, req_b_grams in total_bulk_req_grams.items():
-        avail_b_grams = float(cat_all.loc[b_sku]["weight_grams"]) if b_sku in cat_all.index else 0.0
-        net_bulk_to_produce_kg = max(0.0, (req_b_grams - avail_b_grams) / 1000.0)
-        raw_sub = bom_all[bom_all["parent_sku"] == b_sku]
-        for _, rb in raw_sub.iterrows():
-            r_sku = rb["component_sku"]
-            total_raw_req_grams[r_sku] = total_raw_req_grams.get(r_sku, 0.0) + (net_bulk_to_produce_kg * float(rb["req_weight_grams"]))
+            week_tds += (
+                f"<td class='{td_cls}'>"
+                f"<details class='cell-details'>"
+                f"<summary><span class='cell-main-val'>{top_txt}</span>{sub_txt}</summary>"
+                f"{details_body}"
+                f"</details>"
+                f"</td>"
+            )
 
-    shortage_rows_html = ""
-    shortage_count = 0
-    for sku_id, item_r in cat_all.iterrows():
-        tp = item_r["item_type"]
-        if tp == "FG":
-            continue
-        is_w = (tp in ["RAW", "BULK"])
-        avail_val = float(item_r["weight_grams"] if is_w else item_r["qty_units"])
-        if tp == "RAW":
-            req_val = total_raw_req_grams.get(sku_id, 0.0)
-        elif tp == "BULK":
-            req_val = total_bulk_req_grams.get(sku_id, 0.0)
-        else:
-            req_val = total_pkg_req.get(sku_id, 0.0)
+        tot_diff = tot_makeable_all - tot_planned_all
+        sum_cls = "summary-ok" if tot_diff >= 0 else "summary-short"
+        sum_txt = (
+            f"אפשרי: {tot_makeable_all:,}<br><span style='font-size:0.78rem;'>מתוך {tot_planned_all:,} {u_label}</span>"
+            if is_he else
+            f"Can Make: {tot_makeable_all:,}<br><span style='font-size:0.78rem;'>of {tot_planned_all:,} {u_label}</span>"
+        )
 
-        diff_val = avail_val - req_val
-        is_ok = (diff_val >= -1e-6)
-
-        if not is_ok:
-            shortage_count += 1
-        if is_ok and not show_all_items:
-            continue
-
-        cls_td = "stock-ok" if is_ok else "stock-short"
-        action_needed = "✓ קיים במלאי" if is_ok else ("לבשל בקו ייצור" if tp == "BULK" else f"להזמין מספק: {item_r['main_supplier']}")
-
-        shortage_rows_html += (
-            f"<tr>"
-            f"<td><b>{sku_id} - {item_r['name']}</b></td>"
-            f"<td><b>{tr_type(tp)}</b></td>"
-            f"<td>{fmt_val(avail_val, is_w)}</td>"
-            f"<td>{fmt_val(req_val, is_w)}</td>"
-            f"<td class='{cls_td}' style='text-align:center !important; font-size:1.02rem;'><b>{fmt_val(diff_val, is_w)}</b></td>"
-            f"<td><b>{action_needed}</b></td>"
-            f"<td>{item_r['open_orders']}</td>"
+        rows_work_html += (
+            f"<tr class='group-end'>"
+            f"<td class='parent-col' style='font-size:0.95rem;'>{f_label}</td>"
+            f"{week_tds}"
+            f"<td class='{sum_cls}'>{sum_txt}</td>"
             f"</tr>"
         )
 
-    if shortage_rows_html == "":
-        st.success("🎉 אין שום חוסרים! יש לך מספיק חומרי גלם, בלקים ואריזות כדי להשלים את כל יעדי הייצור.")
-    else:
-        st.markdown(
-            f"<table class='rtl-table'><thead><tr>"
-            f"<th>פריט</th>"
-            f"<th>מחסן</th>"
-            f"<th>קיים במלאי</th>"
-            f"<th>סה\"כ נדרש ליעד</th>"
-            f"<th>כמה חסר (במינוס) / נשאר</th>"
-            f"<th>פעולה נדרשת</th>"
-            f"<th>הזמנות פתוחות בדרך</th>"
-            f"</tr></thead><tbody>{shortage_rows_html}</tbody></table>",
-            unsafe_allow_html=True
+    work_matrix_html = (
+        f"<table class='matrix-table'><thead>"
+        f"<tr>"
+        f"<th rowspan='2' style='width:16%; text-align:right;'>{'מק\"ט אב ושם מוצר' if is_he else 'Parent SKU & Name'}</th>"
+        f"<th colspan='4' style='width:37%;'>{month1_name}</th>"
+        f"<th colspan='4' style='width:37%;'>{month2_name}</th>"
+        f"<th rowspan='2' style='width:10%;'>{'סה\"כ תקופתי (אפשרי מול מתוכנן)' if is_he else 'Total Makeable vs Planned'}</th>"
+        f"</tr><tr>"
+        f"<th>{PLAN_PERIODS[0][2]}</th><th>{PLAN_PERIODS[1][2]}</th><th>{PLAN_PERIODS[2][2]}</th><th>{PLAN_PERIODS[3][2]}</th>"
+        f"<th>{PLAN_PERIODS[4][2]}</th><th>{PLAN_PERIODS[5][2]}</th><th>{PLAN_PERIODS[6][2]}</th><th>{PLAN_PERIODS[7][2]}</th>"
+        f"</tr></thead><tbody>{rows_work_html}</tbody></table>"
+    )
+    st.markdown(work_matrix_html, unsafe_allow_html=True)
+
+    with st.expander("✏️ עריכת כל תוכנית השבועות למק\"טי האב בטבלה" if is_he else "✏️ Edit Full Weekly Schedule Table", expanded=False):
+        ed_w_sched = st.data_editor(
+            df_sched_work[["W8", "W7", "W6", "W5", "W4", "W3", "W2", "W1", "parent_label"]],
+            use_container_width=True, hide_index=True, key="work_full_sched_ed"
         )
+        if st.button("💾 שמור תוכנית עבודה שבועית" if is_he else "💾 Save Master Schedule", key="work_full_sched_btn"):
+            for _, r in ed_w_sched.iterrows():
+                p_sku = r["parent_label"].split(" - ")[0]
+                conn.execute("UPDATE WeeklySchedule SET W1=?,W2=?,W3=?,W4=?,W5=?,W6=?,W7=?,W8=? WHERE parent_sku=?",
+                             (r["W1"], r["W2"], r["W3"], r["W4"], r["W5"], r["W6"], r["W7"], r["W8"], p_sku))
+            conn.commit()
+            st.rerun()
 
 # ==============================================================================
 # דף 5: העברות בין מחסנים, הזמנות רכש ו-SAP
