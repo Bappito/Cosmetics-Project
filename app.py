@@ -2,7 +2,8 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 import re
-from datetime import datetime, timedelta
+import json
+from datetime import datetime, timedelta, date
 
 st.set_page_config(page_title="Cosmetics ERP - 3 Simulators", layout="wide", page_icon="🧪")
 
@@ -15,6 +16,9 @@ def toggle_language():
 
 lang = st.session_state.lang
 is_he = (lang == "he")
+
+def L(he_txt, en_txt):
+    return he_txt if is_he else en_txt
 
 # --- מיפוי דו-לשוני ל-8 המחסנים ולסוגי הפריטים ---
 WH_NAMES = {
@@ -83,6 +87,7 @@ UI = {
         "m_sim_pack": "📦 2. סימולטור אריזה (בלקים + אריזות)",
         "m_sim_work": "📊 3. סימולטור עבודה מסכם (לפי שבועות וחודשים)",
         "m_wh": "🔄 העברות בין מחסנים ורכש (SAP)",
+        "m_batch": "🏷️ אצוות ותוקף (Batch / FEFO)",
         "m_ai": "🤖 סוכן פקודות מהיר",
         "lang_btn": "🌐 EN | English",
         "unit_lbl": "תצוגת משקל במערכת:",
@@ -96,6 +101,7 @@ UI = {
         "m_sim_pack": "📦 2. Packaging Simulator (Bulks + Pack)",
         "m_sim_work": "📊 3. Master Work Simulator (Weekly/Monthly)",
         "m_wh": "🔄 Transfers & Purchase Orders (SAP)",
+        "m_batch": "🏷️ Batches & Expiry (Batch / FEFO)",
         "m_ai": "🤖 Quick Command Agent",
         "lang_btn": "🌐 עב | עברית",
         "unit_lbl": "System Weight Unit:",
@@ -113,6 +119,37 @@ PLAN_PERIODS = [
     ("W7", "דצמבר 2026" if is_he else "Dec 2026", "שבוע 7 (27/12-02/01)" if is_he else "Week 7 (Dec 27)"),
     ("W8", "דצמבר 2026" if is_he else "Dec 2026", "שבוע 8 (03-09/01)" if is_he else "Week 8 (Jan 03)"),
 ]
+
+# --- תאריך תחילת W1 (ראשון). W2 = +7 ימים וכו' ---
+PLAN_START = date(2026, 11, 15)
+
+def parse_date(s):
+    try:
+        return datetime.strptime(str(s).strip()[:10], "%Y-%m-%d").date()
+    except Exception:
+        return None
+
+def eta_to_week(eta_str):
+    """ממפה ETA לשבוע W1..W8. ETA לפני תחילת התכנון (באיחור) נספר ב-W1. מעבר ל-W8 -> None."""
+    d = parse_date(eta_str)
+    if d is None:
+        return None
+    delta = (d - PLAN_START).days
+    if delta < 0:
+        return "W1"
+    idx = delta // 7
+    return f"W{idx + 1}" if idx < 8 else None
+
+def eta_week_label(eta_str):
+    d = parse_date(eta_str)
+    if d is None:
+        return L("אין ETA תקין", "No valid ETA")
+    wk = eta_to_week(eta_str)
+    if wk is None:
+        return L("מחוץ לטווח 8 השבועות", "Beyond W8")
+    suffix = L(" (באיחור - נספר ב-W1)", " (overdue - counted in W1)") if d < PLAN_START else ""
+    lbl = [p[2] for p in PLAN_PERIODS if p[0] == wk][0]
+    return f"{wk} | {lbl}{suffix}"
 
 # --- CSS מותאם ל-100% מרוחב המסך ללא גלילה אופקית ---
 st.markdown(f"""
@@ -481,6 +518,41 @@ def init_db():
         reference TEXT
     )""")
 
+    # --- אצוות ותוקף: כל שורה = אצווה אחת של מק"ט אחד (הכמות היא היתרה הנוכחית באצווה) ---
+    c.execute("""CREATE TABLE IF NOT EXISTS Batches (
+        batch_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sku TEXT NOT NULL,
+        batch_no TEXT NOT NULL,
+        qty_units REAL DEFAULT 0,
+        weight_grams REAL DEFAULT 0,
+        expiry_date TEXT DEFAULT '',
+        received_date TEXT,
+        source TEXT DEFAULT 'MANUAL', -- OPENING / PO / PRODUCTION / PACKING / MANUAL / ADJUST
+        status TEXT DEFAULT 'Active'  -- Active / Depleted
+    )""")
+
+    # --- עקיבות: איזו אצווה של רכיב נצרכה להכנת איזו אצווה של מוצר אב ---
+    c.execute("""CREATE TABLE IF NOT EXISTS BatchConsumption (
+        cons_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        move_date TEXT,
+        parent_sku TEXT,
+        parent_batch TEXT,
+        component_sku TEXT,
+        component_batch TEXT,
+        qty_units REAL DEFAULT 0,
+        weight_grams REAL DEFAULT 0,
+        reference TEXT
+    )""")
+
+    # --- גיבויים אוטומטיים לפני שמירה (Undo) ---
+    c.execute("""CREATE TABLE IF NOT EXISTS TableBackups (
+        backup_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        scope TEXT,
+        label TEXT,
+        created_at TEXT,
+        payload TEXT
+    )""")
+
     c.execute("SELECT COUNT(*) FROM Catalog")
     if c.fetchone()[0] == 0:
         seed_items = [
@@ -537,6 +609,30 @@ def init_db():
             INSERT INTO PurchaseOrders (po_number, sku, supplier, order_qty_units, order_weight_grams, unit_price, order_date, eta_date, target_wh, status)
             VALUES (?,?,?,?,?,?,?,?,?,?)
         """, ("PO-101", "1003", "כימדע", 0.0, 5000.0, 1180.0, today.strftime("%Y-%m-%d"), (today + timedelta(days=5)).strftime("%Y-%m-%d"), "WH_RAW", "In Transit"))
+        # הזמנת רכש לדוגמה שנוחתת בשבוע 2 - מראה איך ה-ETA מזין את הסימולטורים
+        c.execute("""
+            INSERT INTO PurchaseOrders (po_number, sku, supplier, order_qty_units, order_weight_grams, unit_price, order_date, eta_date, target_wh, status)
+            VALUES (?,?,?,?,?,?,?,?,?,?)
+        """, ("PO-102", "3001", "אריזות המרכז", 1000.0, 0.0, 2.1, today.strftime("%Y-%m-%d"), (today + timedelta(days=10)).strftime("%Y-%m-%d"), "WH_PACK", "In Transit"))
+        conn.commit()
+
+    # --- מילוי אצוות פתיחה למלאי קיים (גם למסד נתונים ישן שנוצר לפני הוספת האצוות) ---
+    c.execute("SELECT COUNT(*) FROM Batches")
+    if c.fetchone()[0] == 0:
+        c.execute("SELECT sku, item_type, qty_units, weight_grams FROM Catalog")
+        shelf_days = {"RAW": 365, "BULK": 180, "PKG": None, "FG": 730}
+        today_dt = datetime.today()
+        for b_sku, b_tp, b_qty, b_wg in c.fetchall():
+            is_w_b = b_tp in ("RAW", "BULK")
+            amt_b = b_wg if is_w_b else b_qty
+            if amt_b and amt_b > 0:
+                days_b = shelf_days.get(b_tp)
+                exp_b = (today_dt + timedelta(days=days_b)).strftime("%Y-%m-%d") if days_b else ""
+                c.execute("""
+                    INSERT INTO Batches (sku, batch_no, qty_units, weight_grams, expiry_date, received_date, source, status)
+                    VALUES (?,?,?,?,?,?,?,'Active')
+                """, (b_sku, f"OPEN-{b_sku}", 0.0 if is_w_b else b_qty, b_wg if is_w_b else 0.0,
+                      exp_b, today_dt.strftime("%Y-%m-%d"), "OPENING"))
         conn.commit()
     conn.close()
 
@@ -553,6 +649,7 @@ menu = st.sidebar.radio(
         UI["m_sim_pack"],
         UI["m_sim_work"],
         UI["m_wh"],
+        UI["m_batch"],
         UI["m_ai"]
     ],
     label_visibility="collapsed"
@@ -580,6 +677,237 @@ def fmt_val(val_in_base, is_weight_based):
     return f"{num_str} {unit_m}"
 
 st.button(UI["lang_btn"], on_click=toggle_language, key="floating_lang_btn")
+
+# הודעת הצלחה שנשמרת בין rerun-ים
+if "flash" in st.session_state:
+    st.success(st.session_state.pop("flash"))
+
+# ==============================================================================
+# 1) הזמנות רכש פתוחות -> שבועות W1..W8 (Available-to-Promise)
+# ==============================================================================
+CLOSED_PO_STATUSES = ("Received", "Cancelled")
+
+def get_incoming_map():
+    """מחזיר {(sku, 'W#'): {'amt': כמות בסיס (גרם/יח'), 'pos': [מספרי PO]}} לכל הזמנות הרכש הפתוחות."""
+    df = pd.read_sql(
+        "SELECT po.po_number, po.sku, po.order_qty_units, po.order_weight_grams, po.eta_date, c.item_type "
+        "FROM PurchaseOrders po JOIN Catalog c ON po.sku = c.sku "
+        "WHERE po.status NOT IN ('Received','Cancelled')", conn
+    )
+    out = {}
+    for r in df.itertuples():
+        wk = eta_to_week(r.eta_date)
+        if not wk:
+            continue
+        is_w_po = r.item_type in ("RAW", "BULK")
+        amt = float(r.order_weight_grams if is_w_po else r.order_qty_units)
+        ent = out.setdefault((r.sku, wk), {"amt": 0.0, "pos": []})
+        ent["amt"] += amt
+        ent["pos"].append(str(r.po_number))
+    return out
+
+def open_po_text_map():
+    """טקסט 'הזמנות פתוחות' לכל מק\"ט, מחושב חי מטבלת הרכש."""
+    df = pd.read_sql(
+        "SELECT po.po_number, po.sku, po.order_qty_units, po.order_weight_grams, po.eta_date, c.item_type "
+        "FROM PurchaseOrders po JOIN Catalog c ON po.sku = c.sku "
+        "WHERE po.status NOT IN ('Received','Cancelled')", conn
+    )
+    out = {}
+    for r in df.itertuples():
+        is_w_po = r.item_type in ("RAW", "BULK")
+        amt_txt = fmt_val(float(r.order_weight_grams if is_w_po else r.order_qty_units), is_w_po)
+        wk = eta_to_week(r.eta_date) or "-"
+        out.setdefault(r.sku, []).append(f"{amt_txt} ({r.po_number}, ETA {r.eta_date} → {wk})")
+    return out
+
+# ==============================================================================
+# 2) אצוות, FEFO ועקיבות
+# ==============================================================================
+def batch_col(is_w):
+    return "weight_grams" if is_w else "qty_units"
+
+def plan_fefo(sku, amount, is_w, allow_expired=False):
+    """בוחר אצוות לפי FEFO (תפוגה מוקדמת קודם, ללא תפוגה אחרון). לא משנה את המסד. מחזיר (picks, shortfall)."""
+    col = batch_col(is_w)
+    rows = conn.execute(
+        f"SELECT batch_id, batch_no, expiry_date, {col} FROM Batches "
+        f"WHERE sku=? AND status='Active' AND {col} > 0.000001 "
+        f"ORDER BY CASE WHEN expiry_date IS NULL OR expiry_date='' THEN 1 ELSE 0 END, expiry_date, received_date, batch_id",
+        (sku,)
+    ).fetchall()
+    today_d = date.today()
+    picks = []
+    remaining = float(amount)
+    for bid, bno, exp, have in rows:
+        if remaining <= 1e-9:
+            break
+        ed = parse_date(exp)
+        if ed is not None and ed < today_d and not allow_expired:
+            continue
+        take = min(float(have), remaining)
+        picks.append({"batch_id": bid, "batch_no": bno, "expiry": exp or "", "take": take})
+        remaining -= take
+    return picks, max(0.0, remaining)
+
+def apply_picks(picks, is_w):
+    col = batch_col(is_w)
+    for p in picks:
+        conn.execute(f"UPDATE Batches SET {col} = MAX(0, {col} - ?) WHERE batch_id = ?", (p["take"], p["batch_id"]))
+    conn.execute("UPDATE Batches SET status='Depleted' WHERE status='Active' AND weight_grams <= 0.000001 AND qty_units <= 0.000001")
+
+def add_batch(sku, batch_no, amount, is_w, expiry, source):
+    today_s = date.today().strftime("%Y-%m-%d")
+    col = batch_col(is_w)
+    row = conn.execute("SELECT batch_id FROM Batches WHERE sku=? AND batch_no=?", (sku, batch_no)).fetchone()
+    if row:
+        conn.execute(
+            f"UPDATE Batches SET {col} = {col} + ?, status='Active', "
+            f"expiry_date = CASE WHEN COALESCE(expiry_date,'')='' THEN ? ELSE expiry_date END WHERE batch_id=?",
+            (amount, expiry or "", row[0])
+        )
+    else:
+        conn.execute("""
+            INSERT INTO Batches (sku, batch_no, qty_units, weight_grams, expiry_date, received_date, source, status)
+            VALUES (?,?,?,?,?,?,?,'Active')
+        """, (sku, batch_no, 0.0 if is_w else amount, amount if is_w else 0.0, expiry or "", today_s, source))
+
+def usable_stock(sku, is_w):
+    col = batch_col(is_w)
+    today_s = date.today().strftime("%Y-%m-%d")
+    r = conn.execute(
+        f"SELECT COALESCE(SUM({col}),0) FROM Batches WHERE sku=? AND status='Active' "
+        f"AND (COALESCE(expiry_date,'')='' OR expiry_date >= ?)", (sku, today_s)
+    ).fetchone()
+    return float(r[0] or 0)
+
+def log_move(sku, from_wh, to_wh, amount, is_w, reference):
+    conn.execute("""
+        INSERT INTO StockMovements (move_date, sku, from_wh, to_wh, qty_units, weight_grams, reference)
+        VALUES (?,?,?,?,?,?,?)
+    """, (datetime.now().strftime("%Y-%m-%d %H:%M"), sku, from_wh, to_wh,
+          0.0 if is_w else amount, amount if is_w else 0.0, reference))
+
+def log_consumption(parent_sku, parent_batch, comp_sku, picks, is_w, reference):
+    now_s = datetime.now().strftime("%Y-%m-%d %H:%M")
+    for p in picks:
+        conn.execute("""
+            INSERT INTO BatchConsumption (move_date, parent_sku, parent_batch, component_sku, component_batch, qty_units, weight_grams, reference)
+            VALUES (?,?,?,?,?,?,?,?)
+        """, (now_s, parent_sku, parent_batch, comp_sku, p["batch_no"],
+              0.0 if is_w else p["take"], p["take"] if is_w else 0.0, reference))
+
+def gen_batch_no(sku):
+    today_s = date.today().strftime("%Y-%m-%d")
+    n = conn.execute("SELECT COUNT(*) FROM Batches WHERE sku=? AND received_date=?", (sku, today_s)).fetchone()[0] + 1
+    return f"L{sku}-{date.today().strftime('%y%m%d')}-{n:02d}"
+
+def reconcile_batches():
+    """מסנכרן את סכום האצוות הפעילות עם הכמות בקטלוג (אחרי עריכה ידנית של מלאי)."""
+    conn.execute("DELETE FROM Batches WHERE sku NOT IN (SELECT sku FROM Catalog)")
+    cat = conn.execute("SELECT sku, item_type, qty_units, weight_grams FROM Catalog").fetchall()
+    today_s = date.today().strftime("%Y-%m-%d")
+    for sku, tp, qu, wg in cat:
+        is_w = tp in ("RAW", "BULK")
+        col = batch_col(is_w)
+        target = float(wg if is_w else qu)
+        cur = float(conn.execute(
+            f"SELECT COALESCE(SUM({col}),0) FROM Batches WHERE sku=? AND status='Active'", (sku,)
+        ).fetchone()[0] or 0)
+        diff = target - cur
+        if diff > 1e-6:
+            add_batch(sku, f"ADJ-{sku}-{today_s.replace('-', '')}", diff, is_w, "", "ADJUST")
+        elif diff < -1e-6:
+            picks, _ = plan_fefo(sku, -diff, is_w, allow_expired=True)
+            apply_picks(picks, is_w)
+    conn.commit()
+
+def trace_chain(sku, batch_no, direction):
+    """direction='back': ממה הוכנה האצווה. direction='fwd': לאילו אצוות מוצר היא נכנסה."""
+    rows = []
+    frontier = [(sku, batch_no)]
+    seen = set(frontier)
+    level = 0
+    while frontier and level < 6:
+        level += 1
+        nxt = []
+        for s, b in frontier:
+            if direction == "back":
+                q = conn.execute(
+                    "SELECT component_sku, component_batch, qty_units, weight_grams, move_date, reference "
+                    "FROM BatchConsumption WHERE parent_sku=? AND parent_batch=?", (s, b)).fetchall()
+            else:
+                q = conn.execute(
+                    "SELECT parent_sku, parent_batch, qty_units, weight_grams, move_date, reference "
+                    "FROM BatchConsumption WHERE component_sku=? AND component_batch=?", (s, b)).fetchall()
+            for r in q:
+                rows.append((level,) + tuple(r))
+                key = (r[0], r[1])
+                if key not in seen:
+                    seen.add(key)
+                    nxt.append(key)
+        frontier = nxt
+    return rows
+
+# ==============================================================================
+# 3) גיבוי אוטומטי לפני שמירה + Undo
+# ==============================================================================
+SCOPES = {
+    # כל פעולה שמשנה מלאי / אצוות / רכש דוחפת צילום מצב אחד; Undo מחזיר את הצילום האחרון
+    "stock": ["Catalog", "Batches", "BatchConsumption", "StockMovements", "PurchaseOrders"],
+    "schedule": ["WeeklySchedule"],
+}
+MAX_BACKUPS_PER_SCOPE = 20
+
+def push_backup(scope, label):
+    payload = {}
+    for t in SCOPES[scope]:
+        payload[t] = json.loads(pd.read_sql(f"SELECT * FROM {t}", conn).to_json(orient="records", force_ascii=False))
+    conn.execute(
+        "INSERT INTO TableBackups (scope, label, created_at, payload) VALUES (?,?,?,?)",
+        (scope, label, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), json.dumps(payload, ensure_ascii=False))
+    )
+    conn.execute(
+        "DELETE FROM TableBackups WHERE scope=? AND backup_id NOT IN "
+        "(SELECT backup_id FROM TableBackups WHERE scope=? ORDER BY backup_id DESC LIMIT ?)",
+        (scope, scope, MAX_BACKUPS_PER_SCOPE)
+    )
+    conn.commit()
+
+def last_backup(scope):
+    return conn.execute(
+        "SELECT backup_id, label, created_at FROM TableBackups WHERE scope=? ORDER BY backup_id DESC LIMIT 1", (scope,)
+    ).fetchone()
+
+def undo_last(scope):
+    row = conn.execute(
+        "SELECT backup_id, label, payload FROM TableBackups WHERE scope=? ORDER BY backup_id DESC LIMIT 1", (scope,)
+    ).fetchone()
+    if not row:
+        return None
+    payload = json.loads(row[2])
+    for t, recs in payload.items():
+        conn.execute(f"DELETE FROM {t}")
+        for rec in recs:
+            cols = list(rec.keys())
+            conn.execute(
+                f"INSERT INTO {t} ({','.join(cols)}) VALUES ({','.join('?' * len(cols))})",
+                [rec[k] for k in cols]
+            )
+    conn.execute("DELETE FROM TableBackups WHERE backup_id=?", (row[0],))
+    conn.commit()
+    return row[1]
+
+def render_undo_button(scope, key):
+    info = last_backup(scope)
+    if info:
+        lbl = L(f"↩️ בטל פעולה אחרונה: {info[1]} ({info[2][5:16]})", f"↩️ Undo last: {info[1]} ({info[2][5:16]})")
+        if st.button(lbl, key=key):
+            done = undo_last(scope)
+            st.session_state["flash"] = L(f"שוחזר המצב שלפני: {done}", f"Restored the state before: {done}")
+            st.rerun()
+    else:
+        st.caption(L("↩️ אין גיבוי זמין לשחזור", "↩️ No backup available to restore"))
 
 # --- רכיב תכנון מהיר ("כמה אני מתכנן ולמתי") שמופיע בכל הסימולטורים ---
 def render_quick_planner(df_sched_sub, unit_name, key_prefix):
@@ -614,6 +942,7 @@ def render_quick_planner(df_sched_sub, unit_name, key_prefix):
     with c_p4:
         st.write("")
         if st.button("📅 עדכן תכנון לשבוע זה" if is_he else "📅 Update Plan", key=f"{key_prefix}_plan_btn", use_container_width=True):
+            push_backup("schedule", f"{L('תכנון', 'Plan')} {p_sku_selected} {w_code_selected}")
             conn.execute(f"UPDATE WeeklySchedule SET {w_code_selected} = ? WHERE parent_sku = ?", (new_planned_qty, p_sku_selected))
             conn.commit()
             st.rerun()
@@ -627,6 +956,12 @@ def render_where_used_simulator(df_sched_sub, df_bom_sub, parent_unit_str, sim_k
 
     # פאנל תכנון מהיר ("כמה מתוכנן ולמתי")
     render_quick_planner(df_sched_sub, parent_unit_str, sim_key_prefix)
+    st.caption(L(
+        "📥 הזמנות רכש פתוחות נכנסות למאזן בשבוע ה-ETA שלהן (ETA שעבר נספר ב-W1). שורות עם 📥 בתא = הגעת סחורה באותו שבוע.",
+        "📥 Open POs are added to the balance in their ETA week (overdue ETAs count in W1). A 📥 in a cell = a delivery lands that week."
+    ))
+
+    incoming = get_incoming_map()
 
     running_balance = {}
     for _, r in df_bom_sub.iterrows():
@@ -647,6 +982,14 @@ def render_where_used_simulator(df_sched_sub, df_bom_sub, parent_unit_str, sim_k
             comp_weekly_total_used[(c_sku, w_col)] = tot_w
 
     for w_col in week_cols:
+        # תחילת שבוע: סחורה שהגיעה מהספק (לפי ETA) מתווספת למלאי המתגלגל
+        arrivals_now = {}
+        for c_sku in list(running_balance.keys()):
+            ent = incoming.get((c_sku, w_col))
+            if ent:
+                running_balance[c_sku] += ent["amt"]
+                arrivals_now[c_sku] = ent
+
         for row_idx, r in df_bom_sub.iterrows():
             c_sku = r["component_sku"]
             is_w = (r["comp_type"] in ["RAW", "BULK"])
@@ -664,7 +1007,8 @@ def render_where_used_simulator(df_sched_sub, df_bom_sub, parent_unit_str, sim_k
                 "before_bal": before_bal,
                 "used_parent": used_by_this_parent,
                 "tot_used_all_parents": tot_used_by_all_parents,
-                "after_bal": after_bal
+                "after_bal": after_bal,
+                "incoming": arrivals_now.get(c_sku)
             }
 
     final_comp_balance = {}
@@ -729,7 +1073,13 @@ def render_where_used_simulator(df_sched_sub, df_bom_sub, parent_unit_str, sim_k
             df_sched_sub[["W8", "W7", "W6", "W5", "W4", "W3", "W2", "W1", "parent_label"]],
             use_container_width=True, hide_index=True, key=f"{sim_key_prefix}_sched_ed"
         )
-        if st.button("💾 שמור תוכנית שבועות" if is_he else "💾 Save Weekly Plan", key=f"{sim_key_prefix}_sched_btn"):
+        sv1, sv2 = st.columns(2)
+        with sv1:
+            save_sched = st.button("💾 שמור תוכנית שבועות" if is_he else "💾 Save Weekly Plan", key=f"{sim_key_prefix}_sched_btn")
+        with sv2:
+            render_undo_button("schedule", f"{sim_key_prefix}_undo_sched")
+        if save_sched:
+            push_backup("schedule", L("שמירת תוכנית שבועות", "Weekly plan save"))
             for _, r in ed_s.iterrows():
                 p_sku = r["parent_label"].split(" - ")[0]
                 conn.execute("UPDATE WeeklySchedule SET W1=?,W2=?,W3=?,W4=?,W5=?,W6=?,W7=?,W8=? WHERE parent_sku=?",
@@ -791,12 +1141,23 @@ def render_where_used_simulator(df_sched_sub, df_bom_sub, parent_unit_str, sim_k
                 after_str = fmt_val(st_info["after_bal"], is_w)
                 planned_parent_w = int(r[w_col])
 
+                inc = st_info.get("incoming")
+                inc_line = ""
+                inc_badge = ""
+                if inc:
+                    inc_amt_str = "+" + fmt_val(inc["amt"], is_w)
+                    po_names = ", ".join(inc["pos"])
+                    lbl_po = L("הגעת PO", "PO arrives")
+                    inc_line = f"📥 {lbl_po} ({po_names}): <b>{inc_amt_str}</b><br>"
+                    inc_badge = f"<span class='cell-sub-plan'>📥 {inc_amt_str}</span>"
+
                 shared_line = f"סה\"כ כל האבות: <b>{tot_used_str}</b><br>" if (is_shared and is_he) else ""
                 if is_he:
                     breakdown_html = (
                         f"<div class='cell-breakdown-fit'>"
                         f"תכנון ל-{r['parent_sku']}: <b>{planned_parent_w} {parent_unit_str}</b><br>"
-                        f"לפני השימוש: <b>{before_str}</b><br>"
+                        f"{inc_line}"
+                        f"לפני השימוש (כולל הגעות): <b>{before_str}</b><br>"
                         f"נדרש השבוע: <b>{used_parent_str}</b><br>"
                         f"{shared_line}"
                         f"{'נשאר במלאי' if st_info['is_ok'] else '<span style=\"color:#ef4444;\">חוסר מצטבר</span>'}: <b>{after_str}</b>"
@@ -806,7 +1167,8 @@ def render_where_used_simulator(df_sched_sub, df_bom_sub, parent_unit_str, sim_k
                     breakdown_html = (
                         f"<div class='cell-breakdown-fit'>"
                         f"Planned ({r['parent_sku']}): <b>{planned_parent_w} {parent_unit_str}</b><br>"
-                        f"Before: <b>{before_str}</b><br>"
+                        f"{inc_line}"
+                        f"Before (incl. arrivals): <b>{before_str}</b><br>"
                         f"Needed: <b>{used_parent_str}</b><br>"
                         f"Balance: <b>{after_str}</b>"
                         f"</div>"
@@ -816,7 +1178,7 @@ def render_where_used_simulator(df_sched_sub, df_bom_sub, parent_unit_str, sim_k
                 week_tds_html += (
                     f"<td class='{td_cls}'>"
                     f"<details class='cell-details'>"
-                    f"<summary><span class='cell-main-val'>{after_str}</span></summary>"
+                    f"<summary><span class='cell-main-val'>{after_str}</span>{inc_badge}</summary>"
                     f"{breakdown_html}"
                     f"</details>"
                     f"</td>"
@@ -878,16 +1240,20 @@ if menu == UI["m_inv"]:
         "✏️ עריכה / הוספת פריטים למחסנים" if is_he else "✏️ Edit / Add Items"
     ])
 
+    po_txt_map = open_po_text_map()
+
     def render_schema_table(df_subset, is_weight_table):
         rows_h = ""
         for _, r in df_subset.iterrows():
             stock_str = fmt_val(r["weight_grams"] if is_weight_table else r["qty_units"], is_weight_table)
+            live_po = po_txt_map.get(r["sku"])
+            open_orders_disp = "<br>".join(live_po) if live_po else r["open_orders"]
             rows_h += (
                 f"<tr>"
                 f"<td><b>{r['sku']}</b></td>"
                 f"<td><b>{r['name']}</b></td>"
                 f"<td><b>{stock_str}</b></td>"
-                f"<td>{r['open_orders']}</td>"
+                f"<td>{open_orders_disp}</td>"
                 f"<td>{r['stock_movements']}</td>"
                 f"<td>{r['main_supplier']}</td>"
                 f"<td>{r['alt_suppliers']}</td>"
@@ -941,23 +1307,46 @@ if menu == UI["m_inv"]:
             },
             num_rows="dynamic", use_container_width=True, hide_index=True
         )
-        if st.button("💾 שמור שינויים בכל המחסנים"):
+
+        # הגנה ממחיקה בטעות: מזהים שורות שנעלמו מהעורך ודורשים אישור מפורש
+        kept_skus = set(str(x).strip() for x in edited_cat["sku"].dropna() if str(x).strip())
+        removed_skus = sorted(set(df_cat["sku"]) - kept_skus)
+        confirm_cat_del = True
+        if removed_skus:
+            st.warning(f"⚠️ שים לב: {len(removed_skus)} פריטים יימחקו אם תשמור: {', '.join(removed_skus)}. אפשר לבטל אחר כך עם כפתור הביטול, אבל כדאי לוודא שזה מכוון.")
+            confirm_cat_del = st.checkbox("אני מאשר/ת את מחיקת הפריטים האלה", key="cat_del_confirm")
+
+        sb1, sb2 = st.columns(2)
+        with sb1:
+            save_cat = st.button("💾 שמור שינויים בכל המחסנים", disabled=not confirm_cat_del)
+        with sb2:
+            render_undo_button("stock", "undo_cat")
+
+        if save_cat:
+            push_backup("stock", L("שמירת עורך מחסנים", "Warehouse editor save"))
+            old_cat = df_cat.set_index("sku").to_dict("index")
             conn.execute("DELETE FROM Catalog")
             for _, r in edited_cat.iterrows():
                 if pd.notna(r["sku"]) and str(r["sku"]).strip():
+                    sku_s = str(r["sku"]).strip()
                     tp = str(r["item_type"] or "RAW")
                     v_num = float(r["stock_val"] or 0)
                     w_g = (v_num * w_factor) if tp in ["RAW", "BULK"] else 0.0
                     q_u = 0.0 if tp in ["RAW", "BULK"] else v_num
                     wh_k = "WH_RAW" if tp == "RAW" else ("WH_BULK" if tp == "BULK" else ("WH_PACK" if tp == "PKG" else "WH_FG"))
+                    old = old_cat.get(sku_s, {})
                     conn.execute("""
-                        INSERT INTO Catalog (sku, name, item_type, qty_units, weight_grams, open_orders, stock_movements, main_supplier, alt_suppliers, last_stock_entry, primary_warehouse)
-                        VALUES (?,?,?,?,?,?,?,?,?,?,?)
-                    """, (str(r["sku"]).strip(), str(r["name"]), tp, q_u, w_g, str(r["open_orders"] or "0"),
+                        INSERT INTO Catalog (sku, name, item_type, qty_units, weight_grams, open_orders, stock_movements, main_supplier, alt_suppliers, last_stock_entry, primary_warehouse,
+                                             item_price, min_order_qty, last_purchase_price, sap_code)
+                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    """, (sku_s, str(r["name"]), tp, q_u, w_g, str(r["open_orders"] or "0"),
                           str(r["stock_movements"] or "-"), str(r["main_supplier"] or ""), str(r["alt_suppliers"] or ""),
-                          str(r["last_stock_entry"] or "-"), wh_k))
+                          str(r["last_stock_entry"] or "-"), wh_k,
+                          float(old.get("item_price", 0) or 0), float(old.get("min_order_qty", 1) or 1),
+                          float(old.get("last_purchase_price", 0) or 0), str(old.get("sap_code", "") or "")))
             conn.commit()
-            st.success("המחסנים עודכנו בהצלחה!")
+            reconcile_batches()
+            st.session_state["flash"] = "המחסנים עודכנו בהצלחה!"
             st.rerun()
 
 # ==============================================================================
@@ -998,36 +1387,80 @@ elif menu == UI["m_sim_prod"]:
 
     st.divider()
     st.subheader("⚙️ דיווח ייצור בקו והעברת החומר המוכן למחסן בלקים")
-    cp1, cp2 = st.columns(2)
-    with cp1:
-        sel_bulk_make = st.selectbox("בחר בלק לייצור בקו:", bulk_df["sku"] + " - " + bulk_df["name"])
-    with cp2:
-        kg_to_make = st.number_input("כמות בלק לייצור (בק\"ג):", min_value=1.0, value=10.0, step=1.0)
+    if bulk_df.empty:
+        st.warning("אין בלקים בקטלוג.")
+    else:
+        cp1, cp2, cp3, cp4 = st.columns([2.2, 1.2, 1.7, 1.4])
+        with cp1:
+            sel_bulk_make = st.selectbox("בחר בלק לייצור בקו:", bulk_df["sku"] + " - " + bulk_df["name"])
+        sel_b_sku = sel_bulk_make.split(" - ")[0]
+        with cp2:
+            kg_to_make = st.number_input("כמות בלק לייצור (בק\"ג):", min_value=1.0, value=10.0, step=1.0)
+        with cp3:
+            prod_batch_in = st.text_input("מספר אצווה (Batch #) לבלק:", value=gen_batch_no(sel_b_sku), key=f"prod_bno_{sel_b_sku}")
+        with cp4:
+            prod_exp_in = st.date_input("תאריך תפוגה לבלק:", value=date.today() + timedelta(days=180), key="prod_exp")
 
-    if st.button("🚀 ייצר בלק עכשיו (גרע ממחסן חומרי גלם והעבר למחסן בלקים)"):
-        b_sku = sel_bulk_make.split(" - ")[0]
-        bom_rows = pd.read_sql("SELECT component_sku, req_weight_grams FROM BOM WHERE parent_sku = ?", conn, params=(b_sku,))
-        now_d = datetime.now().strftime("%Y-%m-%d")
-        for _, br in bom_rows.iterrows():
-            consume_g = float(br["req_weight_grams"]) * kg_to_make
-            conn.execute("""
-                UPDATE Catalog
-                SET weight_grams = MAX(0, weight_grams - ?),
-                    stock_movements = ?
-                WHERE sku = ?
-            """, (consume_g, f"-{consume_g/1000:.2f} ק\"ג לבלק {b_sku}", br["component_sku"]))
+        if st.button("🚀 ייצר בלק עכשיו (גרע ממחסן חומרי גלם FEFO והעבר למחסן בלקים)"):
+            b_sku = sel_b_sku
+            bom_rows = pd.read_sql("SELECT component_sku, req_weight_grams FROM BOM WHERE parent_sku = ?", conn, params=(b_sku,))
+            now_d = datetime.now().strftime("%Y-%m-%d")
 
-        produced_g = kg_to_make * 1000.0
-        conn.execute("""
-            UPDATE Catalog
-            SET weight_grams = weight_grams + ?,
-                stock_movements = ?,
-                last_stock_entry = ?
-            WHERE sku = ?
-        """, (produced_g, f"+{kg_to_make:.1f} ק\"ג מקו ייצור", f"{now_d} (+{kg_to_make:.1f} ק\"ג)", b_sku))
-        conn.commit()
-        st.success(f"יוצרו {kg_to_make} ק\"ג של בלק {b_sku}! חומרי הגלם נגרעו, והבלק הועבר למחסן בלקים.")
-        st.rerun()
+            # שלב 1: תכנון FEFO לכל רכיב ובדיקת מלאי תקף (לא פג תוקף)
+            plans = []
+            errors = []
+            for _, br in bom_rows.iterrows():
+                need_g = float(br["req_weight_grams"]) * kg_to_make
+                picks, short = plan_fefo(br["component_sku"], need_g, True)
+                if short > 1e-6:
+                    errors.append(f"{br['component_sku']}: חסרים {short/1000:.2f} ק\"ג במלאי תקף (לא פג תוקף)")
+                plans.append((br["component_sku"], need_g, picks))
+
+            if errors:
+                st.error("לא ניתן לייצר – אין מספיק חומר גלם תקף:\n\n" + "\n\n".join(errors))
+            else:
+                push_backup("stock", f"{L('ייצור בלק', 'Bulk production')} {b_sku} ({kg_to_make:g} {L('ק\"ג', 'kg')})")
+                new_batch_no = (prod_batch_in or "").strip() or gen_batch_no(b_sku)
+
+                # תפוגת הבלק לא יכולה לעבור את התפוגה המוקדמת ביותר של חומרי הגלם שנצרכו
+                limiting = None
+                for _, _, picks in plans:
+                    for p in picks:
+                        if p["expiry"] and (limiting is None or p["expiry"] < limiting):
+                            limiting = p["expiry"]
+                exp_s = prod_exp_in.strftime("%Y-%m-%d")
+                capped = False
+                if limiting and exp_s > limiting:
+                    exp_s = limiting
+                    capped = True
+
+                for comp_sku, need_g, picks in plans:
+                    apply_picks(picks, True)
+                    log_consumption(b_sku, new_batch_no, comp_sku, picks, True, f"PROD {b_sku}")
+                    log_move(comp_sku, "WH_RAW", "WH_LINE", need_g, True, f"PROD {b_sku} / {new_batch_no}")
+                    conn.execute("""
+                        UPDATE Catalog
+                        SET weight_grams = MAX(0, weight_grams - ?),
+                            stock_movements = ?
+                        WHERE sku = ?
+                    """, (need_g, f"-{need_g/1000:.2f} ק\"ג לבלק {b_sku}", comp_sku))
+
+                produced_g = kg_to_make * 1000.0
+                add_batch(b_sku, new_batch_no, produced_g, True, exp_s, "PRODUCTION")
+                log_move(b_sku, "WH_LINE", "WH_BULK", produced_g, True, f"PROD {b_sku} / {new_batch_no}")
+                conn.execute("""
+                    UPDATE Catalog
+                    SET weight_grams = weight_grams + ?,
+                        stock_movements = ?,
+                        last_stock_entry = ?
+                    WHERE sku = ?
+                """, (produced_g, f"+{kg_to_make:.1f} ק\"ג מקו ייצור", f"{now_d} (+{kg_to_make:.1f} ק\"ג)", b_sku))
+                conn.commit()
+                msg = f"יוצרו {kg_to_make} ק\"ג של בלק {b_sku} באצווה {new_batch_no} (תפוגה {exp_s}). חומרי הגלם נגרעו לפי FEFO והבלק הועבר למחסן בלקים."
+                if capped:
+                    msg += f" שים לב: התפוגה הוגבלה לתפוגה המוקדמת ביותר של חומר הגלם ({limiting})."
+                st.session_state["flash"] = msg
+                st.rerun()
 
 # ==============================================================================
 # דף 3 (סימולטור 2): 📦 סימולטור אריזה (כולל יחד את החומר ממחסן הבלקים + האריזות ממחסן האריזות!)
@@ -1081,30 +1514,74 @@ elif menu == UI["m_sim_pack"]:
 
     st.divider()
     st.subheader("📦 ביצוע פעולת מילוי ואריזה (גריעה ממחסן בלקים וממחסן אריזות)")
-    ck1, ck2 = st.columns(2)
-    with ck1:
-        sel_fg_pack = st.selectbox("בחר מוצר סופי לאריזה:", fg_df["sku"] + " - " + fg_df["name"])
-    with ck2:
-        units_to_pack = st.number_input("כמות יחידות למילוי ואריזה:", min_value=1, value=100, step=10)
+    if fg_df.empty:
+        st.warning("אין מוצרים סופיים בקטלוג.")
+    else:
+        ck1, ck2, ck3, ck4 = st.columns([2.2, 1.2, 1.7, 1.4])
+        with ck1:
+            sel_fg_pack = st.selectbox("בחר מוצר סופי לאריזה:", fg_df["sku"] + " - " + fg_df["name"])
+        sel_f_sku = sel_fg_pack.split(" - ")[0]
+        with ck2:
+            units_to_pack = st.number_input("כמות יחידות למילוי ואריזה:", min_value=1, value=100, step=10)
+        with ck3:
+            pack_batch_in = st.text_input("מספר אצווה (Batch #) למוצר:", value=gen_batch_no(sel_f_sku), key=f"pack_bno_{sel_f_sku}")
+        with ck4:
+            pack_exp_in = st.date_input("תאריך תפוגה למוצר:", value=date.today() + timedelta(days=730), key="pack_exp")
 
-    if st.button("✅ בצע אריזה (גרע בלק ממחסן בלקים + בקבוקים/מכסים/מדבקות ממחסן אריזות)"):
-        f_sku = sel_fg_pack.split(" - ")[0]
-        bom_p = pd.read_sql("SELECT component_sku, comp_type, req_qty_units, req_weight_grams FROM BOM WHERE parent_sku = ?", conn, params=(f_sku,))
-        now_d = datetime.now().strftime("%Y-%m-%d")
-        for _, br in bom_p.iterrows():
-            if br["comp_type"] == "BULK":
-                use_g = float(br["req_weight_grams"]) * units_to_pack
-                conn.execute("UPDATE Catalog SET weight_grams = MAX(0, weight_grams - ?), stock_movements = ? WHERE sku = ?",
-                             (use_g, f"-{use_g/1000:.2f} ק\"ג לאריזת {f_sku}", br["component_sku"]))
+        if st.button("✅ בצע אריזה (גרע בלק ממחסן בלקים + בקבוקים/מכסים/מדבקות ממחסן אריזות)"):
+            f_sku = sel_f_sku
+            bom_p = pd.read_sql("SELECT component_sku, comp_type, req_qty_units, req_weight_grams FROM BOM WHERE parent_sku = ?", conn, params=(f_sku,))
+            now_d = datetime.now().strftime("%Y-%m-%d")
+
+            plans = []
+            errors = []
+            for _, br in bom_p.iterrows():
+                is_w_c = (br["comp_type"] == "BULK")
+                need = float(br["req_weight_grams"] if is_w_c else br["req_qty_units"]) * units_to_pack
+                picks, short = plan_fefo(br["component_sku"], need, is_w_c)
+                if short > 1e-6:
+                    short_txt = f"{short/1000:.2f} ק\"ג" if is_w_c else f"{short:.0f} יח'"
+                    errors.append(f"{br['component_sku']}: חסרים {short_txt} במלאי תקף (לא פג תוקף)")
+                plans.append((br["component_sku"], is_w_c, need, picks))
+
+            if errors:
+                st.error("לא ניתן לבצע אריזה – אין מספיק רכיבים תקפים:\n\n" + "\n\n".join(errors))
             else:
-                use_u = float(br["req_qty_units"]) * units_to_pack
-                conn.execute("UPDATE Catalog SET qty_units = MAX(0, qty_units - ?), stock_movements = ? WHERE sku = ?",
-                             (use_u, f"-{use_u:.0f} יח' לאריזת {f_sku}", br["component_sku"]))
-        conn.execute("UPDATE Catalog SET qty_units = qty_units + ?, last_stock_entry = ? WHERE sku = ?",
-                     (units_to_pack, f"{now_d} (+{units_to_pack} יח')", f_sku))
-        conn.commit()
-        st.success(f"נארזו {units_to_pack} יח' של {f_sku}! המלאי נגרע ממחסן הבלקים וממחסן האריזות.")
-        st.rerun()
+                push_backup("stock", f"{L('אריזת', 'Packing')} {f_sku} ({units_to_pack} {u_label})")
+                new_batch_no = (pack_batch_in or "").strip() or gen_batch_no(f_sku)
+
+                limiting = None
+                for _, _, _, picks in plans:
+                    for p in picks:
+                        if p["expiry"] and (limiting is None or p["expiry"] < limiting):
+                            limiting = p["expiry"]
+                exp_s = pack_exp_in.strftime("%Y-%m-%d")
+                capped = False
+                if limiting and exp_s > limiting:
+                    exp_s = limiting
+                    capped = True
+
+                for comp_sku, is_w_c, need, picks in plans:
+                    apply_picks(picks, is_w_c)
+                    log_consumption(f_sku, new_batch_no, comp_sku, picks, is_w_c, f"PACK {f_sku}")
+                    log_move(comp_sku, "WH_BULK" if is_w_c else "WH_PACK", "WH_LINE", need, is_w_c, f"PACK {f_sku} / {new_batch_no}")
+                    if is_w_c:
+                        conn.execute("UPDATE Catalog SET weight_grams = MAX(0, weight_grams - ?), stock_movements = ? WHERE sku = ?",
+                                     (need, f"-{need/1000:.2f} ק\"ג לאריזת {f_sku}", comp_sku))
+                    else:
+                        conn.execute("UPDATE Catalog SET qty_units = MAX(0, qty_units - ?), stock_movements = ? WHERE sku = ?",
+                                     (need, f"-{need:.0f} יח' לאריזת {f_sku}", comp_sku))
+
+                add_batch(f_sku, new_batch_no, float(units_to_pack), False, exp_s, "PACKING")
+                log_move(f_sku, "WH_LINE", "WH_FG", float(units_to_pack), False, f"PACK {f_sku} / {new_batch_no}")
+                conn.execute("UPDATE Catalog SET qty_units = qty_units + ?, last_stock_entry = ? WHERE sku = ?",
+                             (units_to_pack, f"{now_d} (+{units_to_pack} יח')", f_sku))
+                conn.commit()
+                msg = f"נארזו {units_to_pack} יח' של {f_sku} באצווה {new_batch_no} (תפוגה {exp_s}). המלאי נגרע ממחסן הבלקים וממחסן האריזות לפי FEFO."
+                if capped:
+                    msg += f" שים לב: התפוגה הוגבלה לתפוגה המוקדמת ביותר של הרכיבים ({limiting})."
+                st.session_state["flash"] = msg
+                st.rerun()
 
 # ==============================================================================
 # דף 4 (סימולטור 3): 📊 סימולטור עבודה מסכם - מק"ט אב מימין + חודשים ושבועות + כמה מתוכנן וכמה אפשר להכין + פירוט חוסרים בלחיצה!
@@ -1114,6 +1591,10 @@ elif menu == UI["m_sim_work"]:
     st.info(
         "📊 **סימולטור עבודה מסכם לפי חודשים ושבועות:** מציג לכל **מק\"ט אב** כמה יחידות **מתוכנן** לייצר בכל שבוע, כמה יחידות **אפשר להכין בפועל** (משילוב חו\"ג + בלקים + אריזות), ומתי יווצר חוסר. **לחץ על כל תא שבועי** כדי לראות בדיוק אילו רכיבים חסרים באותו שבוע וכמה חסר מהם!"
     )
+    st.caption(L(
+        "📥 הזמנות רכש פתוחות נכנסות למלאי המתגלגל בשבוע ה-ETA שלהן (ETA שעבר נספר ב-W1), ולכן חוסר שנפתר בהגעת סחורה לא ייצבע באדום.",
+        "📥 Open POs are added to the rolling stock in their ETA week (overdue ETAs count in W1), so a gap covered by an incoming delivery is not marked red."
+    ))
 
     fg_df = pd.read_sql("SELECT sku, name FROM Catalog WHERE item_type = 'FG'", conn)
     for _, f_r in fg_df.iterrows():
@@ -1133,6 +1614,7 @@ elif menu == UI["m_sim_work"]:
 
     cat_all = pd.read_sql("SELECT * FROM Catalog", conn).set_index("sku")
     bom_all = pd.read_sql("SELECT * FROM BOM", conn)
+    incoming_w = get_incoming_map()
 
     week_cols = ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8"]
     month1_name = PLAN_PERIODS[0][1]
@@ -1147,6 +1629,15 @@ elif menu == UI["m_sim_work"]:
     work_sim_cells = {}
 
     for w_col in week_cols:
+        # תחילת שבוע: הגעות רכש לפי ETA מתווספות למלאי המתגלגל
+        arrivals_this_week = {}
+        for stock_dict in (rem_pkg, rem_bulk_g, rem_raw_g):
+            for s_key in list(stock_dict.keys()):
+                ent = incoming_w.get((s_key, w_col))
+                if ent:
+                    stock_dict[s_key] += ent["amt"]
+                    arrivals_this_week[s_key] = ent
+
         for _, fg_row in df_sched_work.iterrows():
             f_sku = fg_row["sku"]
             planned_u = int(fg_row[w_col])
@@ -1154,6 +1645,23 @@ elif menu == UI["m_sim_work"]:
 
             shortages_list = []
             max_makeable_this_week = planned_u
+
+            # הגעות רכש רלוונטיות למוצר הזה (רכיבים ישירים + חומרי גלם של בלקים)
+            rel_skus = []
+            for _, br0 in sub_bom.iterrows():
+                rel_skus.append(br0["component_sku"])
+                if br0["comp_type"] == "BULK":
+                    for _, rb0 in bom_all[bom_all["parent_sku"] == br0["component_sku"]].iterrows():
+                        rel_skus.append(rb0["component_sku"])
+            arr_lines = []
+            for s_key in dict.fromkeys(rel_skus):
+                ent = arrivals_this_week.get(s_key)
+                if ent and s_key in cat_all.index:
+                    is_w_s = cat_all.loc[s_key]["item_type"] in ("RAW", "BULK")
+                    nm_s = cat_all.loc[s_key]["name"]
+                    amt_s = fmt_val(ent["amt"], is_w_s)
+                    pos_s = ", ".join(ent["pos"])
+                    arr_lines.append(f"📥 {s_key} ({nm_s}): <b>+{amt_s}</b> ({pos_s})")
 
             # 1. בדיקת כל האריזות (PKG) ובלקים (BULK) שנדרשים ל-planned_u
             for _, br in sub_bom.iterrows():
@@ -1227,7 +1735,8 @@ elif menu == UI["m_sim_work"]:
                 "makeable": max_makeable_this_week,
                 "missing_fg": missing_fg_units,
                 "is_ok": is_week_ok,
-                "shortages": shortages_list
+                "shortages": shortages_list,
+                "arrivals": arr_lines
             }
 
     # --- הצגת טבלת סימולטור העבודה: מק"ט אב מימין + חודשים מעל שבועות + מתוכנן מול אפשרי להכנה + לחיצה לפירוט חוסרים ---
@@ -1241,6 +1750,7 @@ elif menu == UI["m_sim_work"]:
     )
     st.markdown(legend_w, unsafe_allow_html=True)
 
+    arr_title = L("הגעות רכש השבוע:", "PO arrivals this week:")
     rows_work_html = ""
     for _, fg_row in df_sched_work.iterrows():
         f_sku = fg_row["sku"]
@@ -1257,21 +1767,29 @@ elif menu == UI["m_sim_work"]:
             tot_planned_all += p_u
             tot_makeable_all += m_u
 
+            arr_lines_c = c_data["arrivals"]
+            arr_badge = f"<span class='cell-sub-plan'>📥 {len(arr_lines_c)}</span>" if arr_lines_c else ""
+            arr_block = (
+                f"<hr style='margin:4px 0; border-color:rgba(128,128,128,0.3);'><b>{arr_title}</b><br>" + "<br>".join(arr_lines_c)
+                if arr_lines_c else ""
+            )
+
             if c_data["is_ok"]:
                 td_cls = "stock-ok"
                 top_txt = f"{'אפשרי' if is_he else 'Can Make'}: {m_u:,} {u_label}"
-                sub_txt = f"<span class='cell-sub-plan'>{'מתוכנן' if is_he else 'Planned'}: {p_u:,} {u_label}</span>"
+                sub_txt = f"<span class='cell-sub-plan'>{'מתוכנן' if is_he else 'Planned'}: {p_u:,} {u_label}</span>{arr_badge}"
                 details_body = (
                     f"<div class='cell-breakdown-fit'>"
                     f"מתוכנן לשבוע: <b>{p_u:,} {u_label}</b><br>"
                     f"ניתן להכין: <b>{m_u:,} {u_label}</b><br>"
                     f"<span style='color:#22c55e;'>✓ אין חוסרים בשבוע זה!</span>"
+                    f"{arr_block}"
                     f"</div>"
                 )
             else:
                 td_cls = "stock-short"
                 top_txt = f"{'אפשרי' if is_he else 'Can Make'}: {m_u:,} / {p_u:,} {u_label}"
-                sub_txt = f"<span class='cell-sub-plan' style='color:#ef4444; font-weight:800;'>{'חסר למוצר' if is_he else 'Short'}: <span dir='ltr'>-{miss_u:,}</span> {u_label}</span>"
+                sub_txt = f"<span class='cell-sub-plan' style='color:#ef4444; font-weight:800;'>{'חסר למוצר' if is_he else 'Short'}: <span dir='ltr'>-{miss_u:,}</span> {u_label}</span>{arr_badge}"
                 short_items_html = "<br>".join(c_data["shortages"])
                 details_body = (
                     f"<div class='cell-breakdown-fit'>"
@@ -1279,6 +1797,7 @@ elif menu == UI["m_sim_work"]:
                     f"<hr style='margin:4px 0; border-color:rgba(128,128,128,0.3);'>"
                     f"<b>{'מה חסר וכמה (מצטבר):' if is_he else 'Missing Components:'}</b><br>"
                     f"{short_items_html}"
+                    f"{arr_block}"
                     f"</div>"
                 )
 
@@ -1326,7 +1845,13 @@ elif menu == UI["m_sim_work"]:
             df_sched_work[["W8", "W7", "W6", "W5", "W4", "W3", "W2", "W1", "parent_label"]],
             use_container_width=True, hide_index=True, key="work_full_sched_ed"
         )
-        if st.button("💾 שמור תוכנית עבודה שבועית" if is_he else "💾 Save Master Schedule", key="work_full_sched_btn"):
+        wv1, wv2 = st.columns(2)
+        with wv1:
+            save_work_sched = st.button("💾 שמור תוכנית עבודה שבועית" if is_he else "💾 Save Master Schedule", key="work_full_sched_btn")
+        with wv2:
+            render_undo_button("schedule", "work_undo_sched")
+        if save_work_sched:
+            push_backup("schedule", L("שמירת תוכנית עבודה", "Master schedule save"))
             for _, r in ed_w_sched.iterrows():
                 p_sku = r["parent_label"].split(" - ")[0]
                 conn.execute("UPDATE WeeklySchedule SET W1=?,W2=?,W3=?,W4=?,W5=?,W6=?,W7=?,W8=? WHERE parent_sku=?",
@@ -1341,8 +1866,56 @@ elif menu == UI["m_wh"]:
     st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_wh"]}</h2></div>', unsafe_allow_html=True)
 
     df_po = pd.read_sql("SELECT * FROM PurchaseOrders ORDER BY po_id DESC", conn)
-    ed_po = st.data_editor(df_po, use_container_width=True, hide_index=True, num_rows="dynamic")
-    if st.button("💾 שמור הזמנות רכש"):
+    cat_meta = pd.read_sql("SELECT sku, name, item_type FROM Catalog", conn).set_index("sku")
+
+    # --- תצוגת הזמנות פתוחות ושבוע ההגעה שלהן בסימולטורים ---
+    st.subheader(L("📥 הזמנות רכש פתוחות ← שבוע הגעה בסימולטורים", "📥 Open POs → arrival week in the simulators"))
+    open_df = df_po[~df_po["status"].isin(list(CLOSED_PO_STATUSES))]
+    if open_df.empty:
+        st.caption(L("אין הזמנות רכש פתוחות.", "No open purchase orders."))
+    else:
+        view_rows = []
+        for r in open_df.itertuples():
+            tp = cat_meta.loc[r.sku]["item_type"] if r.sku in cat_meta.index else "RAW"
+            nm = cat_meta.loc[r.sku]["name"] if r.sku in cat_meta.index else "?"
+            is_w_po = tp in ("RAW", "BULK")
+            amt_plain = fmt_val(float(r.order_weight_grams if is_w_po else r.order_qty_units), is_w_po)
+            view_rows.append({
+                L("הזמנה", "PO"): r.po_number,
+                L("מק\"ט", "SKU"): r.sku,
+                L("פריט", "Item"): nm,
+                L("ספק", "Supplier"): r.supplier,
+                L("כמות", "Qty"): amt_plain,
+                "ETA": r.eta_date,
+                L("נכנס למאזן בשבוע", "Counted in week"): eta_week_label(r.eta_date),
+                L("סטטוס", "Status"): r.status,
+            })
+        st.dataframe(pd.DataFrame(view_rows), use_container_width=True, hide_index=True)
+
+    # --- עורך הזמנות רכש ---
+    st.subheader(L("✏️ עריכת הזמנות רכש", "✏️ Edit purchase orders"))
+    ed_po = st.data_editor(
+        df_po, use_container_width=True, hide_index=True, num_rows="dynamic", key="po_editor",
+        column_config={
+            "status": st.column_config.SelectboxColumn("status", options=["In Transit", "Confirmed", "Received", "Cancelled"]),
+        }
+    )
+
+    kept_pos = set(str(x).strip() for x in ed_po["po_number"].dropna() if str(x).strip())
+    removed_pos = sorted(set(str(x) for x in df_po["po_number"].dropna()) - kept_pos)
+    confirm_po_del = True
+    if removed_pos:
+        st.warning(f"⚠️ {len(removed_pos)} הזמנות יימחקו אם תשמור: {', '.join(removed_pos)}.")
+        confirm_po_del = st.checkbox("אני מאשר/ת את מחיקת ההזמנות האלה", key="po_del_confirm")
+
+    pb1, pb2 = st.columns(2)
+    with pb1:
+        save_po = st.button("💾 שמור הזמנות רכש", disabled=not confirm_po_del)
+    with pb2:
+        render_undo_button("stock", "undo_po")
+
+    if save_po:
+        push_backup("stock", L("שמירת הזמנות רכש", "PO save"))
         conn.execute("DELETE FROM PurchaseOrders")
         for _, r in ed_po.iterrows():
             if pd.notna(r["po_number"]) and pd.notna(r["sku"]):
@@ -1353,26 +1926,250 @@ elif menu == UI["m_wh"]:
                       float(r["order_weight_grams"] or 0), float(r["unit_price"] or 0), str(r["order_date"] or ""),
                       str(r["eta_date"] or ""), str(r["target_wh"] or "WH_RAW"), str(r["status"] or "In Transit")))
         conn.commit()
-        st.success("נשמר!")
+        st.session_state["flash"] = "נשמר!"
         st.rerun()
 
+    # --- קבלת הזמנה למחסן: יוצרת אצווה, מעדכנת מלאי וסוגרת את ה-PO ---
+    st.divider()
+    st.subheader(L("📦 קבלת הזמנה למחסן (יוצר אצווה + תפוגה)", "📦 Receive PO into warehouse (creates batch + expiry)"))
+    if open_df.empty:
+        st.caption(L("אין הזמנות פתוחות לקבלה.", "No open POs to receive."))
+    else:
+        po_opts = [f"{r.po_number} | {r.sku}" for r in open_df.itertuples()]
+        sel_po = st.selectbox(L("בחר הזמנה לקבלה:", "Select PO to receive:"), po_opts, key="rcv_po_sel")
+        sel_po_num = sel_po.split(" | ")[0]
+        po_row = open_df[open_df["po_number"] == sel_po_num].iloc[0]
+        rcv_sku = str(po_row["sku"])
+        rcv_tp = cat_meta.loc[rcv_sku]["item_type"] if rcv_sku in cat_meta.index else None
+        if rcv_tp is None:
+            st.error(L("המק\"ט של ההזמנה לא קיים בקטלוג.", "The PO SKU does not exist in the catalog."))
+        else:
+            rcv_is_w = rcv_tp in ("RAW", "BULK")
+            rcv_amt = float(po_row["order_weight_grams"] if rcv_is_w else po_row["order_qty_units"])
+            rc1, rc2, rc3 = st.columns([2, 1.5, 1.5])
+            with rc1:
+                rcv_batch = st.text_input(L("מספר אצווה (Batch #) מהספק:", "Supplier Batch #:"),
+                                          value=f"LOT-{rcv_sku}-{sel_po_num}", key=f"rcv_bno_{sel_po_num}")
+            with rc2:
+                rcv_exp = st.date_input(L("תאריך תפוגה:", "Expiry date:"),
+                                        value=date.today() + timedelta(days=365), key=f"rcv_exp_{sel_po_num}")
+            with rc3:
+                rcv_no_exp = st.checkbox(L("ללא תפוגה", "No expiry"), value=(rcv_tp == "PKG"), key=f"rcv_noexp_{sel_po_num}")
+            st.caption(L(f"כמות לקבלה: {fmt_val(rcv_amt, rcv_is_w)} | יעד: {tr_wh(str(po_row['target_wh']))}",
+                         f"Quantity: {fmt_val(rcv_amt, rcv_is_w)} | Target: {tr_wh(str(po_row['target_wh']))}"))
+            if st.button(L("📥 קבל למחסן", "📥 Receive into warehouse"), key="rcv_btn"):
+                push_backup("stock", f"{L('קבלת', 'Receive')} {sel_po_num}")
+                bno = (rcv_batch or "").strip() or gen_batch_no(rcv_sku)
+                exp_s = "" if rcv_no_exp else rcv_exp.strftime("%Y-%m-%d")
+                add_batch(rcv_sku, bno, rcv_amt, rcv_is_w, exp_s, "PO")
+                log_move(rcv_sku, "WH_VENDOR", str(po_row["target_wh"] or "WH_RAW"), rcv_amt, rcv_is_w, f"{sel_po_num} / {bno}")
+                now_d = datetime.now().strftime("%Y-%m-%d")
+                if rcv_is_w:
+                    conn.execute("UPDATE Catalog SET weight_grams = weight_grams + ?, stock_movements = ?, last_stock_entry = ? WHERE sku = ?",
+                                 (rcv_amt, f"+{rcv_amt/1000:.2f} ק\"ג מקבלת {sel_po_num}", f"{now_d} (+{rcv_amt/1000:.2f} ק\"ג)", rcv_sku))
+                else:
+                    conn.execute("UPDATE Catalog SET qty_units = qty_units + ?, stock_movements = ?, last_stock_entry = ? WHERE sku = ?",
+                                 (rcv_amt, f"+{rcv_amt:.0f} יח' מקבלת {sel_po_num}", f"{now_d} (+{rcv_amt:.0f} יח')", rcv_sku))
+                conn.execute("UPDATE PurchaseOrders SET status='Received' WHERE po_number=?", (sel_po_num,))
+                conn.commit()
+                st.session_state["flash"] = f"הזמנה {sel_po_num} התקבלה: אצווה {bno}, תפוגה {exp_s or 'ללא'}. המלאי עודכן וההזמנה נסגרה (היא כבר לא נספרת כהגעה עתידית בסימולטורים)."
+                st.rerun()
+
 # ==============================================================================
-# דף 6: סוכן פקודות מהיר
+# דף 6: אצוות ותוקף (Batch / Lot & Expiry) + עקיבות
+# ==============================================================================
+elif menu == UI["m_batch"]:
+    st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_batch"]}</h2></div>', unsafe_allow_html=True)
+    st.caption(L(
+        "כל צריכה של חומר/בלק/אריזה בייצור ובאריזה נעשית אוטומטית לפי FEFO (התפוגה המוקדמת קודם), ואצוות שפג תוקפן לא נצרכות.",
+        "All consumption in production and packing follows FEFO (earliest expiry first). Expired batches are never consumed."
+    ))
+
+    df_b = pd.read_sql(
+        "SELECT b.*, c.name, c.item_type FROM Batches b JOIN Catalog c ON b.sku = c.sku", conn
+    )
+    today_d = date.today()
+
+    def days_left_fn(s):
+        d_ = parse_date(s)
+        return (d_ - today_d).days if d_ else None
+
+    if not df_b.empty:
+        df_b["days_left"] = df_b["expiry_date"].apply(days_left_fn)
+    active_b = df_b[df_b["status"] == "Active"] if not df_b.empty else df_b
+    n_active = len(active_b)
+    n_expired = int((active_b["days_left"] < 0).sum()) if n_active else 0
+    n_soon = int(((active_b["days_left"] >= 0) & (active_b["days_left"] <= 30)).sum()) if n_active else 0
+
+    m1, m2, m3 = st.columns(3)
+    m1.metric(L("🏷️ אצוות פעילות", "🏷️ Active batches"), n_active)
+    m2.metric(L("🟠 פגות תוקף תוך 30 יום", "🟠 Expiring within 30 days"), n_soon)
+    m3.metric(L("🔴 פגות תוקף (חסומות לשימוש)", "🔴 Expired (blocked)"), n_expired)
+
+    t_b1, t_b2, t_b3 = st.tabs([
+        L("📋 מלאי לפי אצווה (FEFO)", "📋 Stock by batch (FEFO)"),
+        L("➕ כניסת מלאי ידנית עם אצווה", "➕ Manual receipt with batch"),
+        L("🔎 עקיבות (Traceability)", "🔎 Traceability"),
+    ])
+
+    with t_b1:
+        if df_b.empty:
+            st.caption(L("אין אצוות.", "No batches."))
+        else:
+            fc1, fc2 = st.columns([2, 1])
+            with fc1:
+                sku_opts = [L("הכל", "All")] + sorted(df_b["sku"].unique())
+                sel_sku_b = st.selectbox(L("סנן לפי מק\"ט:", "Filter by SKU:"), sku_opts, key="batch_sku_filter")
+            with fc2:
+                show_depleted = st.checkbox(L("הצג גם אצוות שנוצלו", "Include depleted batches"), key="batch_show_dep")
+            view_b = df_b.copy()
+            if sel_sku_b != L("הכל", "All"):
+                view_b = view_b[view_b["sku"] == sel_sku_b]
+            if not show_depleted:
+                view_b = view_b[view_b["status"] == "Active"]
+            if view_b.empty:
+                st.caption(L("אין אצוות להצגה.", "No batches to show."))
+            else:
+                view_b = view_b.assign(_noexp=view_b["expiry_date"].fillna("").eq("")).sort_values(["sku", "_noexp", "expiry_date", "batch_id"])
+
+                def status_txt(r):
+                    if r["status"] != "Active":
+                        return L("✔️ נוצל", "✔️ Depleted")
+                    dl = r["days_left"]
+                    if dl is None or pd.isna(dl):
+                        return L("⚪ ללא תפוגה", "⚪ No expiry")
+                    if dl < 0:
+                        return L("🔴 פג תוקף", "🔴 Expired")
+                    if dl <= 30:
+                        return L("🟠 עד 30 יום", "🟠 Within 30 days")
+                    return L("🟢 תקין", "🟢 OK")
+
+                out_rows = []
+                for _, r in view_b.iterrows():
+                    is_w_b = r["item_type"] in ("RAW", "BULK")
+                    dl = r["days_left"]
+                    out_rows.append({
+                        L("מק\"ט", "SKU"): r["sku"],
+                        L("פריט", "Item"): r["name"],
+                        "Batch #": r["batch_no"],
+                        L("יתרה", "Remaining"): fmt_val(float(r["weight_grams"] if is_w_b else r["qty_units"]), is_w_b),
+                        L("תפוגה", "Expiry"): r["expiry_date"] or "-",
+                        L("ימים לתפוגה", "Days left"): "-" if (dl is None or pd.isna(dl)) else str(int(dl)),
+                        L("מצב", "Status"): status_txt(r),
+                        L("מקור", "Source"): r["source"],
+                        L("תאריך כניסה", "Received"): r["received_date"],
+                    })
+                st.dataframe(pd.DataFrame(out_rows), use_container_width=True, hide_index=True)
+        render_undo_button("stock", "undo_batches")
+
+    with t_b2:
+        cat_b = pd.read_sql("SELECT sku, name, item_type FROM Catalog ORDER BY sku", conn)
+        sel_mb = st.selectbox(L("מק\"ט לכניסת מלאי:", "SKU to receive:"), cat_b["sku"] + " - " + cat_b["name"], key="mb_sku")
+        mb_sku = sel_mb.split(" - ")[0]
+        mb_tp = cat_b[cat_b["sku"] == mb_sku].iloc[0]["item_type"]
+        mb_is_w = mb_tp in ("RAW", "BULK")
+        mb1, mb2, mb3, mb4 = st.columns([1.4, 1.8, 1.5, 1.2])
+        with mb1:
+            mb_amt = st.number_input(
+                L(f"כמות ({w_label})", f"Quantity ({w_label})") if mb_is_w else L("כמות (יח')", "Quantity (units)"),
+                min_value=0.0, value=1.0, step=1.0, key=f"mb_amt_{mb_sku}"
+            )
+        with mb2:
+            mb_bno = st.text_input("Batch #", value=gen_batch_no(mb_sku), key=f"mb_bno_{mb_sku}")
+        with mb3:
+            mb_exp = st.date_input(L("תאריך תפוגה", "Expiry date"), value=date.today() + timedelta(days=365), key=f"mb_exp_{mb_sku}")
+        with mb4:
+            mb_noexp = st.checkbox(L("ללא תפוגה", "No expiry"), value=(mb_tp == "PKG"), key=f"mb_noexp_{mb_sku}")
+        if st.button(L("➕ הוסף למלאי", "➕ Add to stock"), key="mb_btn"):
+            if mb_amt <= 0:
+                st.error(L("הכמות חייבת להיות גדולה מאפס.", "Quantity must be greater than zero."))
+            else:
+                push_backup("stock", f"{L('כניסת מלאי', 'Receipt')} {mb_sku}")
+                base_amt = mb_amt * w_factor if mb_is_w else mb_amt
+                bno = (mb_bno or "").strip() or gen_batch_no(mb_sku)
+                exp_s = "" if mb_noexp else mb_exp.strftime("%Y-%m-%d")
+                add_batch(mb_sku, bno, base_amt, mb_is_w, exp_s, "MANUAL")
+                log_move(mb_sku, "WH_VENDOR", "WH_RAW" if mb_tp == "RAW" else ("WH_BULK" if mb_tp == "BULK" else ("WH_PACK" if mb_tp == "PKG" else "WH_FG")),
+                         base_amt, mb_is_w, f"MANUAL / {bno}")
+                now_d = datetime.now().strftime("%Y-%m-%d")
+                if mb_is_w:
+                    conn.execute("UPDATE Catalog SET weight_grams = weight_grams + ?, last_stock_entry = ? WHERE sku=?",
+                                 (base_amt, f"{now_d} (+{base_amt/1000:.2f} ק\"ג)", mb_sku))
+                else:
+                    conn.execute("UPDATE Catalog SET qty_units = qty_units + ?, last_stock_entry = ? WHERE sku=?",
+                                 (base_amt, f"{now_d} (+{base_amt:.0f} יח')", mb_sku))
+                conn.commit()
+                st.session_state["flash"] = f"נוספה אצווה {bno} למק\"ט {mb_sku}."
+                st.rerun()
+
+    with t_b3:
+        st.caption(L(
+            "בחר אצווה (של חומר גלם, בלק או מוצר סופי) וראה ממה היא הוכנה, ולאילו אצוות מוצר היא נכנסה (למשל לצורך ריקול).",
+            "Pick any batch (raw, bulk or finished) to see what it was made from and which product batches it went into (e.g. for a recall)."
+        ))
+        if df_b.empty:
+            st.caption(L("אין אצוות.", "No batches."))
+        else:
+            tc1, tc2 = st.columns(2)
+            with tc1:
+                tr_sku = st.selectbox(L("מק\"ט:", "SKU:"), sorted(df_b["sku"].unique()), key="tr_sku")
+            with tc2:
+                tr_batch = st.selectbox("Batch #:", list(df_b[df_b["sku"] == tr_sku]["batch_no"]), key=f"tr_batch_{tr_sku}")
+            name_map = pd.read_sql("SELECT sku, name, item_type FROM Catalog", conn).set_index("sku")
+
+            def trace_df(rows):
+                out = []
+                for lvl, s, b, qu, wg, mdt, ref in rows:
+                    is_w_t = (name_map.loc[s]["item_type"] in ("RAW", "BULK")) if s in name_map.index else False
+                    out.append({
+                        L("רמה", "Level"): lvl,
+                        L("מק\"ט", "SKU"): s,
+                        L("פריט", "Item"): name_map.loc[s]["name"] if s in name_map.index else "?",
+                        "Batch #": b,
+                        L("כמות", "Qty"): fmt_val(float(wg if is_w_t else qu), is_w_t),
+                        L("תאריך", "Date"): mdt,
+                        L("אסמכתא", "Reference"): ref,
+                    })
+                return pd.DataFrame(out)
+
+            back_rows = trace_chain(tr_sku, tr_batch, "back")
+            fwd_rows = trace_chain(tr_sku, tr_batch, "fwd")
+            st.markdown(f"**⬅️ {L('ממה הוכנה האצווה (אחורה)', 'Made from (backward)')}**")
+            if back_rows:
+                st.dataframe(trace_df(back_rows), use_container_width=True, hide_index=True)
+            else:
+                st.caption(L("אין רשומות (חומר גלם נכנס או מלאי פתיחה).", "No records (incoming raw material or opening stock)."))
+            st.markdown(f"**➡️ {L('לאילו אצוות נכנסה (קדימה)', 'Went into (forward)')}**")
+            if fwd_rows:
+                st.dataframe(trace_df(fwd_rows), use_container_width=True, hide_index=True)
+            else:
+                st.caption(L("האצווה עדיין לא נצרכה באף אצוות מוצר.", "This batch has not been consumed into any product batch yet."))
+
+# ==============================================================================
+# דף 7: סוכן פקודות מהיר
 # ==============================================================================
 elif menu == UI["m_ai"]:
     st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_ai"]}</h2></div>', unsafe_allow_html=True)
     st.caption("כתוב פקודה כגון: `תוסיף 5 קילו ל-1001` או `תוסיף 10 קילו ל-2001` או `תוסיף 300 יחידות ל-3001`")
+    render_undo_button("stock", "undo_agent")
     cmd_in = st.chat_input("כתוב פקודה לביצוע מיידי...")
     if cmd_in:
         nums = re.findall(r"(\d+(?:\.\d+)?)", cmd_in)
         if len(nums) >= 2:
             s_code = nums[-1]
             val = float(nums[0])
-            if "קילו" in cmd_in or "kg" in cmd_in.lower():
-                conn.execute("UPDATE Catalog SET weight_grams = weight_grams + ? WHERE sku=?", (val * 1000.0, s_code))
-                conn.commit()
-                st.success(f"נוספו {val} ק\"ג למק\"ט {s_code}!")
+            exists = conn.execute("SELECT item_type FROM Catalog WHERE sku=?", (s_code,)).fetchone()
+            if not exists:
+                st.error(f"מק\"ט {s_code} לא קיים בקטלוג.")
             else:
-                conn.execute("UPDATE Catalog SET qty_units = qty_units + ? WHERE sku=?", (val, s_code))
-                conn.commit()
-                st.success(f"נוספו {val} יח' למק\"ט {s_code}!")
+                push_backup("stock", f"{L('פקודת סוכן', 'Agent command')}: {cmd_in[:40]}")
+                if "קילו" in cmd_in or "kg" in cmd_in.lower():
+                    conn.execute("UPDATE Catalog SET weight_grams = weight_grams + ? WHERE sku=?", (val * 1000.0, s_code))
+                    conn.commit()
+                    msg_a = f"נוספו {val} ק\"ג למק\"ט {s_code}!"
+                else:
+                    conn.execute("UPDATE Catalog SET qty_units = qty_units + ? WHERE sku=?", (val, s_code))
+                    conn.commit()
+                    msg_a = f"נוספו {val} יח' למק\"ט {s_code}!"
+                reconcile_batches()  # יוצר אצוות ADJ כדי שסכום האצוות יתאים למלאי
+                st.success(msg_a + " (נרשמה אצוות התאמה ללא תפוגה - אפשר להשלים תפוגה בעמוד האצוות)")
