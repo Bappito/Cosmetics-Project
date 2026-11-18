@@ -172,7 +172,7 @@ def eta_week_label(eta_str):
     lbl = [p[2] for p in PLAN_PERIODS if p[0] == wk][0]
     return f"{wk} | {lbl}{suffix}"
 
-# --- CSS מאוחד ונקי לחלוטין (ללא שום טקסט שזולג למסך, שומר על ימין-לשמאל מלא בעברית) ---
+# --- CSS מאוחד ונקי לחלוטין כולל עיצוב הבועה הצפה מעל התא (Floating Popover Bubble) ---
 sb_w = "68px" if is_collapsed else "260px"
 btn_justify = "center" if is_collapsed else "flex-start"
 btn_pad = "8px 0px" if is_collapsed else "8px 12px"
@@ -253,10 +253,10 @@ div[data-testid="stMetricLabel"] > div, div[data-testid="stMetricValue"] > div {
     direction: {UI['dir']} !important;
     text-align: {UI['align']} !important;
 }}
+/* עטיפת טבלה שמאפשרת לבועה הצפה להיפתח מעל השורה הראשונה בלי להיחתך */
 .table-responsive {{
     width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow: visible !important;
     margin-bottom: 14px;
     border-radius: 10px;
 }}
@@ -285,6 +285,7 @@ div[data-testid="stMetricLabel"] > div, div[data-testid="stMetricValue"] > div {
     direction: rtl !important;
     text-align: center;
     font-size: 0.84rem;
+    overflow: visible !important;
 }}
 .matrix-table th, .matrix-table td {{
     border: 1px solid rgba(128,128,128,0.32);
@@ -292,6 +293,7 @@ div[data-testid="stMetricLabel"] > div, div[data-testid="stMetricValue"] > div {
     color: var(--text-color);
     word-wrap: break-word;
     overflow-wrap: break-word;
+    overflow: visible !important;
 }}
 .matrix-table thead tr:first-child th {{
     background-color: rgba(2, 132, 199, 0.16);
@@ -343,12 +345,16 @@ div[data-testid="stMetricLabel"] > div, div[data-testid="stMetricValue"] > div {
     border: 1px solid rgba(34, 197, 94, 0.50) !important;
     padding: 6px 3px !important;
     vertical-align: middle;
+    position: relative !important;
+    overflow: visible !important;
 }}
 .matrix-table td.stock-short {{
     background-color: rgba(239, 68, 68, 0.24) !important;
     border: 1px solid rgba(239, 68, 68, 0.60) !important;
     padding: 6px 3px !important;
     vertical-align: middle;
+    position: relative !important;
+    overflow: visible !important;
 }}
 .matrix-table td.summary-ok {{
     background-color: rgba(34, 197, 94, 0.32) !important;
@@ -421,7 +427,10 @@ div[data-testid="stMetricLabel"] > div, div[data-testid="stMetricValue"] > div {
     font-size: 0.78rem;
     font-weight: 700;
 }}
+/* --- עיצוב הבועה הצפה שנפתחת מעל התא בלחיצה (Floating Bubble Above Cell) --- */
 .cell-details {{
+    position: relative !important;
+    display: block;
     cursor: pointer;
     user-select: none;
 }}
@@ -434,33 +443,73 @@ div[data-testid="stMetricLabel"] > div, div[data-testid="stMetricValue"] > div {
     display: none;
 }}
 .cell-main-val {{
-    font-size: 0.93rem;
+    font-size: 0.94rem;
     font-weight: 800;
     display: inline-block;
-    padding: 1px 2px;
-    border-radius: 4px;
+    padding: 2px 5px;
+    border-radius: 6px;
     line-height: 1.22;
+    transition: all 0.15s ease;
 }}
 .cell-details:hover .cell-main-val {{
-    text-decoration: underline;
+    background-color: rgba(255, 255, 255, 0.18);
+    transform: translateY(-1px);
+}}
+.cell-details[open] .cell-main-val {{
+    box-shadow: 0 0 0 2px #0284c7;
 }}
 .cell-sub-plan {{
     display: block;
-    font-size: 0.73rem;
+    font-size: 0.72rem;
     font-weight: 600;
     opacity: 0.88;
 }}
+/* הבועה הצפה שמופיעה מעל התא (bottom: 100%) עם חץ מצביע למטה */
 .cell-breakdown-fit {{
-    margin-top: 4px;
-    padding: 5px 6px;
-    border-radius: 6px;
-    background-color: var(--background-color);
-    border: 1px solid rgba(128,128,128,0.45);
-    font-size: 0.73rem;
-    font-weight: 600;
-    text-align: {UI['align']};
-    direction: {UI['dir']};
-    line-height: 1.35;
+    position: absolute !important;
+    bottom: calc(100% + 12px) !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    z-index: 99999 !important;
+    min-width: 235px !important;
+    max-width: 290px !important;
+    padding: 11px 14px !important;
+    border-radius: 12px !important;
+    background-color: var(--secondary-background-color) !important;
+    color: var(--text-color) !important;
+    border: 2px solid #0284c7 !important;
+    font-size: 0.81rem !important;
+    font-weight: 600 !important;
+    text-align: {UI['align']} !important;
+    direction: {UI['dir']} !important;
+    line-height: 1.5 !important;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38) !important;
+    white-space: normal !important;
+    animation: popBubbleUp 0.15s ease-out;
+}}
+/* חץ בתחתית הבועה שמצביע על התא */
+.cell-breakdown-fit::after {{
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 8px;
+    border-style: solid;
+    border-color: #0284c7 transparent transparent transparent;
+}}
+.bubble-close-hint {{
+    display: block;
+    margin-top: 6px;
+    padding-top: 4px;
+    border-top: 1px dashed rgba(128,128,128,0.3);
+    font-size: 0.68rem;
+    opacity: 0.7;
+    text-align: center;
+}}
+@keyframes popBubbleUp {{
+    from {{ opacity: 0; transform: translate(-50%, 6px) scale(0.95); }}
+    to {{ opacity: 1; transform: translate(-50%, 0) scale(1); }}
 }}
 .legend-box {{
     display: flex;
@@ -511,6 +560,11 @@ div.st-key-floating_lang_btn button {{
     }}
     .clean-header h2 {{
         font-size: 1.2rem !important;
+    }}
+    .table-responsive {{
+        overflow-x: auto !important;
+        padding-top: 140px !important;
+        margin-top: -130px !important;
     }}
     .matrix-table {{
         min-width: 760px !important;
@@ -1019,8 +1073,8 @@ def render_where_used_simulator(df_sched_sub, df_bom_sub, parent_unit_str, sim_k
 
     render_quick_planner(df_sched_sub, parent_unit_str, sim_key_prefix)
     st.caption(L(
-        "הזמנות רכש פתוחות נכנסות למאזן בשבוע ה-ETA שלהן (ETA שעבר נספר ב-W1).",
-        "Open POs are added to the balance in their ETA week (overdue ETAs count in W1)."
+        "לחץ על כל תא בטבלה כדי לפתוח בועה צפה מעליו עם פירוט המלאי והשימוש באותו שבוע.",
+        "Click any cell to open a floating bubble above it with the weekly breakdown."
     ))
 
     incoming = get_incoming_map()
@@ -1147,6 +1201,7 @@ def render_where_used_simulator(df_sched_sub, df_bom_sub, parent_unit_str, sim_k
             conn.commit()
             st.rerun()
 
+    close_hint_txt = L("לחץ שוב על המספר לסגירת הבועה", "Click number again to close")
     rows_bom_html = ""
     for comp_sku, group in df_bom_view.groupby("component_sku", sort=False):
         span_count = len(group)
@@ -1192,13 +1247,14 @@ def render_where_used_simulator(df_sched_sub, df_bom_sub, parent_unit_str, sim_k
                 final_sum_td = f"<td class='{sum_cls}' rowspan='{span_count}'>{fin_str}</td>"
 
             week_tds_html = ""
-            for w_col in week_cols:
+            for w_idx, w_col in enumerate(week_cols):
                 st_info = cell_status[(row_idx, w_col)]
                 before_str = fmt_val(st_info["before_bal"], is_w)
                 used_parent_str = fmt_val(st_info["used_parent"], is_w)
                 tot_used_str = fmt_val(st_info["tot_used_all_parents"], is_w)
                 after_str = fmt_val(st_info["after_bal"], is_w)
                 planned_parent_w = int(r[w_col])
+                wk_title = PLAN_PERIODS[w_idx][2]
 
                 inc = st_info.get("incoming")
                 inc_line = ""
@@ -1207,29 +1263,33 @@ def render_where_used_simulator(df_sched_sub, df_bom_sub, parent_unit_str, sim_k
                     inc_amt_str = "+" + fmt_val(inc["amt"], is_w)
                     po_names = ", ".join(inc["pos"])
                     lbl_po = L("הגעת PO", "PO arrives")
-                    inc_line = f"{lbl_po} ({po_names}): <b>{inc_amt_str}</b><br>"
+                    inc_line = f"<div style='color:#0284c7;'>{lbl_po} ({po_names}): <b>{inc_amt_str}</b></div>"
                     inc_badge = f"<span class='cell-sub-plan'>+PO {inc_amt_str}</span>"
 
-                shared_line = f"סה\"כ כל האבות: <b>{tot_used_str}</b><br>" if (is_shared and is_he) else ""
+                shared_line = f"<div>סה\"כ כל האבות: <b>{tot_used_str}</b></div>" if (is_shared and is_he) else ""
                 if is_he:
                     breakdown_html = (
                         f"<div class='cell-breakdown-fit'>"
-                        f"תכנון ל-{r['parent_sku']}: <b>{planned_parent_w} {parent_unit_str}</b><br>"
+                        f"<div style='font-weight:800; color:#0284c7; margin-bottom:4px; border-bottom:1px solid rgba(128,128,128,0.25); padding-bottom:3px;'>{r['component_sku']} ⬅ {r['parent_sku']} ({wk_title})</div>"
+                        f"<div>תכנון ל-{r['parent_sku']}: <b>{planned_parent_w} {parent_unit_str}</b></div>"
                         f"{inc_line}"
-                        f"לפני השימוש (כולל הגעות): <b>{before_str}</b><br>"
-                        f"נדרש השבוע: <b>{used_parent_str}</b><br>"
+                        f"<div>לפני השימוש: <b>{before_str}</b></div>"
+                        f"<div>נדרש השבוע: <b>{used_parent_str}</b></div>"
                         f"{shared_line}"
-                        f"{'נשאר במלאי' if st_info['is_ok'] else '<span style=\"color:#ef4444;\">חוסר מצטבר</span>'}: <b>{after_str}</b>"
+                        f"<div>{'נשאר במלאי' if st_info['is_ok'] else '<span style=\"color:#ef4444;\">חוסר מצטבר</span>'}: <b>{after_str}</b></div>"
+                        f"<span class='bubble-close-hint'>{close_hint_txt}</span>"
                         f"</div>"
                     )
                 else:
                     breakdown_html = (
                         f"<div class='cell-breakdown-fit'>"
-                        f"Planned ({r['parent_sku']}): <b>{planned_parent_w} {parent_unit_str}</b><br>"
+                        f"<div style='font-weight:800; color:#0284c7; margin-bottom:4px; border-bottom:1px solid rgba(128,128,128,0.25); padding-bottom:3px;'>{r['component_sku']} ⬅ {r['parent_sku']} ({wk_title})</div>"
+                        f"<div>Planned ({r['parent_sku']}): <b>{planned_parent_w} {parent_unit_str}</b></div>"
                         f"{inc_line}"
-                        f"Before (incl. arrivals): <b>{before_str}</b><br>"
-                        f"Needed: <b>{used_parent_str}</b><br>"
-                        f"Balance: <b>{after_str}</b>"
+                        f"<div>Before usage: <b>{before_str}</b></div>"
+                        f"<div>Used this week: <b>{used_parent_str}</b></div>"
+                        f"<div>Balance: <b>{after_str}</b></div>"
+                        f"<span class='bubble-close-hint'>{close_hint_txt}</span>"
                         f"</div>"
                     )
 
@@ -1697,12 +1757,12 @@ elif active_page == "sim_pack":
                 st.rerun()
 
 # ==============================================================================
-# דף 4 (סימולטור 3): סימולטור עבודה מסכם
+# דף 4 (סימולטור 3): סימולטור עבודה מסכם (עם בועה צפה מעל התא בלחיצה!)
 # ==============================================================================
 elif active_page == "sim_work":
     st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_sim_work"]}</h2></div>', unsafe_allow_html=True)
     st.info(
-        "**סימולטור עבודה מסכם לפי חודשים ושבועות:** מציג לכל **מק\"ט אב** כמה יחידות **מתוכנן** לייצר בכל שבוע, כמה יחידות **אפשר להכין בפועל** (משילוב חו\"ג + בלקים + אריזות + הגעות PO), ומתי יווצר חוסר. **לחץ על כל תא שבועי** כדי לראות בדיוק אילו רכיבים חסרים באותו שבוע וכמה חסר מהם!"
+        "**סימולטור עבודה מסכם לפי חודשים ושבועות:** מציג לכל **מק\"ט אב** כמה יחידות **מתוכנן** לייצר בכל שבוע, כמה יחידות **אפשר להכין בפועל** (משילוב חו\"ג + בלקים + אריזות + הגעות PO), ומתי יווצר חוסר. **לחץ על כל תא שבועי** כדי לפתוח בועה צפה מעליו עם פירוט מה חסר וכמה!"
     )
 
     fg_df = pd.read_sql("SELECT sku, name FROM Catalog WHERE item_type = 'FG'", conn)
@@ -1840,17 +1900,18 @@ elif active_page == "sim_work":
                 "arrivals": arr_lines
             }
 
-    st.subheader(L("טבלת סימולטור עבודה לפי מק\"ט אב, חודשים ושבועות (לחץ על כל תא לפירוט מה חסר וכמה)", "Master Work Schedule & Shortages by Parent SKU"))
+    st.subheader(L("טבלת סימולטור עבודה לפי מק\"ט אב, חודשים ושבועות (לחץ על כל תא לפתיחת בועה מעליו)", "Master Work Schedule & Shortages by Parent SKU"))
 
     legend_w = (
         f"<div class='legend-box'>"
         f"<span class='legend-pill-ok'>{'ירוק = ניתן להכין את כל הכמות המתוכננת לשבוע זה' if is_he else 'Green = All Planned Units Can Be Made'}</span>"
-        f"<span class='legend-pill-short'>{'אדום = חוסר בשבוע זה (מציג כמה מתוכנן, כמה אפשר להכין, ובלחיצה מה חסר וכמה)' if is_he else 'Red = Shortage in Week (Click to see missing items)'}</span>"
+        f"<span class='legend-pill-short'>{'אדום = חוסר בשבוע זה (לחץ על התא לפתיחת בועת פירוט מעליו)' if is_he else 'Red = Shortage in Week (Click to open bubble above)'}</span>"
         f"</div>"
     )
     st.markdown(legend_w, unsafe_allow_html=True)
 
     arr_title = L("הגעות רכש השבוע:", "PO arrivals this week:")
+    close_hint_txt = L("לחץ שוב על התא לסגירת הבועה", "Click cell again to close")
     rows_work_html = ""
     for _, fg_row in df_sched_work.iterrows():
         f_sku = fg_row["sku"]
@@ -1859,13 +1920,14 @@ elif active_page == "sim_work":
         tot_makeable_all = 0
 
         week_tds = ""
-        for w_col in week_cols:
+        for w_idx, w_col in enumerate(week_cols):
             c_data = work_sim_cells[(f_sku, w_col)]
             p_u = c_data["planned"]
             m_u = c_data["makeable"]
             miss_u = c_data["missing_fg"]
             tot_planned_all += p_u
             tot_makeable_all += m_u
+            wk_title = PLAN_PERIODS[w_idx][2]
 
             arr_lines_c = c_data["arrivals"]
             arr_badge = f"<span class='cell-sub-plan'>+PO ({len(arr_lines_c)})</span>" if arr_lines_c else ""
@@ -1880,10 +1942,12 @@ elif active_page == "sim_work":
                 sub_txt = f"<span class='cell-sub-plan'>{'מתוכנן' if is_he else 'Planned'}: {p_u:,} {u_label}</span>{arr_badge}"
                 details_body = (
                     f"<div class='cell-breakdown-fit'>"
-                    f"מתוכנן לשבוע: <b>{p_u:,} {u_label}</b><br>"
-                    f"ניתן להכין: <b>{m_u:,} {u_label}</b><br>"
-                    f"<span style='color:#22c55e;'>אין חוסרים בשבוע זה!</span>"
+                    f"<div style='font-weight:800; color:#0284c7; margin-bottom:4px; border-bottom:1px solid rgba(128,128,128,0.25); padding-bottom:3px;'>{f_sku} | {wk_title}</div>"
+                    f"<div>מתוכנן לשבוע: <b>{p_u:,} {u_label}</b></div>"
+                    f"<div>ניתן להכין: <b>{m_u:,} {u_label}</b></div>"
+                    f"<div style='color:#22c55e;'>אין חוסרים בשבוע זה!</div>"
                     f"{arr_block}"
+                    f"<span class='bubble-close-hint'>{close_hint_txt}</span>"
                     f"</div>"
                 )
             else:
@@ -1893,11 +1957,13 @@ elif active_page == "sim_work":
                 short_items_html = "<br>".join(c_data["shortages"])
                 details_body = (
                     f"<div class='cell-breakdown-fit'>"
-                    f"מתוכנן לשבוע: <b>{p_u:,} {u_label}</b> | ניתן להכין: <b>{m_u:,} {u_label}</b><br>"
+                    f"<div style='font-weight:800; color:#ef4444; margin-bottom:4px; border-bottom:1px solid rgba(128,128,128,0.25); padding-bottom:3px;'>{f_sku} | {wk_title}</div>"
+                    f"<div>מתוכנן: <b>{p_u:,} {u_label}</b> | ניתן להכין: <b>{m_u:,} {u_label}</b></div>"
                     f"<hr style='margin:4px 0; border-color:rgba(128,128,128,0.3);'>"
                     f"<b>{'מה חסר וכמה (מצטבר):' if is_he else 'Missing Components:'}</b><br>"
                     f"{short_items_html}"
                     f"{arr_block}"
+                    f"<span class='bubble-close-hint'>{close_hint_txt}</span>"
                     f"</div>"
                 )
 
