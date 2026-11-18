@@ -122,7 +122,6 @@ UI = {
     }
 }[lang]
 
-# הגדרת דפי הניווט עם אייקונים אמיתיים (Material Symbols) ללא אימוג'ים
 NAV_ITEMS = [
     ("inv", ":material/warehouse:", UI["m_inv"]),
     ("sim_prod", ":material/precision_manufacturing:", UI["m_sim_prod"]),
@@ -173,71 +172,67 @@ def eta_week_label(eta_str):
     lbl = [p[2] for p in PLAN_PERIODS if p[0] == wk][0]
     return f"{wk} | {lbl}{suffix}"
 
-# --- CSS מקצועי: תמיכה בתפריט מתקפל לאייקונים + התאמה מלאה למובייל (Mobile Responsive) ---
-sidebar_width_css = """
-    section[data-testid="stSidebar"] {
-        width: 68px !important;
-        min-width: 68px !important;
-        max-width: 68px !important;
-        transition: width 0.2s ease;
-    }
-    section[data-testid="stSidebar"] .stButton button {
-        padding: 8px 0px !important;
-        justify-content: center !important;
-    }
-""" if is_collapsed else """
-    section[data-testid="stSidebar"] {
-        width: 260px !important;
-        min-width: 260px !important;
-        max-width: 260px !important;
-        transition: width 0.2s ease;
-    }
-"""
+# --- CSS מאוחד ונקי לחלוטין (ללא שום טקסט שזולג למסך, שומר על ימין-לשמאל מלא בעברית) ---
+sb_w = "68px" if is_collapsed else "260px"
+btn_justify = "center" if is_collapsed else "flex-start"
+btn_pad = "8px 0px" if is_collapsed else "8px 12px"
+border_side = "right" if is_he else "left"
 
-st.markdown(f"""
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+css_rules = f"""
 <style>
-{sidebar_width_css}
-.ms-icon {{
-    font-family: 'Material Symbols Rounded';
-    font-weight: normal;
-    font-style: normal;
-    font-size: 1.15rem;
-    line-height: 1;
-    vertical-align: middle;
-    display: inline-block;
-    margin-{"left" if is_he else "right"}: 4px;
-}}
-.stApp, .main, .block-container {{
+html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], .main, .block-container {{
     direction: {UI['dir']} !important;
     text-align: {UI['align']} !important;
-    font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif;
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+}}
+.block-container {{
     padding-top: 0.8rem !important;
     padding-bottom: 4rem !important;
     padding-left: 1rem !important;
     padding-right: 1rem !important;
     max-width: 100% !important;
 }}
-section[data-testid="stSidebar"], section[data-testid="stSidebar"] > div {{
+section[data-testid="stSidebar"] {{
+    width: {sb_w} !important;
+    min-width: {sb_w} !important;
+    max-width: {sb_w} !important;
     direction: {UI['dir']} !important;
     text-align: {UI['align']} !important;
+    transition: width 0.2s ease;
+}}
+section[data-testid="stSidebar"] > div {{
+    direction: {UI['dir']} !important;
+    text-align: {UI['align']} !important;
+}}
+section[data-testid="stSidebar"] .stButton button {{
+    direction: {UI['dir']} !important;
+    text-align: {UI['align']} !important;
+    justify-content: {btn_justify} !important;
+    padding: {btn_pad} !important;
+    display: flex !important;
+    width: 100% !important;
+    border-radius: 10px !important;
 }}
 a.header-anchor, [data-testid="stHeaderActionElements"] {{
     display: none !important;
 }}
-h1, h2, h3, h4, p, label, .stMarkdown {{
+h1, h2, h3, h4, p, label, .stMarkdown, [data-testid="stMarkdownContainer"] {{
     direction: {UI['dir']} !important;
     text-align: {UI['align']} !important;
+}}
+div[data-baseweb="tab-list"], div[role="radiogroup"] {{
+    direction: {UI['dir']} !important;
 }}
 .clean-header {{
     background: linear-gradient(135deg, var(--secondary-background-color) 0%, rgba(2, 132, 199, 0.08) 100%);
     color: var(--text-color);
     border: 1px solid rgba(128,128,128,0.22);
-    border-{"right" if is_he else "left"}: 5px solid #0284c7;
+    border-{border_side}: 5px solid #0284c7;
     padding: 12px 18px;
     border-radius: 12px;
     margin-bottom: 14px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    direction: {UI['dir']} !important;
+    text-align: {UI['align']} !important;
 }}
 .plan-box {{
     background-color: var(--secondary-background-color);
@@ -252,14 +247,12 @@ div[data-testid="stMetric"] {{
     border: 1px solid rgba(128,128,128,0.20);
     padding: 12px 14px;
     border-radius: 12px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.03);
 }}
 div[data-testid="stMetricLabel"] > div, div[data-testid="stMetricValue"] > div {{
     color: var(--text-color) !important;
     direction: {UI['dir']} !important;
     text-align: {UI['align']} !important;
 }}
-/* עטיפת גלילה רספונסיבית לטלפון נייד */
 .table-responsive {{
     width: 100%;
     overflow-x: auto;
@@ -510,7 +503,6 @@ div.st-key-floating_lang_btn button {{
     font-weight: 700 !important;
     box-shadow: 0 4px 12px rgba(0,0,0,0.25) !important;
 }}
-/* התאמה ייעודית למסכי טלפון נייד (Mobile Responsive) */
 @media (max-width: 768px) {{
     .block-container {{
         padding-left: 0.4rem !important;
@@ -533,7 +525,8 @@ div.st-key-floating_lang_btn button {{
     }}
 }}
 </style>
-""", unsafe_allow_html=True)
+"""
+st.markdown(" ".join(css_rules.split()), unsafe_allow_html=True)
 
 DB_NAME = "cosmetics_3sim_erp.db"
 
@@ -708,7 +701,7 @@ def init_db():
 init_db()
 conn = get_connection()
 
-# --- סרגל צד חכם עם אפשרות קיפול לתצוגת אייקונים בלבד (ללא אימוג'ים) ---
+# --- סרגל צד חכם עם אפשרות קיפול לתצוגת אייקונים בלבד ---
 collapse_icon = ":material/menu_open:" if not is_collapsed else ":material/menu:"
 collapse_help = L("קפל/פתח תפריט לתצוגת אייקונים בלבד", "Collapse/Expand Sidebar to Icons Only")
 st.sidebar.button(
@@ -787,7 +780,6 @@ def get_incoming_map():
     return out
 
 def get_sku_expiry_summary():
-    """שולף לכל מק\"ט את האצווה הפעילה הקרובה ביותר לתפוגה (FEFO) ואת תאריך התפוגה שלה."""
     df_b = pd.read_sql(
         "SELECT sku, batch_no, expiry_date FROM Batches WHERE status='Active' "
         "ORDER BY CASE WHEN expiry_date IS NULL OR expiry_date='' THEN 1 ELSE 0 END, expiry_date ASC",
@@ -1287,7 +1279,7 @@ def render_where_used_simulator(df_sched_sub, df_bom_sub, parent_unit_str, sim_k
 # דף 1: מחסני המלאי מחולקים לטאבים נקיים (מלאי ותפוגה | הזמנות רכש | ספקים ותנועות | עריכה)
 # ==============================================================================
 if active_page == "inv":
-    st.markdown(f'<div class="clean-header"><h2 style="margin:0;"><span class="ms-icon">warehouse</span> {UI["m_inv"]}</h2></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_inv"]}</h2></div>', unsafe_allow_html=True)
 
     df_cat = pd.read_sql("SELECT * FROM Catalog", conn)
     df_po_all = pd.read_sql("SELECT * FROM PurchaseOrders WHERE status NOT IN ('Received','Cancelled') ORDER BY eta_date ASC", conn)
@@ -1302,7 +1294,6 @@ if active_page == "inv":
     c2.metric(L("מחסן בלקים - חומר מוכן (BULK)", "Bulks WH"), bulk_tot)
     c3.metric(L("מחסן אריזות (PKG)", "Packaging WH"), pkg_tot)
 
-    # בחירת המחסן הפעיל
     wh_selector = st.radio(
         L("בחר מחסן לתצוגה:", "Select Warehouse:"),
         [
@@ -1316,11 +1307,6 @@ if active_page == "inv":
     is_w_wh = active_wh_type in ("RAW", "BULK")
     df_wh_sub = df_cat[df_cat["item_type"] == active_wh_type]
 
-    # חלוקת המחסן לטאבים נפרדים ונקיים כפי שביקשת:
-    # טאב 1: רק כמות מלאי נוכחית ותאריכי תפוגה
-    # טאב 2: הזמנות רכש של אותו מחסן
-    # טאב 3: ספקים ותנועות מלאי
-    # טאב 4: עריכה והוספת פריטים
     sub_tab_stock, sub_tab_po, sub_tab_sup, sub_tab_edit = st.tabs([
         L(":material/inventory: מלאי נוכחי ותאריכי תפוגה", ":material/inventory: Current Stock & Expiry Dates"),
         L(":material/local_shipping: הזמנות רכש (PO)", ":material/local_shipping: Purchase Orders (PO)"),
@@ -1479,10 +1465,10 @@ if active_page == "inv":
             st.rerun()
 
 # ==============================================================================
-# דף 2 (סימולטור 1): סימולטור קו ייצור (שואב רק ממחסן חומרי גלם -> מעביר למחסן בלקים)
+# דף 2 (סימולטור 1): סימולטור קו ייצור
 # ==============================================================================
 elif active_page == "sim_prod":
-    st.markdown(f'<div class="clean-header"><h2 style="margin:0;"><span class="ms-icon">precision_manufacturing</span> {UI["m_sim_prod"]}</h2></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_sim_prod"]}</h2></div>', unsafe_allow_html=True)
     st.info("**סימולטור קו ייצור:** קבע כמה ק\"ג בלק את/ה מתכנן/ת לייצר ולמתי – המערכת בודקת את **מחסן חומרי הגלם (`RAW`)** ומראה מתי יהיה חוסר.")
 
     bulk_df = pd.read_sql("SELECT sku, name FROM Catalog WHERE item_type = 'BULK'", conn)
@@ -1590,10 +1576,10 @@ elif active_page == "sim_prod":
                 st.rerun()
 
 # ==============================================================================
-# דף 3 (סימולטור 2): סימולטור אריזה (חומר ממחסן הבלקים + אריזות ממחסן האריזות)
+# דף 3 (סימולטור 2): סימולטור אריזה
 # ==============================================================================
 elif active_page == "sim_pack":
-    st.markdown(f'<div class="clean-header"><h2 style="margin:0;"><span class="ms-icon">inventory_2</span> {UI["m_sim_pack"]}</h2></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_sim_pack"]}</h2></div>', unsafe_allow_html=True)
     st.info("**סימולטור אריזה משולב:** קבע כמה יחידות מוצר סופי את/ה מתכנן/ת לארוז ולמתי – המערכת בודקת במקביל את **החומר המוכן ממחסן הבלקים (`BULK`)** ואת **האריזות ממחסן האריזות (`PKG`)**.")
 
     fg_df = pd.read_sql("SELECT sku, name FROM Catalog WHERE item_type = 'FG'", conn)
@@ -1714,7 +1700,7 @@ elif active_page == "sim_pack":
 # דף 4 (סימולטור 3): סימולטור עבודה מסכם
 # ==============================================================================
 elif active_page == "sim_work":
-    st.markdown(f'<div class="clean-header"><h2 style="margin:0;"><span class="ms-icon">analytics</span> {UI["m_sim_work"]}</h2></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_sim_work"]}</h2></div>', unsafe_allow_html=True)
     st.info(
         "**סימולטור עבודה מסכם לפי חודשים ושבועות:** מציג לכל **מק\"ט אב** כמה יחידות **מתוכנן** לייצר בכל שבוע, כמה יחידות **אפשר להכין בפועל** (משילוב חו\"ג + בלקים + אריזות + הגעות PO), ומתי יווצר חוסר. **לחץ על כל תא שבועי** כדי לראות בדיוק אילו רכיבים חסרים באותו שבוע וכמה חסר מהם!"
     )
@@ -1958,7 +1944,7 @@ elif active_page == "sim_work":
 # דף 5: העברות בין מחסנים, הזמנות רכש ו-SAP
 # ==============================================================================
 elif active_page == "wh":
-    st.markdown(f'<div class="clean-header"><h2 style="margin:0;"><span class="ms-icon">local_shipping</span> {UI["m_wh"]}</h2></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_wh"]}</h2></div>', unsafe_allow_html=True)
 
     df_po = pd.read_sql("SELECT * FROM PurchaseOrders ORDER BY po_id DESC", conn)
     cat_meta = pd.read_sql("SELECT sku, name, item_type FROM Catalog", conn).set_index("sku")
@@ -2065,7 +2051,7 @@ elif active_page == "wh":
 # דף 6: אצוות ותוקף (Batch / Lot & Expiry) + עקיבות
 # ==============================================================================
 elif active_page == "batch":
-    st.markdown(f'<div class="clean-header"><h2 style="margin:0;"><span class="ms-icon">qr_code_2</span> {UI["m_batch"]}</h2></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_batch"]}</h2></div>', unsafe_allow_html=True)
 
     df_b = pd.read_sql(
         "SELECT b.*, c.name, c.item_type FROM Batches b JOIN Catalog c ON b.sku = c.sku", conn
@@ -2203,7 +2189,7 @@ elif active_page == "batch":
 # דף 7: סוכן פקודות מהיר
 # ==============================================================================
 elif active_page == "ai":
-    st.markdown(f'<div class="clean-header"><h2 style="margin:0;"><span class="ms-icon">terminal</span> {UI["m_ai"]}</h2></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_ai"]}</h2></div>', unsafe_allow_html=True)
     st.caption("כתוב פקודה כגון: `תוסיף 5 קילו ל-1001` או `תוסיף 10 קילו ל-2001` או `תוסיף 300 יחידות ל-3001`")
     render_undo_button("stock", "undo_agent")
     cmd_in = st.chat_input("כתוב פקודה לביצוע מיידי...")
