@@ -1,3 +1,19 @@
+from datetime import datetime
+
+
+def format_date(value: object, *, is_he: bool) -> str:
+    if value is None:
+        return "—"
+    text = str(value).strip()
+    if not text or text.lower() in {"nan", "nat", "<na>"}:
+        return "—"
+    try:
+        parsed = datetime.strptime(text[:10], "%Y-%m-%d")
+    except ValueError:
+        return text
+    return parsed.strftime("%d/%m/%Y") if is_he else parsed.strftime("%b %d, %Y")
+
+
 def format_value(
     val_in_base: float,
     is_weight_based: bool,

@@ -57,19 +57,51 @@ def render(ctx: PageContext) -> None:
     if bulk_df.empty:
         st.warning("אין בלקים בקטלוג.")
     else:
-        cp1, cp2, cp3, cp4 = st.columns([2.2, 1.2, 1.7, 1.4])
-        with cp1:
-            sel_bulk_make = st.selectbox("בחר בלק לייצור בקו:", bulk_df["sku"] + " - " + bulk_df["name"])
-        sel_b_sku = sel_bulk_make.split(" - ")[0]
-        with cp2:
-            kg_to_make = st.number_input("כמות בלק לייצור (בק\"ג):", min_value=1.0, value=10.0, step=1.0)
-        with cp3:
-            prod_batch_in = st.text_input("מספר אצווה (Batch #) לבלק:", value=gen_batch_no(sel_b_sku), key=f"prod_bno_{sel_b_sku}")
-        with cp4:
-            prod_exp_in = st.date_input("תאריך תפוגה לבלק:", value=date.today() + timedelta(days=180), key="prod_exp")
+        with st.container(border=True):
+            st.caption(L(
+                "בחר/י מוצר, כמות ואצווה. לפני ביצוע תוצג בדיקת זמינות חומרי גלם לפי FEFO.",
+                "Choose the bulk item, quantity, and batch. Available raw-material stock is checked using FEFO before production.",
+            ))
+            with st.form("production_execute_form"):
+                cp1, cp2, cp3, cp4 = st.columns([2.2, 1.2, 1.7, 1.4])
+                with cp1:
+                    sel_bulk_make = st.selectbox(
+                        L("בלק לייצור", "Bulk to produce"),
+                        bulk_df["sku"] + " - " + bulk_df["name"],
+                        key="production_bulk_sku",
+                    )
+                sel_b_sku = sel_bulk_make.split(" - ")[0]
+                with cp2:
+                    kg_to_make = st.number_input(
+                        L("כמות לייצור (ק\"ג)", "Production quantity (kg)"),
+                        min_value=1.0,
+                        value=10.0,
+                        step=1.0,
+                        key="production_quantity_kg",
+                    )
+                with cp3:
+                    prod_batch_in = st.text_input(
+                        L("מספר אצווה (Batch #)", "Batch number"),
+                        value=gen_batch_no(sel_b_sku),
+                        key=f"prod_bno_{sel_b_sku}",
+                    )
+                with cp4:
+                    prod_exp_in = st.date_input(
+                        L("תאריך תפוגה", "Expiry date"),
+                        value=date.today() + timedelta(days=180),
+                        key="prod_exp",
+                    )
+                run_production = st.form_submit_button(
+                    L(":material/play_arrow: ייצר בלק עכשיו", ":material/play_arrow: Produce bulk"),
+                    type="primary",
+                    use_container_width=True,
+                )
 
-        if st.button(":material/play_arrow: ייצר בלק עכשיו (גרע ממחסן חומרי גלם FEFO והעבר למחסן בלקים)"):
+        if run_production:
             b_sku = sel_b_sku
+            if prod_exp_in < date.today():
+                st.error(L("תאריך התפוגה חייב להיות היום או בעתיד.", "The expiry date must be today or later."))
+                st.stop()
             bom_rows = pd.read_sql("SELECT component_sku, req_weight_grams FROM BOM WHERE parent_sku = ?", conn, params=(b_sku,))
             now_d = datetime.now().strftime("%Y-%m-%d")
 

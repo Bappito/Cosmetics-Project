@@ -72,19 +72,51 @@ def render(ctx: PageContext) -> None:
     if fg_df.empty:
         st.warning("אין מוצרים סופיים בקטלוג.")
     else:
-        ck1, ck2, ck3, ck4 = st.columns([2.2, 1.2, 1.7, 1.4])
-        with ck1:
-            sel_fg_pack = st.selectbox("בחר מוצר סופי לאריזה:", fg_df["sku"] + " - " + fg_df["name"])
-        sel_f_sku = sel_fg_pack.split(" - ")[0]
-        with ck2:
-            units_to_pack = st.number_input("כמות יחידות למילוי ואריזה:", min_value=1, value=100, step=10)
-        with ck3:
-            pack_batch_in = st.text_input("מספר אצווה (Batch #) למוצר:", value=gen_batch_no(sel_f_sku), key=f"pack_bno_{sel_f_sku}")
-        with ck4:
-            pack_exp_in = st.date_input("תאריך תפוגה למוצר:", value=date.today() + timedelta(days=730), key="pack_exp")
+        with st.container(border=True):
+            st.caption(L(
+                "בחר/י מוצר וכמות. לפני האריזה נבדקת זמינות הבלק ורכיבי האריזה לפי FEFO.",
+                "Choose a finished product and quantity. Bulk and packaging availability is checked using FEFO before packing.",
+            ))
+            with st.form("packaging_execute_form"):
+                ck1, ck2, ck3, ck4 = st.columns([2.2, 1.2, 1.7, 1.4])
+                with ck1:
+                    sel_fg_pack = st.selectbox(
+                        L("מוצר סופי לאריזה", "Finished product to pack"),
+                        fg_df["sku"] + " - " + fg_df["name"],
+                        key="packaging_finished_sku",
+                    )
+                sel_f_sku = sel_fg_pack.split(" - ")[0]
+                with ck2:
+                    units_to_pack = st.number_input(
+                        L("כמות לאריזה (יחידות)", "Packing quantity (units)"),
+                        min_value=1,
+                        value=100,
+                        step=10,
+                        key="packaging_quantity_units",
+                    )
+                with ck3:
+                    pack_batch_in = st.text_input(
+                        L("מספר אצווה (Batch #)", "Batch number"),
+                        value=gen_batch_no(sel_f_sku),
+                        key=f"pack_bno_{sel_f_sku}",
+                    )
+                with ck4:
+                    pack_exp_in = st.date_input(
+                        L("תאריך תפוגה", "Expiry date"),
+                        value=date.today() + timedelta(days=730),
+                        key="pack_exp",
+                    )
+                run_packaging = st.form_submit_button(
+                    L(":material/check_circle: בצע אריזה", ":material/check_circle: Pack product"),
+                    type="primary",
+                    use_container_width=True,
+                )
 
-        if st.button(":material/check_circle: בצע אריזה (גרע בלק ממחסן בלקים + בקבוקים/מכסים/מדבקות ממחסן אריזות)"):
+        if run_packaging:
             f_sku = sel_f_sku
+            if pack_exp_in < date.today():
+                st.error(L("תאריך התפוגה חייב להיות היום או בעתיד.", "The expiry date must be today or later."))
+                st.stop()
             bom_p = pd.read_sql("SELECT component_sku, comp_type, req_qty_units, req_weight_grams FROM BOM WHERE parent_sku = ?", conn, params=(f_sku,))
             now_d = datetime.now().strftime("%Y-%m-%d")
 
