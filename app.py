@@ -3,7 +3,10 @@ import sqlite3
 import pandas as pd
 import plotly.express as px
 import json
+from html import escape as html_escape
 from datetime import datetime, timedelta
+
+# 2026-11-20
 
 try:
     from google import genai
@@ -129,7 +132,7 @@ def calc_cosmetic_readiness(parent_id, target_units):
         SELECT b.component_id, i.name, b.grams_per_unit, i.stock_grams, i.warehouse_bin, i.cost_per_kg
         FROM BOM b
         JOIN Items i ON b.component_id = i.item_id
-        WHERE b.parent_id = ?
+        WHERE b.parent_id = ? AND i.category = 'RAW'
     """
     df = pd.read_sql(query, conn, params=(parent_id,))
     if df.empty:
@@ -144,6 +147,65 @@ def calc_cosmetic_readiness(parent_id, target_units):
     df["יח' מוצר שניתן לייצר"] = (df["stock_grams"] // df["grams_per_unit"]).astype(int)
     
     return df, round(df["אחוז זמינות חומר"].mean(), 1), int(df["יח' מוצר שניתן לייצר"].min())
+
+def render_bom_demand_table(df, period_column, is_kg):
+    headers = [
+        period_column, 'מק"ט אב / מוצר', 'מק"ט בן', 'שם הרכיב',
+        'סוג רכיב', 'כמות ליחידה', 'כמות נדרשת'
+    ]
+    rows = []
+    grouped = df.groupby(
+        [period_column, "parent_id", "parent_name"], sort=True, dropna=False
+    )
+    for (period, parent_id, parent_name), components in grouped:
+        components = components.sort_values(["component_id", "component_name"])
+        rowspan = len(components)
+        for index, (_, component) in enumerate(components.iterrows()):
+            category = component["category"]
+            is_raw = category == "RAW"
+            unit = ("ק\"ג" if is_kg else "גרם") if is_raw else "יח'"
+            divisor = 1000.0 if is_raw and is_kg else 1.0
+            per_unit = component["quantity_per_unit"] / divisor
+            required = component["required_quantity"] / divisor
+            category_name = {
+                "RAW": "חומר גלם",
+                "PACKAGING": "אריזה",
+                "LABEL": "מדבקה",
+            }.get(category, category)
+            parent_cell = ""
+            if index == 0:
+                parent_cell = (
+                    f'<td rowspan="{rowspan}" class="parent-sku" '
+                    'style="vertical-align:middle; padding:8px;">'
+                    f'<strong>{html_escape(str(parent_id))}</strong><br>'
+                    f'{html_escape(str(parent_name))}</td>'
+                )
+            rows.append(
+                "<tr>"
+                f"<td>{html_escape(str(period))}</td>"
+                f"{parent_cell}"
+                f"<td>{html_escape(str(component['component_id']))}</td>"
+                f"<td>{html_escape(str(component['component_name']))}</td>"
+                f"<td>{html_escape(str(category_name))}</td>"
+                f"<td>{per_unit:,.3f} {unit}</td>"
+                f"<td>{required:,.3f} {unit}</td>"
+                "</tr>"
+            )
+
+    table_html = (
+        '<div style="overflow-x:auto; direction:rtl;">'
+        '<table style="width:100%; border-collapse:collapse; text-align:right;">'
+        "<thead><tr>"
+        + "".join(
+            f'<th style="padding:8px; border-bottom:1px solid #64748b;">'
+            f"{html_escape(header)}</th>"
+            for header in headers
+        )
+        + "</tr></thead><tbody>"
+        + "".join(rows)
+        + "</tbody></table></div>"
+    )
+    st.markdown(table_html, unsafe_allow_html=True)
 
 # --- תפריט צד וחיבור Gemini API ---
 st.sidebar.markdown("## 🧪 Priority Cosmetics")
@@ -299,11 +361,10 @@ elif menu == "⚙️ ייצור, פורמולות ומוכנות (%)":
     """, unsafe_allow_html=True)
 
     fg_df = pd.read_sql("SELECT * FROM Items WHERE category='FG'", conn)
-    raw_df = pd.read_sql("SELECT * FROM Items WHERE category='RAW'", conn)
 
     tab_readiness, tab_bom_builder = st.tabs([
         "📊 אחוז מוכנות חומרים מהמלאי וייצור אצוות",
-        "🧪 בניית ועריכת עצי מוצר / פורמולות (בגרמים)"
+        "🧪 בניית ועריכת עצי מוצר (חומרי גלם, אריזות ומדבקות)"
     ])
 
     with tab_readiness:
@@ -342,17 +403,29 @@ elif menu == "⚙️ ייצור, פורמולות ומוכנות (%)":
             st.rerun()
 
     with tab_bom_builder:
-        st.subheader("בנייה ועדכון של עצי מוצר (פורמולות בגרמים) מתוך האתר")
+        st.subheader("בנייה ועדכון של עצי מוצר מתוך האתר")
         c_b1, c_b2 = st.columns(2)
         with c_b1:
             st.markdown("#### 1. הוסף / עדכן רכיב בעץ מוצר")
             target_fg = st.selectbox("בחר מוצר מוגמר:", fg_df["item_id"] + " - " + fg_df["name"], key="bom_fg")
-            target_raw = st.selectbox("בחר חומר גלם להוספה לפורמולה:", raw_df["item_id"] + " - " + raw_df["name"], key="bom_raw")
-            grams_val = st.number_input("כמות בגרמים (g) הנדרשת ליחידת מוצר אחת:", min_value=0.1, value=10.0, step=0.5)
+            component_df = pd.read_sql(
+                "SELECT item_id, name, category FROM Items "
+                "WHERE category IN ('RAW', 'PACKAGING', 'LABEL') ORDER BY item_id",
+                conn
+            )
+            target_component = st.selectbox(
+                "בחר חומר גלם, אריזה או מדבקה להוספה לעץ המוצר:",
+                component_df["item_id"] + " - " + component_df["name"],
+                key="bom_component"
+            )
+            quantity_val = st.number_input(
+                "כמות רכיב הנדרשת ליחידת מוצר אחת (גרמים לחומר גלם, יחידות לאריזה/מדבקה):",
+                min_value=0.1, value=10.0, step=0.5
+            )
             if st.button("שמור רכיב בעץ המוצר"):
                 p_id = target_fg.split(" - ")[0]
-                c_id = target_raw.split(" - ")[0]
-                conn.execute("INSERT OR REPLACE INTO BOM VALUES (?, ?, ?)", (p_id, c_id, grams_val))
+                c_id = target_component.split(" - ")[0]
+                conn.execute("INSERT OR REPLACE INTO BOM VALUES (?, ?, ?)", (p_id, c_id, quantity_val))
                 conn.commit()
                 st.success("עץ המוצר עודכן!")
                 st.rerun()
@@ -364,8 +437,35 @@ elif menu == "⚙️ ייצור, פורמולות ומוכנות (%)":
                 if new_fg_id and new_fg_name:
                     conn.execute("INSERT OR REPLACE INTO Items VALUES (?, ?, 'FG', 'FG-Z1', 'ייצור עצמי', 0, 10, 0)", (new_fg_id, new_fg_name))
                     conn.commit()
-                    st.success("המוצר הוקם! כעת תוכל לשייך לו חומרי גלם בגרמים.")
+                    st.success("המוצר הוקם! כעת תוכל לשייך לו חומרי גלם, אריזות ומדבקות.")
                     st.rerun()
+            st.markdown("#### 3. הוסף פריט אריזה או מדבקה")
+            new_component_id = st.text_input("מק\"ט אריזה/מדבקה:", key="new_component_id")
+            new_component_name = st.text_input("שם האריזה/המדבקה:", key="new_component_name")
+            new_component_category = st.selectbox(
+                "סוג הפריט:",
+                ["PACKAGING", "LABEL"],
+                format_func=lambda value: "אריזה" if value == "PACKAGING" else "מדבקה",
+                key="new_component_category"
+            )
+            if st.button("הוסף אריזה/מדבקה"):
+                if new_component_id and new_component_name:
+                    existing_component = conn.execute(
+                        "SELECT 1 FROM Items WHERE item_id = ?", (new_component_id,)
+                    ).fetchone()
+                    if existing_component:
+                        st.error("מק\"ט זה כבר קיים במערכת.")
+                    else:
+                        conn.execute(
+                            """INSERT INTO Items
+                            (item_id, name, category, warehouse_bin, supplier, stock_grams,
+                             safety_stock_grams, cost_per_kg)
+                            VALUES (?, ?, ?, 'PACK-Z1', 'ספק כללי', 0, 0, 0)""",
+                            (new_component_id, new_component_name, new_component_category)
+                        )
+                        conn.commit()
+                        st.success("הפריט נוסף למערכת; כעת ניתן לשייך אותו לעץ מוצר.")
+                        st.rerun()
 
 # ==============================================================================
 # מודול 3: סימולטור ותוכנית עבודה
@@ -402,6 +502,58 @@ elif menu == "🎛️ סימולטור ותוכנית עבודה":
             "עלות השלמת חוסר (₪)": round((short_g / 1000.0) * raw["cost_per_kg"], 1)
         })
     st.dataframe(pd.DataFrame(sim_rows), use_container_width=True, hide_index=True)
+
+    st.divider()
+    st.subheader("נגזרת עצי מוצר לפי חודשים ושבועות (חומרי גלם, אריזות ומדבקות)")
+    st.caption(
+        "הדרישות מחושבות מהזמנות הייצור הקיימות לפי תאריך היעד שלהן. "
+        "חומרי גלם מוצגים בגרם/ק״ג, ואריזות ומדבקות ביחידות."
+    )
+    demand_df = pd.read_sql(
+        """
+        SELECT w.item_id AS parent_id, parent.name AS parent_name,
+               w.qty_ordered, w.due_date, b.component_id,
+               component.name AS component_name, component.category,
+               b.grams_per_unit AS quantity_per_unit
+        FROM WorkOrders w
+        JOIN Items parent ON parent.item_id = w.item_id
+        JOIN BOM b ON b.parent_id = w.item_id
+        JOIN Items component ON component.item_id = b.component_id
+        WHERE w.status IN ('בייצור', 'מתוכנן')
+        """,
+        conn
+    )
+    if demand_df.empty:
+        st.info("אין כרגע הזמנות ייצור פעילות עם רכיבים בעץ מוצר.")
+    else:
+        demand_df["due_date"] = pd.to_datetime(demand_df["due_date"], errors="coerce")
+        missing_dates = int(demand_df["due_date"].isna().sum())
+        if missing_dates:
+            st.warning(f"{missing_dates} שורות ללא תאריך יעד תקין לא נכללו בדוח.")
+        demand_df = demand_df.dropna(subset=["due_date"]).copy()
+        if demand_df.empty:
+            st.info("אין הזמנות פעילות עם תאריך יעד תקין להצגה.")
+        else:
+            demand_df["חודש"] = demand_df["due_date"].dt.strftime("%Y-%m")
+            demand_df["שבוע"] = demand_df["due_date"].dt.strftime("%G-W%V")
+            demand_df["required_quantity"] = (
+                demand_df["qty_ordered"] * demand_df["quantity_per_unit"]
+            )
+            aggregation_columns = [
+                "parent_id", "parent_name", "component_id", "component_name",
+                "category", "quantity_per_unit"
+            ]
+            monthly_demand = demand_df.groupby(
+                ["חודש"] + aggregation_columns, as_index=False
+            )["required_quantity"].sum()
+            weekly_demand = demand_df.groupby(
+                ["שבוע"] + aggregation_columns, as_index=False
+            )["required_quantity"].sum()
+            month_tab, week_tab = st.tabs(["לפי חודש", "לפי שבוע"])
+            with month_tab:
+                render_bom_demand_table(monthly_demand, "חודש", is_kg)
+            with week_tab:
+                render_bom_demand_table(weekly_demand, "שבוע", is_kg)
 
 # ==============================================================================
 # מודול 4: סוכן Gemini שמבצע פעולות ישירות על מסד הנתונים (Autonomous SQL Agent)
