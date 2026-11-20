@@ -1,4 +1,4 @@
-# Cosmetics ERP
+# Cosmetics ERP - https://cosmetics-project.streamlit.app
 
 A Streamlit application for managing a small cosmetics manufacturing workflow. It brings inventory, purchasing, production planning, packaging, batches, and basic traceability together in one dashboard backed by a local SQLite database.
 
