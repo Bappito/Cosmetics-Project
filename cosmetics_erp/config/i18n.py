@@ -45,6 +45,9 @@ UI_TEXTS = {
     "he": {
         "dir": "rtl", "align": "right",
         "nav_hdr": "תפריט ERP",
+        "nav_inventory": "מלאי ורכש",
+        "nav_planning": "תכנון וייצור",
+        "nav_operations": "פעולות",
         "m_inv": "מחסנים (מלאי, תפוגה ורכש)",
         "m_sim_prod": "1. סימולטור קו ייצור",
         "m_sim_pack": "2. סימולטור אריזה",
@@ -59,6 +62,9 @@ UI_TEXTS = {
     "en": {
         "dir": "ltr", "align": "left",
         "nav_hdr": "ERP Menu",
+        "nav_inventory": "Inventory & Purchasing",
+        "nav_planning": "Planning & Production",
+        "nav_operations": "Operations",
         "m_inv": "Warehouses (Stock, Expiry & PO)",
         "m_sim_prod": "1. Production Line Simulator",
         "m_sim_pack": "2. Packaging Simulator",
@@ -72,15 +78,15 @@ UI_TEXTS = {
     }
 }
 
-def build_nav_items(ui: dict[str, str]) -> list[tuple[str, str, str]]:
+def build_nav_items(ui: dict[str, str]) -> list[tuple[str, str, str, str]]:
     return [
-        ("inv", ":material/warehouse:", ui["m_inv"]),
-        ("sim_prod", ":material/precision_manufacturing:", ui["m_sim_prod"]),
-        ("sim_pack", ":material/inventory_2:", ui["m_sim_pack"]),
-        ("sim_work", ":material/analytics:", ui["m_sim_work"]),
-        ("wh", ":material/local_shipping:", ui["m_wh"]),
-        ("batch", ":material/qr_code_2:", ui["m_batch"]),
-        ("ai", ":material/terminal:", ui["m_ai"]),
+        (ui["nav_inventory"], "inv", ":material/warehouse:", ui["m_inv"]),
+        (ui["nav_inventory"], "wh", ":material/local_shipping:", ui["m_wh"]),
+        (ui["nav_inventory"], "batch", ":material/qr_code_2:", ui["m_batch"]),
+        (ui["nav_planning"], "sim_prod", ":material/precision_manufacturing:", ui["m_sim_prod"]),
+        (ui["nav_planning"], "sim_pack", ":material/inventory_2:", ui["m_sim_pack"]),
+        (ui["nav_planning"], "sim_work", ":material/analytics:", ui["m_sim_work"]),
+        (ui["nav_operations"], "ai", ":material/terminal:", ui["m_ai"]),
     ]
 
 def build_plan_periods(is_he: bool) -> list[tuple[str, str, str]]:

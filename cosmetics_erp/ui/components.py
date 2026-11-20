@@ -3,7 +3,10 @@ from __future__ import annotations
 import sqlite3
 from typing import Any, Callable, Sequence
 
+import pandas as pd
 import streamlit as st
+
+from cosmetics_erp.ui.change_review import summarize_editor_changes
 
 
 class UIComponents:
@@ -44,42 +47,55 @@ class UIComponents:
             st.caption(self.translate("אין גיבוי זמין לשחזור", "No backup available to restore"))
 
     def render_quick_planner(self, df_sched_sub, unit_name, key_prefix):
-        st.markdown("<div class='plan-box'>", unsafe_allow_html=True)
-        st.markdown(
-            f"**{self.translate('תכנון ייצור: קבע כמה את/ה מתכנן/ת לייצר ולמתי (חודש ושבוע)', 'Production Planner: Set Planned Quantity & Target Week')}**"
-        )
-        period_labels = [f"{p[0]} | {p[1]} - {p[2]}" for p in self.plan_periods]
-        c_p1, c_p2, c_p3, c_p4 = st.columns([2.2, 2.2, 1.5, 1.5])
-        with c_p1:
-            sel_parent_plan = st.selectbox(
-                "בחר מק\"ט אב לתכנון:" if self.is_he else "Select Parent SKU:",
-                df_sched_sub["parent_label"],
-                key=f"{key_prefix}_plan_sku"
+        with st.container(border=True):
+            st.markdown(
+                f"**{self.translate('תכנון ייצור: קבע כמה לייצר ובאיזה שבוע', 'Production planner: set the quantity and target week')}**"
             )
-        with c_p2:
-            sel_week_plan = st.selectbox(
-                "למתי (בחר חודש ושבוע):" if self.is_he else "When (Month & Week):",
-                period_labels,
-                key=f"{key_prefix}_plan_wk"
-            )
-        w_code_selected = sel_week_plan.split(" | ")[0]
-        p_sku_selected = sel_parent_plan.split(" - ")[0]
-        curr_planned_val = float(df_sched_sub[df_sched_sub["sku"] == p_sku_selected][w_code_selected].iloc[0])
-
-        with c_p3:
-            new_planned_qty = st.number_input(
-                f"{'כמות מתוכננת' if self.is_he else 'Planned Qty'} ({unit_name}):",
-                min_value=0.0, value=curr_planned_val, step=10.0 if unit_name == self.u_label else 1.0,
-                key=f"{key_prefix}_plan_qty"
-            )
-        with c_p4:
-            st.write("")
-            if st.button(":material/event_available: עדכן תכנון" if self.is_he else ":material/event_available: Update Plan", key=f"{key_prefix}_plan_btn", use_container_width=True):
+            st.caption(self.translate(
+                "העדכון נשמר רק לאחר שליחה ומגובה כך שניתן לבטל אותו.",
+                "The plan is saved on submit and can be undone.",
+            ))
+            period_labels = [f"{p[0]} | {p[1]} - {p[2]}" for p in self.plan_periods]
+            with st.form(f"{key_prefix}_plan_form"):
+                c_p1, c_p2, c_p3 = st.columns([2.2, 2.2, 1.5])
+                with c_p1:
+                    sel_parent_plan = st.selectbox(
+                        "בחר מק\"ט אב לתכנון:" if self.is_he else "Select parent SKU:",
+                        df_sched_sub["parent_label"],
+                        key=f"{key_prefix}_plan_sku",
+                    )
+                with c_p2:
+                    sel_week_plan = st.selectbox(
+                        "למתי (בחר חודש ושבוע):" if self.is_he else "Target month and week:",
+                        period_labels,
+                        key=f"{key_prefix}_plan_wk",
+                    )
+                w_code_selected = sel_week_plan.split(" | ")[0]
+                p_sku_selected = sel_parent_plan.split(" - ")[0]
+                curr_planned_val = float(
+                    df_sched_sub[df_sched_sub["sku"] == p_sku_selected][w_code_selected].iloc[0]
+                )
+                with c_p3:
+                    new_planned_qty = st.number_input(
+                        f"{'כמות מתוכננת' if self.is_he else 'Planned quantity'} ({unit_name}):",
+                        min_value=0.0,
+                        value=curr_planned_val,
+                        step=10.0 if unit_name == self.u_label else 1.0,
+                        key=f"{key_prefix}_plan_qty",
+                    )
+                update_plan = st.form_submit_button(
+                    ":material/event_available: עדכן תכנון" if self.is_he else ":material/event_available: Update plan",
+                    type="primary",
+                    use_container_width=True,
+                )
+            if update_plan:
                 self.push_backup("schedule", f"{self.translate('תכנון', 'Plan')} {p_sku_selected} {w_code_selected}")
-                self.conn.execute(f"UPDATE WeeklySchedule SET {w_code_selected} = ? WHERE parent_sku = ?", (new_planned_qty, p_sku_selected))
+                self.conn.execute(
+                    f"UPDATE WeeklySchedule SET {w_code_selected} = ? WHERE parent_sku = ?",
+                    (new_planned_qty, p_sku_selected),
+                )
                 self.conn.commit()
                 st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
 
     def render_where_used_simulator(self, df_sched_sub, df_bom_sub, parent_unit_str, sim_key_prefix):
         week_cols = ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8"]
@@ -188,13 +204,16 @@ class UIComponents:
 
         schedule_parent_heading = "מק\"ט אב ותוכנית ייצור מתוכננת" if self.is_he else "Parent SKU Planned Schedule"
         schedule_total_heading = "סה\"כ מתוכנן" if self.is_he else "Total Planned"
+        schedule_caption = self.translate("תוכנית שבועית לפי מק\"ט אב", "Weekly plan by parent SKU")
         st.markdown(
-            f"<div class='table-responsive'><table class='matrix-table'><thead>"
-            f"<tr><th rowspan='2' style='width:18%; text-align:right;'>{schedule_parent_heading}</th>"
-            f"<th colspan='4' style='width:37%;'>{month1_name}</th><th colspan='4' style='width:37%;'>{month2_name}</th>"
-            f"<th rowspan='2' style='width:8%;'>{schedule_total_heading}</th></tr>"
-            f"<tr><th>{self.plan_periods[0][2]}</th><th>{self.plan_periods[1][2]}</th><th>{self.plan_periods[2][2]}</th><th>{self.plan_periods[3][2]}</th>"
-            f"<th>{self.plan_periods[4][2]}</th><th>{self.plan_periods[5][2]}</th><th>{self.plan_periods[6][2]}</th><th>{self.plan_periods[7][2]}</th></tr>"
+            f"<div class='table-responsive'><table class='matrix-table'>"
+            f"<caption class='sr-only'>{schedule_caption}</caption>"
+            f"<thead>"
+            f"<tr><th scope='col' rowspan='2' style='width:18%;'>{schedule_parent_heading}</th>"
+            f"<th scope='colgroup' colspan='4' style='width:37%;'>{month1_name}</th><th scope='colgroup' colspan='4' style='width:37%;'>{month2_name}</th>"
+            f"<th scope='col' rowspan='2' style='width:8%;'>{schedule_total_heading}</th></tr>"
+            f"<tr><th scope='col'>{self.plan_periods[0][2]}</th><th scope='col'>{self.plan_periods[1][2]}</th><th scope='col'>{self.plan_periods[2][2]}</th><th scope='col'>{self.plan_periods[3][2]}</th>"
+            f"<th scope='col'>{self.plan_periods[4][2]}</th><th scope='col'>{self.plan_periods[5][2]}</th><th scope='col'>{self.plan_periods[6][2]}</th><th scope='col'>{self.plan_periods[7][2]}</th></tr>"
             f"</thead><tbody>{rows_sched_html}</tbody></table></div>",
             unsafe_allow_html=True
         )
@@ -202,13 +221,85 @@ class UIComponents:
         with st.expander(self.translate(":material/edit_calendar: עריכת כל טבלת השבועות בבת אחת", ":material/edit_calendar: Edit All Weeks Table"), expanded=False):
             ed_s = st.data_editor(
                 df_sched_sub[["W8", "W7", "W6", "W5", "W4", "W3", "W2", "W1", "parent_label"]],
-                use_container_width=True, hide_index=True, key=f"{sim_key_prefix}_sched_ed"
+                use_container_width=True,
+                hide_index=True,
+                key=f"{sim_key_prefix}_sched_ed",
+                disabled=["parent_label"],
+                column_config={
+                    week: st.column_config.NumberColumn(min_value=0)
+                    for week in week_cols
+                },
             )
+            edited_values = ed_s[week_cols].apply(pd.to_numeric, errors="coerce")
+            schedule_is_valid = bool(
+                edited_values.notna().all().all()
+                and (edited_values >= 0).all().all()
+            )
+            changed_schedule = summarize_editor_changes(
+                df_sched_sub[["parent_label", *week_cols]],
+                ed_s[["parent_label", *week_cols]],
+                "parent_label",
+                week_cols,
+            )
+            _, _, changed_weeks = changed_schedule
+            review_key = f"{sim_key_prefix}_schedule_review_pending"
+            version_key = f"{sim_key_prefix}_schedule_review_version"
+            confirm_key = f"{sim_key_prefix}_schedule_review_confirmed_{st.session_state.get(version_key, 0)}"
             sv1, sv2 = st.columns(2)
             with sv1:
-                save_sched = st.button(":material/save: שמור תוכנית שבועות" if self.is_he else ":material/save: Save Weekly Plan", key=f"{sim_key_prefix}_sched_btn")
+                review_sched = st.button(
+                    self.translate(":material/preview: בדוק שינויים", ":material/preview: Review changes"),
+                    key=f"{sim_key_prefix}_sched_review_btn",
+                    disabled=not schedule_is_valid or not any(changed_schedule),
+                    type="primary",
+                )
             with sv2:
                 self.render_undo_button("schedule", f"{sim_key_prefix}_undo_sched")
+
+            if review_sched:
+                st.session_state[review_key] = True
+                st.session_state[version_key] = st.session_state.get(version_key, 0) + 1
+                st.rerun()
+
+            save_sched = False
+            if st.session_state.get(review_key, False):
+                if not schedule_is_valid:
+                    st.error(self.translate(
+                        "הכמויות חייבות להיות מספרים שאינם שליליים.",
+                        "Quantities must be valid non-negative numbers.",
+                    ))
+                else:
+                    st.info(self.translate(
+                        f"נבדקו {len(changed_weeks)} שורות ששונו.",
+                        f"Reviewing {len(changed_weeks)} changed rows.",
+                    ))
+                    changed_rows = ed_s[ed_s["parent_label"].isin(changed_weeks)]
+                    if not changed_rows.empty:
+                        st.dataframe(changed_rows, use_container_width=True, hide_index=True)
+                    confirmed = st.checkbox(
+                        self.translate(
+                            "בדקתי את השינויים ואני מאשר/ת לשמור אותם.",
+                            "I reviewed these changes and want to save them.",
+                        ),
+                        key=confirm_key,
+                    )
+                    confirm_col, cancel_col = st.columns(2)
+                    with confirm_col:
+                        save_sched = st.button(
+                            self.translate(":material/save: אשר ושמור", ":material/save: Confirm and save"),
+                            key=f"{sim_key_prefix}_sched_confirm_btn",
+                            disabled=not confirmed,
+                            type="primary",
+                        )
+                    with cancel_col:
+                        cancel_review = st.button(
+                            self.translate(":material/close: בטל", ":material/close: Cancel"),
+                            key=f"{sim_key_prefix}_sched_cancel_btn",
+                        )
+                    if cancel_review:
+                        st.session_state[review_key] = False
+                        st.rerun()
+
             if save_sched:
                 self.push_backup("schedule", self.translate("שמירת תוכנית שבועות", "Weekly plan save"))
                 for _, r in ed_s.iterrows():
@@ -216,6 +307,7 @@ class UIComponents:
                     self.conn.execute("UPDATE WeeklySchedule SET W1=?,W2=?,W3=?,W4=?,W5=?,W6=?,W7=?,W8=? WHERE parent_sku=?",
                                  (r["W1"], r["W2"], r["W3"], r["W4"], r["W5"], r["W6"], r["W7"], r["W8"], p_sku))
                 self.conn.commit()
+                st.session_state[review_key] = False
                 st.rerun()
 
         close_hint_txt = self.translate("לחץ שוב על המספר לסגירת הבועה", "Click number again to close")
@@ -346,18 +438,21 @@ class UIComponents:
         bom_child_heading = "מק\"ט בן ומחסן מקור" if self.is_he else "Child SKU & Source WH"
         bom_parent_heading = "מק\"ט אב משויך" if self.is_he else "Linked Parent"
         bom_total_heading = "סה\"כ מאזן / חוסר מצטבר" if self.is_he else "Cum. Balance"
+        bom_caption = self.translate("שימוש ברכיבים לפי מק\"ט ומוצר", "Component use by SKU and parent product")
         st.markdown(
-            f"<div class='table-responsive'><table class='matrix-table'><thead>"
+            f"<div class='table-responsive'><table class='matrix-table'>"
+            f"<caption class='sr-only'>{bom_caption}</caption>"
+            f"<thead>"
             f"<tr>"
-            f"<th rowspan='2' style='width:15%; text-align:center;'>{bom_child_heading}</th>"
-            f"<th rowspan='2' style='width:14%; text-align:right;'>{bom_parent_heading}</th>"
-            f"<th rowspan='2' style='width:6%;'>{'ליחידת אב' if self.is_he else 'Per 1'}</th>"
-            f"<th rowspan='2' style='width:8%;'>{'מלאי קיים במחסן' if self.is_he else 'Current Stock'}</th>"
-            f"<th colspan='4' style='width:24%;'>{month1_name}</th><th colspan='4' style='width:24%;'>{month2_name}</th>"
-            f"<th rowspan='2' style='width:9%;'>{bom_total_heading}</th>"
+            f"<th scope='col' rowspan='2' style='width:15%; text-align:center;'>{bom_child_heading}</th>"
+            f"<th scope='col' rowspan='2' style='width:14%;'>{bom_parent_heading}</th>"
+            f"<th scope='col' rowspan='2' style='width:6%;'>{'ליחידת אב' if self.is_he else 'Per 1'}</th>"
+            f"<th scope='col' rowspan='2' style='width:8%;'>{'מלאי קיים במחסן' if self.is_he else 'Current Stock'}</th>"
+            f"<th scope='colgroup' colspan='4' style='width:24%;'>{month1_name}</th><th scope='colgroup' colspan='4' style='width:24%;'>{month2_name}</th>"
+            f"<th scope='col' rowspan='2' style='width:9%;'>{bom_total_heading}</th>"
             f"</tr><tr>"
-            f"<th>{self.plan_periods[0][2]}</th><th>{self.plan_periods[1][2]}</th><th>{self.plan_periods[2][2]}</th><th>{self.plan_periods[3][2]}</th>"
-            f"<th>{self.plan_periods[4][2]}</th><th>{self.plan_periods[5][2]}</th><th>{self.plan_periods[6][2]}</th><th>{self.plan_periods[7][2]}</th>"
+            f"<th scope='col'>{self.plan_periods[0][2]}</th><th scope='col'>{self.plan_periods[1][2]}</th><th scope='col'>{self.plan_periods[2][2]}</th><th scope='col'>{self.plan_periods[3][2]}</th>"
+            f"<th scope='col'>{self.plan_periods[4][2]}</th><th scope='col'>{self.plan_periods[5][2]}</th><th scope='col'>{self.plan_periods[6][2]}</th><th scope='col'>{self.plan_periods[7][2]}</th>"
             f"</tr></thead><tbody>{rows_bom_html}</tbody></table></div>",
             unsafe_allow_html=True
         )

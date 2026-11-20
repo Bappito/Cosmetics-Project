@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from html import escape
 from datetime import date, datetime
 from typing import Callable
 
@@ -50,17 +51,18 @@ class InventoryService:
             s = r["sku"]
             if s not in summary:
                 exp_s = str(r["expiry_date"] or "").strip()
+                exp_text = escape(exp_s)
                 d_obj = self.parse_date(exp_s)
                 if d_obj is None:
                     badge = f"<span class='exp-badge-ok'>{self.translate('ללא תפוגה', 'No Expiry')}</span>"
                 else:
                     days_l = (d_obj - today_d).days
                     if days_l < 0:
-                        badge = f"<span class='exp-badge-bad'>{exp_s} ({self.translate('פג תוקף', 'Expired')})</span>"
+                        badge = f"<span class='exp-badge-bad'>{exp_text} ({self.translate('פג תוקף', 'Expired')})</span>"
                     elif days_l <= 30:
-                        badge = f"<span class='exp-badge-warn'>{exp_s} ({days_l} {self.translate('ימים', 'days')})</span>"
+                        badge = f"<span class='exp-badge-warn'>{exp_text} ({days_l} {self.translate('ימים', 'days')})</span>"
                     else:
-                        badge = f"<span class='exp-badge-ok'>{exp_s}</span>"
+                        badge = f"<span class='exp-badge-ok'>{exp_text}</span>"
                 summary[s] = {"batch_no": r["batch_no"], "expiry_html": badge}
         return summary
 
