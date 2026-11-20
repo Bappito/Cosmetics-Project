@@ -5,6 +5,7 @@ import streamlit as st
 from datetime import date, datetime, timedelta
 
 from cosmetics_erp.ui.context import PageContext
+from cosmetics_erp.ui.formatting import format_date
 
 
 def render(ctx: PageContext) -> None:
@@ -20,6 +21,7 @@ def render(ctx: PageContext) -> None:
     trace_chain = ctx.trace_chain
     w_factor = ctx.w_factor
     w_label = ctx.w_label
+    is_he = ctx.is_he
     st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_batch"]}</h2></div>', unsafe_allow_html=True)
 
     df_b = pd.read_sql(
@@ -51,17 +53,32 @@ def render(ctx: PageContext) -> None:
 
     with t_b1:
         if not df_b.empty:
-            fc1, fc2 = st.columns([2, 1])
+            fc1, fc2, fc3 = st.columns([1.5, 1.5, 2])
             with fc1:
                 sku_opts = [L("הכל", "All")] + sorted(df_b["sku"].unique())
                 sel_sku_b = st.selectbox(L("סנן לפי מק\"ט:", "Filter by SKU:"), sku_opts, key="batch_sku_filter")
             with fc2:
                 show_depleted = st.checkbox(L("הצג גם אצוות שנוצלו", "Include depleted batches"), key="batch_show_dep")
+            with fc3:
+                batch_search = st.text_input(
+                    L("חיפוש מק\"ט, פריט או אצווה", "Search SKU, item, or batch"),
+                    key="batch_search",
+                ).strip()
             view_b = df_b.copy()
             if sel_sku_b != L("הכל", "All"):
                 view_b = view_b[view_b["sku"] == sel_sku_b]
             if not show_depleted:
                 view_b = view_b[view_b["status"] == "Active"]
+            if batch_search:
+                searchable = view_b[["sku", "name", "batch_no"]].fillna("").astype(str)
+                matches = searchable.apply(
+                    lambda column: column.str.contains(batch_search, case=False, regex=False)
+                ).any(axis=1)
+                view_b = view_b[matches]
+            st.caption(L(
+                f"מוצגות {len(view_b)} אצוות",
+                f"Showing {len(view_b)} batches",
+            ))
             if not view_b.empty:
                 view_b = view_b.assign(_noexp=view_b["expiry_date"].fillna("").eq("")).sort_values(["sku", "_noexp", "expiry_date", "batch_id"])
                 out_rows = []
@@ -73,49 +90,125 @@ def render(ctx: PageContext) -> None:
                         L("פריט", "Item"): r["name"],
                         "Batch #": r["batch_no"],
                         L("יתרה", "Remaining"): fmt_val(float(r["weight_grams"] if is_w_b else r["qty_units"]), is_w_b),
-                        L("תפוגה", "Expiry"): r["expiry_date"] or "-",
+                        L("תפוגה", "Expiry"): format_date(r["expiry_date"], is_he=is_he),
                         L("ימים לתפוגה", "Days left"): "-" if (dl is None or pd.isna(dl)) else str(int(dl)),
+                        L("סטטוס", "Status"): L("פעילה", "Active") if r["status"] == "Active" else L("אזלה", "Depleted"),
                         L("מקור", "Source"): r["source"],
-                        L("תאריך כניסה", "Received"): r["received_date"],
+                        L("תאריך כניסה", "Received"): format_date(r["received_date"], is_he=is_he),
                     })
                 st.dataframe(pd.DataFrame(out_rows), use_container_width=True, hide_index=True)
+            else:
+                st.info(L("לא נמצאו אצוות התואמות לסינון.", "No batches match these filters."))
         render_undo_button("stock", "undo_batches")
 
     with t_b2:
         cat_b = pd.read_sql("SELECT sku, name, item_type FROM Catalog ORDER BY sku", conn)
-        sel_mb = st.selectbox(L("מק\"ט לכניסת מלאי:", "SKU to receive:"), cat_b["sku"] + " - " + cat_b["name"], key="mb_sku")
+        manual_review_key = "manual_batch_review_pending"
+        manual_version_key = "manual_batch_review_version"
+        manual_pending = st.session_state.get(manual_review_key, False)
+        manual_version = st.session_state.get(manual_version_key, 0)
+        manual_confirm_key = f"manual_batch_review_confirmed_{manual_version}"
+        sel_mb = st.selectbox(
+            L("מק\"ט לכניסת מלאי:", "SKU to receive:"),
+            cat_b["sku"] + " - " + cat_b["name"],
+            key="mb_sku",
+            disabled=manual_pending,
+        )
         mb_sku = sel_mb.split(" - ")[0]
         mb_tp = cat_b[cat_b["sku"] == mb_sku].iloc[0]["item_type"]
         mb_is_w = mb_tp in ("RAW", "BULK")
-        mb1, mb2, mb3, mb4 = st.columns([1.4, 1.8, 1.5, 1.2])
-        with mb1:
-            mb_amt = st.number_input(
-                L(f"כמות ({w_label})", f"Quantity ({w_label})") if mb_is_w else L("כמות (יח')", "Quantity (units)"),
-                min_value=0.0, value=1.0, step=1.0, key=f"mb_amt_{mb_sku}"
+        with st.container(border=True):
+            st.caption(L(
+                "הוספת מלאי תעדכן גם את יתרת המק\"ט. בדוק/י אצווה ותפוגה לפני האישור.",
+                "A receipt updates both the batch and SKU balance. Review the batch and expiry before confirming.",
+            ))
+            mb1, mb2, mb3, mb4 = st.columns([1.4, 1.8, 1.5, 1.2])
+            with mb1:
+                mb_amt = st.number_input(
+                    L(f"כמות ({w_label})", f"Quantity ({w_label})") if mb_is_w else L("כמות (יח')", "Quantity (units)"),
+                    min_value=0.0,
+                    value=1.0,
+                    step=1.0,
+                    key=f"mb_amt_{mb_sku}",
+                    disabled=manual_pending,
+                )
+            with mb2:
+                mb_bno = st.text_input(
+                    L("מספר אצווה", "Batch number"),
+                    value=gen_batch_no(mb_sku),
+                    key=f"mb_bno_{mb_sku}",
+                    disabled=manual_pending,
+                )
+            with mb3:
+                mb_exp = st.date_input(
+                    L("תאריך תפוגה", "Expiry date"),
+                    value=date.today() + timedelta(days=365),
+                    key=f"mb_exp_{mb_sku}",
+                    disabled=manual_pending,
+                )
+            with mb4:
+                mb_noexp = st.checkbox(
+                    L("ללא תפוגה", "No expiry"),
+                    value=(mb_tp == "PKG"),
+                    key=f"mb_noexp_{mb_sku}",
+                    disabled=manual_pending,
+                )
+            review_manual = False
+            if not manual_pending:
+                review_manual = st.button(
+                    L(":material/preview: בדוק כניסה", ":material/preview: Review receipt"),
+                    key="mb_review_btn",
+                    disabled=mb_amt <= 0,
+                    type="primary",
+                )
+        if review_manual:
+            st.session_state[manual_review_key] = True
+            st.session_state[manual_version_key] = manual_version + 1
+            st.rerun()
+
+        receive_manual = False
+        if manual_pending:
+            base_amt = mb_amt * w_factor if mb_is_w else mb_amt
+            preview_bno = (mb_bno or "").strip() or gen_batch_no(mb_sku)
+            preview_exp = "" if mb_noexp else mb_exp.strftime("%Y-%m-%d")
+            st.info(L(
+                f"קבלה לסקירה: {mb_sku} · {fmt_val(base_amt, mb_is_w)} · אצווה {preview_bno} · תפוגה {format_date(preview_exp, is_he=is_he)}",
+                f"Receipt preview: {mb_sku} · {fmt_val(base_amt, mb_is_w)} · batch {preview_bno} · expiry {format_date(preview_exp, is_he=is_he)}",
+            ))
+            if mb_exp < date.today() and not mb_noexp:
+                st.warning(L("תאריך התפוגה כבר עבר; האצווה תהיה חסומה לשימוש FEFO.", "This expiry date is in the past; FEFO will block the batch from use."))
+            confirmed_manual = st.checkbox(
+                L("בדקתי את פרטי האצווה ואני מאשר/ת לעדכן את המלאי.", "I reviewed the batch details and confirm the stock update."),
+                key=manual_confirm_key,
             )
-        with mb2:
-            mb_bno = st.text_input("Batch #", value=gen_batch_no(mb_sku), key=f"mb_bno_{mb_sku}")
-        with mb3:
-            mb_exp = st.date_input(L("תאריך תפוגה", "Expiry date"), value=date.today() + timedelta(days=365), key=f"mb_exp_{mb_sku}")
-        with mb4:
-            mb_noexp = st.checkbox(L("ללא תפוגה", "No expiry"), value=(mb_tp == "PKG"), key=f"mb_noexp_{mb_sku}")
-        if st.button(L(":material/add: הוסף למלאי", ":material/add: Add to stock"), key="mb_btn"):
-            if mb_amt > 0:
-                push_backup("stock", f"{L('כניסת מלאי', 'Receipt')} {mb_sku}")
-                base_amt = mb_amt * w_factor if mb_is_w else mb_amt
-                bno = (mb_bno or "").strip() or gen_batch_no(mb_sku)
-                exp_s = "" if mb_noexp else mb_exp.strftime("%Y-%m-%d")
-                add_batch(mb_sku, bno, base_amt, mb_is_w, exp_s, "MANUAL")
-                now_d = datetime.now().strftime("%Y-%m-%d")
-                if mb_is_w:
-                    conn.execute("UPDATE Catalog SET weight_grams = weight_grams + ?, last_stock_entry = ? WHERE sku=?",
-                                 (base_amt, f"{now_d} (+{base_amt/1000:.2f} ק\"ג)", mb_sku))
-                else:
-                    conn.execute("UPDATE Catalog SET qty_units = qty_units + ?, last_stock_entry = ? WHERE sku=?",
-                                 (base_amt, f"{now_d} (+{base_amt:.0f} יח')", mb_sku))
-                conn.commit()
-                st.session_state["flash"] = f"נוספה אצווה {bno} למק\"ט {mb_sku}."
+            confirm_col, cancel_col = st.columns(2)
+            with confirm_col:
+                receive_manual = st.button(
+                    L(":material/add: אשר כניסה", ":material/add: Confirm receipt"),
+                    key="mb_confirm_btn",
+                    disabled=not confirmed_manual or mb_amt <= 0,
+                    type="primary",
+                )
+            with cancel_col:
+                cancel_manual = st.button(L(":material/close: בטל", ":material/close: Cancel"), key="mb_cancel_btn")
+            if cancel_manual:
+                st.session_state[manual_review_key] = False
                 st.rerun()
+
+        if receive_manual:
+            st.session_state[manual_review_key] = False
+            push_backup("stock", f"{L('כניסת מלאי', 'Receipt')} {mb_sku}")
+            add_batch(mb_sku, preview_bno, base_amt, mb_is_w, preview_exp, "MANUAL")
+            now_d = datetime.now().strftime("%Y-%m-%d")
+            if mb_is_w:
+                conn.execute("UPDATE Catalog SET weight_grams = weight_grams + ?, last_stock_entry = ? WHERE sku=?",
+                             (base_amt, f"{now_d} (+{base_amt/1000:.2f} ק\"ג)", mb_sku))
+            else:
+                conn.execute("UPDATE Catalog SET qty_units = qty_units + ?, last_stock_entry = ? WHERE sku=?",
+                             (base_amt, f"{now_d} (+{base_amt:.0f} יח')", mb_sku))
+            conn.commit()
+            st.session_state["flash"] = f"נוספה אצווה {preview_bno} למק\"ט {mb_sku}."
+            st.rerun()
 
     with t_b3:
         if not df_b.empty:
@@ -136,7 +229,7 @@ def render(ctx: PageContext) -> None:
                         L("פריט", "Item"): name_map.loc[s]["name"] if s in name_map.index else "?",
                         "Batch #": b,
                         L("כמות", "Qty"): fmt_val(float(wg if is_w_t else qu), is_w_t),
-                        L("תאריך", "Date"): mdt,
+                        L("תאריך", "Date"): format_date(mdt, is_he=is_he),
                         L("אסמכתא", "Reference"): ref,
                     })
                 return pd.DataFrame(out)

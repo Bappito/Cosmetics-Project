@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from html import escape
 
 import streamlit as st
 
@@ -12,6 +13,8 @@ def initialize_session_state() -> None:
         st.session_state.nav_collapsed = False
     if "active_page" not in st.session_state:
         st.session_state.active_page = "inv"
+    if "selected_weight_unit" not in st.session_state:
+        st.session_state.selected_weight_unit = "kg"
 
 
 def toggle_language() -> None:
@@ -22,9 +25,13 @@ def toggle_nav() -> None:
     st.session_state.nav_collapsed = not st.session_state.nav_collapsed
 
 
+def save_weight_unit() -> None:
+    st.session_state.selected_weight_unit = st.session_state.weight_unit_choice
+
+
 def render_sidebar(
     ui: Mapping[str, str],
-    nav_items: Sequence[tuple[str, str, str]],
+    nav_items: Sequence[tuple[str, str, str, str]],
     is_collapsed: bool,
 ) -> tuple[str, bool]:
     collapse_icon = ":material/menu_open:" if not is_collapsed else ":material/menu:"
@@ -54,11 +61,19 @@ def render_sidebar(
         collapse_icon if is_collapsed else f"{collapse_icon} {ui['nav_hdr']}",
         on_click=toggle_nav,
         help=collapse_help,
+        key="toggle_nav_collapse",
         use_container_width=True,
     )
     st.sidebar.divider()
 
-    for page_key, page_icon, page_title in nav_items:
+    active_section = None
+    for section, page_key, page_icon, page_title in nav_items:
+        if not is_collapsed and section != active_section:
+            st.sidebar.markdown(
+                f"<h3 class='nav-section-label'>{escape(section)}</h3>",
+                unsafe_allow_html=True,
+            )
+            active_section = section
         is_active = st.session_state.active_page == page_key
         btn_label = page_icon if is_collapsed else f"{page_icon} {page_title}"
         if st.sidebar.button(
@@ -72,16 +87,17 @@ def render_sidebar(
             st.rerun()
 
     st.sidebar.divider()
-    if is_collapsed:
-        use_kg = True
-    else:
-        weight_choice = st.sidebar.radio(
+    if not is_collapsed:
+        st.session_state.weight_unit_choice = st.session_state.selected_weight_unit
+        st.sidebar.radio(
             ui["unit_lbl"],
-            [ui["kg"], ui["g"]],
-            index=0,
+            ["kg", "g"],
+            format_func=lambda unit: ui[unit],
+            key="weight_unit_choice",
+            on_change=save_weight_unit,
             horizontal=True,
         )
-        use_kg = weight_choice == ui["kg"]
+    use_kg = st.session_state.selected_weight_unit == "kg"
     return st.session_state.active_page, use_kg
 
 
