@@ -14,6 +14,7 @@ from cosmetics_erp.ui.navigation import (
     initialize_session_state,
     render_language_toggle,
     render_sidebar,
+    render_theme_toggle,
 )
 from cosmetics_erp.ui.pages import batches, inventory, master_work, packaging, production, purchase_orders, quick_command
 from cosmetics_erp.ui.styles import inject_stylesheet
@@ -43,7 +44,7 @@ parse_date = planning.parse_date
 eta_to_week = planning.eta_to_week
 eta_week_label = planning.eta_week_label
 
-inject_stylesheet(UI, is_collapsed)
+inject_stylesheet(UI, is_collapsed, st.session_state.app_theme)
 
 init_db()
 conn = get_connection()
@@ -62,6 +63,7 @@ fmt_val = partial(
 )
 
 render_language_toggle(UI)
+render_theme_toggle(UI)
 
 if "flash" in st.session_state:
     st.success(st.session_state.pop("flash"))

@@ -10,13 +10,33 @@ html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], 
     padding-right: 1rem !important;
     max-width: 100% !important;
 }
-section[data-testid="stSidebar"][aria-expanded="true"] {
+section[data-testid="stSidebar"][aria-expanded="true"],
+section[data-testid="stSidebar"][aria-expanded="false"] {
     width: __SIDEBAR_WIDTH__ !important;
+    min-width: __SIDEBAR_WIDTH__ !important;
+    max-width: __SIDEBAR_WIDTH__ !important;
+    flex: 0 0 __SIDEBAR_WIDTH__ !important;
+    position: relative !important;
+    inset: auto !important;
+    margin: 0 !important;
+    display: block !important;
+    transform: none !important;
+    translate: none !important;
+    overflow-x: hidden !important;
+    visibility: visible !important;
+    opacity: 1 !important;
     direction: __UI_DIR__ !important;
     text-align: __UI_ALIGN__ !important;
     transition: width 0.2s ease;
 }
 section[data-testid="stSidebar"] > div {
+    box-sizing: border-box !important;
+    width: __SIDEBAR_WIDTH__ !important;
+    min-width: __SIDEBAR_WIDTH__ !important;
+    max-width: __SIDEBAR_WIDTH__ !important;
+    transform: none !important;
+    translate: none !important;
+    visibility: visible !important;
     direction: __UI_DIR__ !important;
     text-align: __UI_ALIGN__ !important;
 }
@@ -29,7 +49,10 @@ section[data-testid="stSidebar"] .stButton button {
     width: 100% !important;
     border-radius: 10px !important;
 }
-a.header-anchor, [data-testid="stHeaderActionElements"] {
+a.header-anchor,
+[data-testid="stHeaderActionElements"],
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stSidebarCollapsedControl"] {
     display: none !important;
 }
 h1, h2, h3, h4, p, label, .stMarkdown, [data-testid="stMarkdownContainer"] {
@@ -384,31 +407,23 @@ div.st-key-floating_lang_btn button {
     font-weight: 700 !important;
     box-shadow: 0 4px 12px rgba(0,0,0,0.25) !important;
 }
-@media (max-width: 768px) {
-    .block-container {
-        padding-left: 0.4rem !important;
-        padding-right: 0.4rem !important;
-        padding-top: 0.4rem !important;
-    }
-    .clean-header h2 {
-        font-size: 1.2rem !important;
-    }
-    .table-responsive {
-        overflow-x: auto !important;
-        padding-top: 150px !important;
-        margin-top: -140px !important;
-    }
-    .matrix-table {
-        min-width: 760px !important;
-        font-size: 0.76rem !important;
-    }
-    .rtl-table {
-        min-width: 520px !important;
-        font-size: 0.80rem !important;
-    }
-    div[data-testid="stMetric"] {
-        padding: 8px 10px !important;
-    }
+div.st-key-floating_theme_btn {
+    position: fixed !important;
+    top: 16px !important;
+    left: 18px !important;
+    z-index: 999999 !important;
+    width: auto !important;
+}
+div.st-key-floating_theme_btn button {
+    width: 42px !important;
+    min-width: 42px !important;
+    height: 42px !important;
+    padding: 0 !important;
+    border-radius: 999px !important;
+    background-color: #0284c7 !important;
+    color: #ffffff !important;
+    border: none !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25) !important;
 }
 /* Bootstrap 4-inspired dashboard styling */
 .stApp,
@@ -417,38 +432,39 @@ div.st-key-floating_lang_btn button {
     color: #212529 !important;
 }
 .block-container {
-    max-width: 1440px !important;
+    max-width: 100% !important;
     padding: 1.75rem 1.5rem 4rem !important;
 }
 section[data-testid="stSidebar"] {
-    background: #fff !important;
-    border-__BORDER_SIDE__: 1px solid #dee2e6 !important;
-    box-shadow: none !important;
+    background: #ffffff !important;
+    border-__BORDER_SIDE__: 1px solid #e2e8f0 !important;
+    box-shadow: 0 8px 30px rgba(15, 23, 42, 0.04) !important;
 }
 section[data-testid="stSidebar"] > div {
-    padding: 1rem 0.8rem !important;
+    padding: 1.25rem 0.9rem !important;
 }
 .app-brand {
     display: flex;
     align-items: center;
-    gap: 0.7rem;
-    min-height: 48px;
-    margin: 0.15rem 0 1.1rem;
-    padding: 0.25rem 0.45rem 0.85rem;
-    border-bottom: 1px solid #dee2e6;
+    gap: 0.8rem;
+    min-height: 54px;
+    margin: 0 0 1rem;
+    padding: 0.15rem 0.4rem 1rem;
+    border-bottom: 1px solid #e8edf4;
 }
 .app-brand-mark {
     display: flex;
-    flex: 0 0 38px;
+    flex: 0 0 42px;
     align-items: center;
     justify-content: center;
-    width: 38px;
-    height: 38px;
-    border-radius: 0.25rem;
-    background: #007bff;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: linear-gradient(145deg, #1688f8, #0759bd);
     color: #fff;
     font-size: 1.2rem;
     font-weight: 700;
+    box-shadow: 0 5px 12px rgba(11, 105, 199, 0.2);
 }
 .app-brand-copy {
     display: flex;
@@ -457,40 +473,73 @@ section[data-testid="stSidebar"] > div {
 }
 .app-brand-copy strong {
     color: #212529;
-    font-size: 0.96rem;
+    font-size: 0.98rem;
+    font-weight: 700;
     line-height: 1.25;
 }
 .app-brand-copy span {
     color: #6c757d;
-    font-size: 0.72rem;
+    font-size: 0.74rem;
+    margin-top: 0.18rem;
 }
 section[data-testid="stSidebar"] .stButton button {
-    min-height: 38px !important;
+    min-height: 42px !important;
     border: 1px solid transparent !important;
-    border-radius: 0.25rem !important;
+    border-radius: 10px !important;
     box-shadow: none !important;
-    font-size: 0.88rem !important;
-    font-weight: 500 !important;
-    transition: background-color 0.15s ease, color 0.15s ease !important;
+    font-size: 0.86rem !important;
+    font-weight: 550 !important;
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease !important;
+}
+section[data-testid="stSidebar"] .stButton {
+    margin: 0.15rem 0 !important;
+}
+section[data-testid="stSidebar"] .stButton button [data-testid="stMarkdownContainer"] {
+    font-weight: inherit !important;
 }
 section[data-testid="stSidebar"] .stButton button[kind="secondary"],
 section[data-testid="stSidebar"] .stButton button[data-testid="stBaseButton-secondary"] {
     background: transparent !important;
-    color: #343a40 !important;
+    color: #475569 !important;
 }
 section[data-testid="stSidebar"] .stButton button[kind="secondary"]:hover,
 section[data-testid="stSidebar"] .stButton button[data-testid="stBaseButton-secondary"]:hover {
-    background: #f1f3f5 !important;
-    color: #0056b3 !important;
+    background: #f1f6fc !important;
+    color: #0759bd !important;
+    transform: translateX(2px);
 }
 section[data-testid="stSidebar"] .stButton button[kind="primary"],
 section[data-testid="stSidebar"] .stButton button[data-testid="stBaseButton-primary"] {
-    background: #e9f2ff !important;
-    color: #0056b3 !important;
-    font-weight: 600 !important;
+    background: #eaf3ff !important;
+    border-inline-start: 3px solid #0b69c7 !important;
+    color: #084d91 !important;
+    font-weight: 700 !important;
 }
 section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
     margin-bottom: 0;
+}
+.nav-section-label {
+    margin: 1.25rem 0 0.35rem !important;
+    padding: 0.25rem 0.7rem !important;
+    color: #8492a6 !important;
+    font-size: 0.68rem !important;
+    font-weight: 750 !important;
+    letter-spacing: 0.075em;
+    line-height: 1.4 !important;
+    text-transform: uppercase;
+}
+section[data-testid="stSidebar"] hr {
+    margin: 0.75rem 0 !important;
+    border-color: #e8edf4 !important;
+}
+section[data-testid="stSidebar"] [data-testid="stRadio"] {
+    padding: 0.7rem 0.75rem;
+    border: 1px solid #e8edf4;
+    border-radius: 10px;
+    background: #f8fafc;
+}
+section[data-testid="stSidebar"] [data-testid="stRadio"] label {
+    font-size: 0.82rem !important;
 }
 .clean-header {
     background: #fff !important;
@@ -592,18 +641,6 @@ div[data-testid="stAlert"] {
     color: #495057 !important;
     font-weight: 600 !important;
 }
-@media (max-width: 768px) {
-    .block-container {
-        padding: 1rem 0.65rem 3.5rem !important;
-    }
-    .clean-header {
-        padding: 0.8rem 1rem !important;
-    }
-    .clean-header h2 {
-        font-size: 1.2rem !important;
-    }
-}
-
 :root {
     --erp-accent: #0b69c7;
     --erp-accent-strong: #084d91;
@@ -835,26 +872,32 @@ div.st-key-floating_lang_btn {
 
 @media (max-width: 768px) {
     .block-container {
-        padding-inline: 0.65rem !important;
+        padding: 0.75rem 0.55rem 3.5rem !important;
+    }
+
+    .clean-header {
+        padding: 0.8rem 1rem !important;
+    }
+
+    .clean-header h2 {
+        font-size: 1.15rem !important;
     }
 
     .table-responsive {
+        overflow-x: auto !important;
         -webkit-overflow-scrolling: touch;
     }
 
-    .table-responsive:has(.matrix-table) {
-        overflow-x: auto !important;
-        overflow-y: visible !important;
-        padding-top: 150px !important;
-        margin-top: -140px !important;
-    }
-
-    .table-responsive:has(.rtl-table) {
-        overflow-x: auto !important;
+    .matrix-table {
+        min-width: 760px !important;
     }
 
     .rtl-table {
-        min-width: 680px;
+        min-width: 520px !important;
+    }
+
+    div[data-testid="stMetric"] {
+        padding: 0.6rem !important;
     }
 }
 
@@ -868,3 +911,7 @@ div.st-key-floating_lang_btn {
         transition-duration: 0.01ms !important;
     }
 }
+
+__SIDEBAR_COLLAPSE_RULES__
+__SIDEBAR_TOUCH_RULES__
+__THEME_RULES__
