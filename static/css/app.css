@@ -199,11 +199,11 @@ div[data-testid="stMetricLabel"] > div, div[data-testid="stMetricValue"] > div {
     z-index: 1;
 }
 /* הרמת התא הפתוח והשורה שלו מעל כל שאר השורות בטבלה כך שהבועה לא תוסתר לעולם! */
-.matrix-table tr:has(details[open]) {
+.matrix-table tr:has(.cell-details:focus) {
     z-index: 99998 !important;
     position: relative !important;
 }
-.matrix-table td:has(details[open]) {
+.matrix-table td:has(.cell-details:focus) {
     z-index: 99999 !important;
 }
 .matrix-table td.summary-ok {
@@ -305,7 +305,7 @@ div[data-testid="stMetricLabel"] > div, div[data-testid="stMetricValue"] > div {
     background-color: rgba(255, 255, 255, 0.18);
     transform: translateY(-1px);
 }
-.cell-details[open] .cell-main-val {
+.cell-details:focus .cell-main-val {
     box-shadow: 0 0 0 2px #38bdf8;
     background-color: rgba(56, 189, 248, 0.25);
 }
@@ -912,6 +912,45 @@ div.st-key-floating_lang_btn {
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
     }
+}
+
+/* ---------- Simulator cells: bubble opens on press and closes on any outside click ---------- */
+.cell-details {
+    outline: none;
+    border-radius: 8px;
+}
+.cell-details .cell-breakdown-fit {
+    display: none;
+}
+.cell-details:focus .cell-breakdown-fit {
+    display: block;
+}
+.cell-details:focus-visible .cell-main-val {
+    box-shadow: 0 0 0 2px var(--erp-accent);
+}
+.cell-main-val {
+    border-radius: 8px;
+}
+
+/* ---------- Simulator polish ---------- */
+.table-responsive {
+    border: 1px solid var(--erp-border);
+    border-radius: var(--erp-radius);
+    box-shadow: var(--erp-shadow);
+    background: var(--erp-surface);
+}
+.matrix-table th, .matrix-table td {
+    transition: background-color 0.15s ease;
+}
+.matrix-table tbody tr:hover td {
+    background-color: rgba(11, 105, 199, 0.05);
+}
+.legend-pill-ok, .legend-pill-short {
+    border-radius: 999px;
+    box-shadow: var(--erp-shadow);
+}
+.cell-breakdown-fit {
+    border-radius: 14px !important;
 }
 
 /* ---------- Visual polish layer ---------- */

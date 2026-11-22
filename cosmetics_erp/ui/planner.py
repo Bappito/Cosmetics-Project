@@ -273,7 +273,7 @@ class PlannerMixin:
                 st.session_state[review_key] = False
                 st.rerun()
 
-        close_hint_txt = self.translate("לחץ שוב על המספר לסגירת הבועה", "Click number again to close")
+        close_hint_txt = self.translate("לחץ מחוץ לבועה כדי לסגור אותה", "Click anywhere outside to close")
         rows_bom_html = ""
         for comp_sku, group in df_bom_view.groupby("component_sku", sort=False):
             span_count = len(group)
@@ -375,10 +375,10 @@ class PlannerMixin:
                     td_cls = "stock-ok" if st_info["is_ok"] else "stock-short"
                     week_tds_html += (
                         f"<td class='{td_cls}'>"
-                        f"<details class='cell-details'>"
-                        f"<summary><span class='cell-main-val'>{after_str}</span>{inc_badge}</summary>"
+                        f"<span class='cell-details' tabindex='0'>"
+                        f"<span class='cell-main-val'>{after_str}</span>{inc_badge}"
                         f"{breakdown_html}"
-                        f"</details>"
+                        f"</span>"
                         f"</td>"
                     )
 
