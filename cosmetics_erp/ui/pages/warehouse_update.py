@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from cosmetics_erp.services.erp_import import build_po_rows, build_stock_rows, guess_column, read_table
+from cosmetics_erp.ui.formatting import sku_first
 
 WEIGHT_TYPES = ("RAW", "BULK")
 
@@ -27,6 +28,7 @@ def _apply_stock(conn, rows: pd.DataFrame, cat: pd.DataFrame, w_factor: float, r
 def render_stock_count(
     *,
     L,
+    is_he: bool,
     conn,
     df_wh_sub: pd.DataFrame,
     is_w_wh: bool,
@@ -54,8 +56,7 @@ def render_stock_count(
         "system": (df_wh_sub["weight_grams"] / w_factor if is_w_wh else df_wh_sub["qty_units"]).astype(float).round(3),
     })
     edited = st.data_editor(
-        base.assign(counted=base["system"]),
-        column_order=["system", "counted", "name", "sku"],
+        base.assign(counted=base["system"]), column_order=sku_first((base.assign(counted=base["system"])).columns, is_he),
         column_config={
             "sku": st.column_config.TextColumn(L("מק\"ט", "SKU"), disabled=True),
             "name": st.column_config.TextColumn(L("שם פריט", "Item"), disabled=True),
@@ -76,7 +77,7 @@ def render_stock_count(
         st.caption(L("אין שינויים לשמירה.", "No changes to save."))
         return
 
-    st.dataframe(changed.assign(difference=(changed["counted"] - changed["system"]).round(3))[["sku", "name", "system", "counted", "difference"]], hide_index=True)
+    st.dataframe(changed.assign(difference=(changed["counted"] - changed["system"]).round(3))[["sku", "name", "system", "counted", "difference"]], column_order=sku_first((changed.assign(difference=(changed["counted"] - changed["system"]).round(3))[["sku", "name", "system", "counted", "difference"]]).columns, is_he), hide_index=True)
     confirm = st.checkbox(L("בדקתי את ההפרשים ואני מאשר/ת את העדכון.", "I reviewed the differences and confirm the update."), key=f"{key_prefix}_count_confirm")
     if st.button(L(":material/save: עדכן מלאי לפי הספירה", ":material/save: Apply count"), key=f"{key_prefix}_count_apply", type="primary", disabled=not confirm or invalid.any()):
         push_backup("stock", L("ספירת מחסן", "Warehouse count"))
@@ -91,6 +92,7 @@ def render_stock_count(
 def render_erp_import(
     *,
     L,
+    is_he: bool,
     conn,
     w_factor: float,
     push_backup,
@@ -187,7 +189,7 @@ def render_erp_import(
         return
 
     st.markdown(f"**{L('תצוגה מקדימה', 'Preview')}** — {len(preview)} {L('שורות', 'rows')}")
-    st.dataframe(preview, hide_index=True)
+    st.dataframe(preview, column_order=sku_first((preview).columns, is_he), hide_index=True)
 
     confirm = st.checkbox(L("בדקתי את התצוגה המקדימה ואני מאשר/ת את הייבוא.", "I reviewed the preview and confirm the import."), key=f"erp_confirm_{kind}")
     if st.button(L(":material/upload: ייבא לנתוני המערכת", ":material/upload: Import into the system"), key=f"erp_apply_{kind}", type="primary", disabled=bool(errors) or not confirm):

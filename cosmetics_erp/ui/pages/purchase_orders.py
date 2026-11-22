@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 
 from cosmetics_erp.ui.change_review import summarize_editor_changes
 from cosmetics_erp.ui.context import PageContext
-from cosmetics_erp.ui.formatting import format_date
+from cosmetics_erp.ui.formatting import format_date, sku_first
 
 
 def render(ctx: PageContext) -> None:
@@ -79,7 +79,7 @@ def render(ctx: PageContext) -> None:
                     L("מק\"ט", "SKU"): r.sku,
                 })
             st.dataframe(
-                pd.DataFrame(view_rows),
+                pd.DataFrame(view_rows), column_order=sku_first((pd.DataFrame(view_rows)).columns, is_he),
                 width="stretch",
                 hide_index=True,
                 column_config={
@@ -95,8 +95,7 @@ def render(ctx: PageContext) -> None:
     po_review_version = st.session_state.get(po_review_version_key, 0)
     po_confirm_key = f"po_review_confirmed_{po_review_version}"
     ed_po = st.data_editor(
-        df_po,
-        column_order=[c for c in df_po.columns if c != "sku"] + ["sku"],
+        df_po, column_order=sku_first((df_po).columns, is_he),
         width="stretch",
         hide_index=True,
         num_rows="dynamic",
@@ -181,7 +180,7 @@ def render(ctx: PageContext) -> None:
         preview_pos = set(added_pos) | set(changed_pos)
         preview_rows = ed_po[po_number_values.isin(preview_pos)]
         if not preview_rows.empty:
-            st.dataframe(preview_rows, width="stretch", hide_index=True)
+            st.dataframe(preview_rows, column_order=sku_first((preview_rows).columns, is_he), width="stretch", hide_index=True)
         confirmed_po = st.checkbox(
             L("בדקתי את התצוגה המקדימה ואני מאשר/ת לשמור את השינויים.", "I reviewed the preview and confirm these changes."),
             key=po_confirm_key,

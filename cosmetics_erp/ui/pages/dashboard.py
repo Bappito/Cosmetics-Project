@@ -8,7 +8,7 @@ import streamlit as st
 from cosmetics_erp.services.capacity import packable_units
 from cosmetics_erp.services.costing import product_margins
 from cosmetics_erp.ui.context import PageContext
-from cosmetics_erp.ui.formatting import format_date
+from cosmetics_erp.ui.formatting import format_date, sku_first
 
 EXPIRY_WARNING_DAYS = 30
 
@@ -70,7 +70,12 @@ def render(ctx: PageContext) -> None:
                 L("הרכיב המגביל", "Limiting component"): capacity["limiting_component"],
                 L("פריט", "Item"): capacity["name"],
                 L("מק\"ט", "SKU"): capacity["sku"],
-            }),
+            }), column_order=sku_first((pd.DataFrame({
+                L("ניתן לארוז (יח')", "Can pack (units)"): capacity["packable_units"],
+                L("הרכיב המגביל", "Limiting component"): capacity["limiting_component"],
+                L("פריט", "Item"): capacity["name"],
+                L("מק\"ט", "SKU"): capacity["sku"],
+            })).columns, is_he),
             hide_index=True,
         )
 
@@ -89,7 +94,7 @@ def render(ctx: PageContext) -> None:
             L("רווח צפוי מהמלאי", "Profit on stock"): margins["stock_margin"].map(lambda v: f"₪{v:,.0f}"),
             L("מק\"ט", "SKU"): margins["sku"],
         })
-        st.dataframe(profit_view, width="stretch", hide_index=True)
+        st.dataframe(profit_view, column_order=sku_first((profit_view).columns, is_he), width="stretch", hide_index=True)
         st.caption(L(
             "העלות מחושבת לפי ה-BOM ומחירי הקטלוג. מחיר המכירה הוא item_price של המוצר הסופי.",
             "Cost is calculated from the BOM and catalog prices. Selling price is the finished product's item_price.",
@@ -111,7 +116,7 @@ def render(ctx: PageContext) -> None:
             L("פריט", "Item"): nearest["name"].fillna("?"),
             L("מק\"ט", "SKU"): nearest["sku"],
         })
-        st.dataframe(nearest_view, hide_index=True)
+        st.dataframe(nearest_view, column_order=sku_first((nearest_view).columns, is_he), hide_index=True)
 
     st.subheader(L("הזמנות רכש פתוחות לפי ETA", "Open purchase orders by ETA"))
     if pos.empty:
@@ -125,4 +130,4 @@ def render(ctx: PageContext) -> None:
             L("פריט", "Item"): pos["name"].fillna("?"),
             L("מק\"ט", "SKU"): pos["sku"],
         })
-        st.dataframe(po_view, hide_index=True)
+        st.dataframe(po_view, column_order=sku_first((po_view).columns, is_he), hide_index=True)

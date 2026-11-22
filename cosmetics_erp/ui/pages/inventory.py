@@ -58,13 +58,13 @@ def render(ctx: PageContext) -> None:
 
     with sub_tab_count:
         render_stock_count(
-            L=L, conn=conn, df_wh_sub=df_wh_sub, is_w_wh=is_w_wh, w_factor=w_factor, w_label=w_label,
+            L=L, is_he=is_he, conn=conn, df_wh_sub=df_wh_sub, is_w_wh=is_w_wh, w_factor=w_factor, w_label=w_label,
             u_label=u_label, push_backup=push_backup, reconcile_batches=reconcile_batches,
             key_prefix=f"wh_{active_wh_type}",
         )
 
     with sub_tab_import:
-        render_erp_import(L=L, conn=conn, w_factor=w_factor, push_backup=push_backup, reconcile_batches=reconcile_batches)
+        render_erp_import(L=L, is_he=is_he, conn=conn, w_factor=w_factor, push_backup=push_backup, reconcile_batches=reconcile_batches)
 
     with sub_tab_stock:
         st.subheader(L("יתרת מלאי נוכחית ותאריכי תפוגה (FEFO)", "Current Stock & Expiry Dates (FEFO)"))
@@ -186,6 +186,6 @@ def render(ctx: PageContext) -> None:
 
     with sub_tab_edit:
         render_catalog_editor(
-            L=L, conn=conn, df_cat=df_cat, w_factor=w_factor, w_label=w_label, push_backup=push_backup,
+            L=L, is_he=is_he, conn=conn, df_cat=df_cat, w_factor=w_factor, w_label=w_label, push_backup=push_backup,
             reconcile_batches=reconcile_batches, render_undo_button=render_undo_button,
         )

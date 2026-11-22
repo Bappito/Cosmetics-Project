@@ -35,3 +35,21 @@ def format_value(
     if is_neg:
         return f"<span dir='ltr'>-{num_str}</span> {unit}"
     return f"{num_str} {unit}"
+
+
+SKU_KEYS = ("sku", "SKU", "מק\"ט", 'מק"ט')
+NAME_KEYS = ("name", "Item", "פריט", "Item Name")
+
+
+def sku_first(columns, is_he: bool) -> list:
+    """Column order for dataframes and editors: SKU first, item name second.
+
+    Dataframe grids draw the first column on the left, so in Hebrew the order is
+    reversed to put SKU on the right and the name just to its left.
+    """
+    cols = list(columns)
+    sku = next((c for c in cols if c in SKU_KEYS), None)
+    name = next((c for c in cols if c in NAME_KEYS), None)
+    head = [c for c in (sku, name) if c is not None]
+    order = head + [c for c in cols if c not in head]
+    return list(reversed(order)) if is_he else order

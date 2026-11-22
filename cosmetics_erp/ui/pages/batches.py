@@ -5,7 +5,7 @@ import streamlit as st
 from datetime import date, datetime, timedelta
 
 from cosmetics_erp.ui.context import PageContext
-from cosmetics_erp.ui.formatting import format_date
+from cosmetics_erp.ui.formatting import format_date, sku_first
 
 
 def render(ctx: PageContext) -> None:
@@ -96,7 +96,7 @@ def render(ctx: PageContext) -> None:
                         L("פריט", "Item"): r["name"],
                         L("מק\"ט", "SKU"): r["sku"],
                     })
-                st.dataframe(pd.DataFrame(out_rows), width="stretch", hide_index=True)
+                st.dataframe(pd.DataFrame(out_rows), column_order=sku_first((pd.DataFrame(out_rows)).columns, is_he), width="stretch", hide_index=True)
             else:
                 st.info(L("לא נמצאו אצוות התואמות לסינון.", "No batches match these filters."))
         render_undo_button("stock", "undo_batches")
@@ -244,11 +244,11 @@ def render(ctx: PageContext) -> None:
             fwd_rows = trace_chain(tr_sku, tr_batch, "fwd")
             st.markdown(f"**{L('ממה הוכנה האצווה (אחורה)', 'Made from (backward)')}**")
             if back_rows:
-                st.dataframe(trace_df(back_rows), width="stretch", hide_index=True)
+                st.dataframe(trace_df(back_rows), column_order=sku_first((trace_df(back_rows)).columns, is_he), width="stretch", hide_index=True)
             else:
                 st.caption(L("אין רשומות (חומר גלם נכנס או מלאי פתיחה).", "No records."))
             st.markdown(f"**{L('לאילו אצוות נכנסה (קדימה)', 'Went into (forward)')}**")
             if fwd_rows:
-                st.dataframe(trace_df(fwd_rows), width="stretch", hide_index=True)
+                st.dataframe(trace_df(fwd_rows), column_order=sku_first((trace_df(fwd_rows)).columns, is_he), width="stretch", hide_index=True)
             else:
                 st.caption(L("האצווה עדיין לא נצרכה באף אצוות מוצר.", "Not consumed yet."))

@@ -103,15 +103,15 @@ div[data-testid="stMetricLabel"] > div, div[data-testid="stMetricValue"] > div {
 .rtl-table {
     width: 100% !important;
     border-collapse: collapse;
-    direction: rtl !important;
-    text-align: right;
+    direction: __UI_DIR__ !important;
+    text-align: __UI_ALIGN__;
     font-size: 0.88rem;
 }
 .rtl-table th, .rtl-table td {
     border: 1px solid rgba(128,128,128,0.28);
     padding: 9px 11px;
     color: var(--text-color);
-    text-align: right !important;
+    text-align: __UI_ALIGN__ !important;
 }
 .rtl-table th {
     background-color: var(--secondary-background-color);
@@ -122,7 +122,7 @@ div[data-testid="stMetricLabel"] > div, div[data-testid="stMetricValue"] > div {
     width: 100% !important;
     table-layout: fixed;
     border-collapse: collapse;
-    direction: rtl !important;
+    direction: __UI_DIR__ !important;
     text-align: center;
     font-size: 0.84rem;
     overflow: visible !important;
@@ -146,7 +146,7 @@ div[data-testid="stMetricLabel"] > div, div[data-testid="stMetricValue"] > div {
     font-size: 0.78rem;
 }
 .matrix-table td.parent-col {
-    text-align: right !important;
+    text-align: __UI_ALIGN__ !important;
     font-weight: 700;
     background-color: var(--secondary-background-color);
     padding: 8px 10px !important;

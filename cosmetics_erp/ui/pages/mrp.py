@@ -8,12 +8,14 @@ import streamlit as st
 from cosmetics_erp.services.mrp import WEEKS, mrp_suggestions
 from cosmetics_erp.services.planning import current_plan_start
 from cosmetics_erp.ui.context import PageContext
+from cosmetics_erp.ui.formatting import sku_first
 
 WEIGHT_TYPES = ("RAW", "BULK")
 
 
 def render(ctx: PageContext) -> None:
     L = ctx.L
+    is_he = ctx.is_he
     UI = ctx.UI
     conn = ctx.conn
     fmt_val = ctx.fmt_val
@@ -59,7 +61,7 @@ def render(ctx: PageContext) -> None:
         L("להזמין (מעוגל ל-MOQ)", "To order (rounded to MOQ)"): [fmt_val(v, w) for v, w in zip(shown["order_base"], shown["is_weight"])],
         L("ספק", "Supplier"): shown["supplier"],
     })
-    st.dataframe(table, width="stretch", hide_index=True)
+    st.dataframe(table, column_order=sku_first((table).columns, is_he), width="stretch", hide_index=True)
 
     st.caption(L(
         "ההזמנות נוצרות כטיוטה עם תאריך הגעה בתחילת השבוע הנדרש. טיוטות נחשבות כהזמנות פתוחות, ולכן לא ייווצרו שוב בהרצה הבאה.",

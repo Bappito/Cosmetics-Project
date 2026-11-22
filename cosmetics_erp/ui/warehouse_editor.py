@@ -3,10 +3,12 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
+from cosmetics_erp.ui.formatting import sku_first
+
 from cosmetics_erp.ui.change_review import summarize_editor_changes
 
 
-def render_catalog_editor(*, L, conn, df_cat, w_factor, w_label, push_backup, reconcile_batches, render_undo_button) -> None:
+def render_catalog_editor(*, L, is_he: bool, conn, df_cat, w_factor, w_label, push_backup, reconcile_batches, render_undo_button) -> None:
     df_ed = df_cat.copy()
     df_ed["stock_val"] = df_ed.apply(
         lambda r: round(r["weight_grams"] / w_factor, 3) if r["item_type"] in ["RAW", "BULK"] else round(r["qty_units"], 0),
@@ -21,8 +23,7 @@ def render_catalog_editor(*, L, conn, df_cat, w_factor, w_label, push_backup, re
     catalog_review_version = st.session_state.get(catalog_review_version_key, 0)
     catalog_confirm_key = f"catalog_review_confirmed_{catalog_review_version}"
     edited_cat = st.data_editor(
-        df_ed[editor_columns],
-        column_order=[c for c in editor_columns if c not in ("name", "sku")] + ["name", "sku"],
+        df_ed[editor_columns], column_order=sku_first((df_ed[editor_columns]).columns, is_he),
         column_config={
             "sku": st.column_config.TextColumn(L("מק\"ט", "SKU"), required=True),
             "name": st.column_config.TextColumn(L("שם פריט", "Item name"), required=True),
@@ -100,7 +101,7 @@ def render_catalog_editor(*, L, conn, df_cat, w_factor, w_label, push_backup, re
         preview_skus = set(added_skus) | set(changed_rows_skus)
         preview_rows = edited_cat[sku_values.isin(preview_skus)]
         if not preview_rows.empty:
-            st.dataframe(preview_rows, width="stretch", hide_index=True)
+            st.dataframe(preview_rows, column_order=sku_first((preview_rows).columns, is_he), width="stretch", hide_index=True)
         confirmed_cat = st.checkbox(
             L("בדקתי את התצוגה המקדימה ואני מאשר/ת לשמור את השינויים.", "I reviewed the preview and confirm these changes."),
             key=catalog_confirm_key,
