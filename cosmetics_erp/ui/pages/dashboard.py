@@ -41,18 +41,6 @@ def render(ctx: PageContext) -> None:
         conn,
     )
 
-    # Stock totals by warehouse.
-    raw_g = cat.loc[cat["item_type"] == "RAW", "weight_grams"].sum()
-    bulk_g = cat.loc[cat["item_type"] == "BULK", "weight_grams"].sum()
-    pkg_u = cat.loc[cat["item_type"] == "PKG", "qty_units"].sum()
-    fg_u = cat.loc[cat["item_type"] == "FG", "qty_units"].sum()
-
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric(L("חומר גלם (RAW)", "Raw Materials (RAW)"), fmt_val(raw_g, True))
-    k2.metric(L("בלקים (BULK)", "Bulks (BULK)"), fmt_val(bulk_g, True))
-    k3.metric(L("אריזות (PKG)", "Packaging (PKG)"), fmt_val(pkg_u, False))
-    k4.metric(L("מוצר סופי (FG)", "Finished Goods (FG)"), fmt_val(fg_u, False))
-
     # Expiry and PO health.
     today = date.today()
     soon_limit = today + timedelta(days=EXPIRY_WARNING_DAYS)
