@@ -158,8 +158,8 @@ def render(ctx: PageContext) -> None:
         st.caption(L("אין הזמנות רכש פתוחות.", "No open purchase orders."))
     else:
         po_view = pd.DataFrame({
-            L("הזמנה", "PO"): pos["po_number"],
             L("מק\"ט", "SKU"): pos["sku"],
+            L("הזמנה", "PO"): pos["po_number"],
             L("פריט", "Item"): pos["name"].fillna("?"),
             L("ספק", "Supplier"): pos["supplier"],
             "ETA": pos["eta_date"].map(lambda v: format_date(v, is_he=is_he)),

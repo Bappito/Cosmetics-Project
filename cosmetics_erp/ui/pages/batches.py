@@ -230,8 +230,8 @@ def render(ctx: PageContext) -> None:
                 for lvl, s, b, qu, wg, mdt, ref in rows:
                     is_w_t = (name_map.loc[s]["item_type"] in ("RAW", "BULK")) if s in name_map.index else False
                     out.append({
-                        L("רמה", "Level"): lvl,
                         L("מק\"ט", "SKU"): s,
+                        L("רמה", "Level"): lvl,
                         L("פריט", "Item"): name_map.loc[s]["name"] if s in name_map.index else "?",
                         "Batch #": b,
                         L("כמות", "Qty"): fmt_val(float(wg if is_w_t else qu), is_w_t),

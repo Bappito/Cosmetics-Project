@@ -69,8 +69,8 @@ def render(ctx: PageContext) -> None:
                 is_w_po = tp in ("RAW", "BULK")
                 amt_plain = fmt_val(float(r.order_weight_grams if is_w_po else r.order_qty_units), is_w_po)
                 view_rows.append({
-                    L("הזמנה", "PO"): r.po_number,
                     L("מק\"ט", "SKU"): r.sku,
+                    L("הזמנה", "PO"): r.po_number,
                     L("פריט", "Item"): nm,
                     L("ספק", "Supplier"): r.supplier,
                     L("כמות", "Qty"): amt_plain,
@@ -96,6 +96,7 @@ def render(ctx: PageContext) -> None:
     po_confirm_key = f"po_review_confirmed_{po_review_version}"
     ed_po = st.data_editor(
         df_po,
+        column_order=["sku"] + [c for c in df_po.columns if c != "sku"],
         width="stretch",
         hide_index=True,
         num_rows="dynamic",

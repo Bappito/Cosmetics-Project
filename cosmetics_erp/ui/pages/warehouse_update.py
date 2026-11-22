@@ -174,6 +174,8 @@ def render_erp_import(
                 "po_number": L("מספר PO", "PO"), "sku": L("מק\"ט", "SKU"),
                 "supplier": L("ספק", "Supplier"), "qty_base": L("כמות (בסיס)", "Qty (base)"), "eta": "ETA",
             })
+            sku_name = L("מק\"ט", "SKU")
+            preview = preview[[sku_name] + [c for c in preview.columns if c != sku_name]]
 
     for error in errors:
         st.error(error)
