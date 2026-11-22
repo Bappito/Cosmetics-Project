@@ -8,7 +8,7 @@ import streamlit as st
 
 def inject_stylesheet(ui: Mapping[str, str], is_collapsed: bool, theme: str = "light") -> None:
     if is_collapsed:
-        sidebar_width = "64px"
+        sidebar_width = "56px"
     elif ui["dir"] == "rtl":
         sidebar_width = "300px"
     else:
