@@ -105,7 +105,7 @@ def render(ctx: PageContext) -> None:
         column_config={
             "status": st.column_config.SelectboxColumn(
                 L("סטטוס", "Status"),
-                options=["In Transit", "Confirmed", "Received", "Cancelled"],
+                options=["Draft", "In Transit", "Confirmed", "Received", "Cancelled"],
             ),
         }
     )
@@ -138,7 +138,7 @@ def render(ctx: PageContext) -> None:
         ))
     if invalid_quantities.any():
         validation_errors.append(L("כמויות ומחירים חייבים להיות מספרים שאינם שליליים.", "Quantities and prices must be valid non-negative numbers."))
-    allowed_statuses = {"In Transit", "Confirmed", "Received", "Cancelled"}
+    allowed_statuses = {"Draft", "In Transit", "Confirmed", "Received", "Cancelled"}
     invalid_statuses = sorted(set(ed_po.loc[has_any_data, "status"].dropna().astype(str)) - allowed_statuses)
     if invalid_statuses:
         validation_errors.append(L("נמצאו סטטוסים לא מוכרים בהזמנות.", "One or more orders have an unsupported status."))
