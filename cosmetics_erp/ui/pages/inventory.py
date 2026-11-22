@@ -43,6 +43,9 @@ def render(ctx: PageContext) -> None:
     active_wh_type = "RAW" if "1." in wh_selector else ("BULK" if "2." in wh_selector else "PKG")
     is_w_wh = active_wh_type in ("RAW", "BULK")
     df_wh_sub = df_cat[df_cat["item_type"] == active_wh_type]
+    if active_wh_type == "BULK":
+        # Bulk item names start with "בלק" in the data; drop that prefix on this screen only.
+        df_wh_sub = df_wh_sub.assign(name=df_wh_sub["name"].astype(str).str.replace(r"^בלק\s+", "", regex=True))
 
     sub_tab_stock, sub_tab_po, sub_tab_sup, sub_tab_edit, sub_tab_count, sub_tab_import = st.tabs([
         L(":material/inventory: מלאי נוכחי ותאריכי תפוגה", ":material/inventory: Current Stock & Expiry Dates"),
