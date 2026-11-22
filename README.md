@@ -41,7 +41,7 @@ Run the command from the repository root. The application creates or opens `cosm
 
 | Screen | What it is for |
 | --- | --- |
-| Dashboard | Opening page: stock totals, expiry and PO counts, what can be packed now, and estimated profit per finished product. |
+| Dashboard | Opening page: expiry and PO counts, what can be packed now, the estimated profit per finished product, and the plan start date. |
 | Warehouses | Stock, expiry dates, purchase orders, suppliers, stock movements, and catalog editing for raw materials, bulk, and packaging. Also **Update by Count** (physical count) and **ERP Import** (SAP / Priority CSV or Excel exports). |
 | Production Line Simulator | Plan bulk production and check raw-material availability; report production to consume raw-material batches and add a bulk batch. |
 | Packaging Simulator | Plan finished-product packaging and check bulk and packaging availability; report packaging to create a finished-goods batch. |
@@ -49,17 +49,23 @@ Run the command from the repository root. The application creates or opens `cosm
 | Purchase Orders | Maintain PO rows and statuses, view arrival weeks, and receive orders into a warehouse. |
 | Batches & Traceability | Review batch balances and expiry, add manual receipts, and inspect batch consumption links. |
 | Quick Command Agent | Add stock using a simple text command. |
+| Purchase Planning (MRP) | Works out what to buy from the eight-week plan, stock, open POs and the BOM. Suggestions are shown by month, rounded to MOQ, and can become draft POs (one per product per month). The Excel download has the weekly detail. |
+| Product trees (BOM) | Add or edit the components of a bulk or finished product. Invalid combinations are blocked before saving. |
+| Change log | Every stock, product-tree and planning change, including undos, with its time. |
+| Colours warehouse | Hair-colour raw materials (example items included), stored as RAW items in their own warehouse. |
 
 ## How inventory and planning work
 
 - Catalog item types are `RAW` (raw material), `BULK` (prepared formula), `PKG` (packaging), and `FG` (finished packaged product).
 - Weight is stored in grams; packaging and finished goods are stored in units. The UI can display weight in grams or kilograms.
 - BOM rows define the component quantities needed for bulk or finished products.
-- Planning covers eight weekly periods (`W1`–`W8`). Dates and labels are currently defined in the configuration code.
+- Planning covers eight weekly periods (`W1`–`W8`). The start date is stored in the database and does not move on its own. Change it on the dashboard; the weekly quantities stay as they are and are attached to the new weeks.
 - FEFO means **First Expired, First Out**. Production and packaging consume active batches in expiry order and exclude expired batches by default.
 - For production and packaging, the output batch expiry is capped at the earliest expiry among the consumed component batches when that date is earlier than the requested output expiry.
 - Receiving a PO or recording a manual receipt creates or updates a batch and adjusts catalog stock.
-- A stock backup includes catalog, batches, batch consumption, stock movements, and purchase orders. A schedule backup includes the weekly schedule.
+- A stock backup includes catalog, batches, batch consumption, stock movements, purchase orders, and product trees. A schedule backup includes the weekly schedule.
+- Every backup and every undo is also written to the change log, which is never trimmed.
+- Production and packaging runs are posted by `services/manufacturing.py`. The UI only collects inputs and shows messages.
 
 ## Project layout
 
@@ -68,7 +74,8 @@ app.py                         Streamlit startup, shared dependency wiring, and 
 cosmetics_erp/
   config/                      UI labels, translations, and app constants
   db/                          SQLite connection and schema/demo-data initialization
-  services/                    Inventory/FEFO, planning, and backup operations
+  services/                    Inventory/FEFO, planning, manufacturing, MRP, BOM rules, costing,
+                               capacity, ERP import, and backup operations
   ui/
     components.py              Shared planning, shortage, and undo UI
     context.py                 Dependencies passed to page renderers
@@ -77,8 +84,7 @@ cosmetics_erp/
     styles.py                  Loads and injects the stylesheet
     pages/                     One Streamlit renderer per application screen
 static/
-  css/app.css                  Custom dashboard styles
-  js/                          Reserved for custom JavaScript; currently empty
+  css/app.css                  Custom stylesheet
 requirements.txt               Python package dependencies
 ```
 
@@ -96,6 +102,8 @@ The SQLite schema is initialized by [`cosmetics_erp/db/schema.py`](./cosmetics_e
 - `StockMovements` — warehouse movement history.
 - `BatchConsumption` — links batches consumed to the resulting parent batch for traceability.
 - `TableBackups` — snapshots used by the undo controls.
+- `AuditLog` — the change log: time, area, and action for every backup and undo.
+- `Settings` — small key/value settings, such as the plan start date.
 
 ## Current scope
 

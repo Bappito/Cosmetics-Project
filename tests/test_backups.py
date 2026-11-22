@@ -22,3 +22,11 @@ def test_only_latest_backups_are_kept(conn):
 
 def test_undo_with_no_backup_returns_none(conn):
     assert BackupService(conn).undo_last("schedule") is None
+
+
+def test_backup_and_undo_are_written_to_audit_log(conn):
+    backups = BackupService(conn)
+    backups.push_backup("stock", "Manual receipt 1001")
+    backups.undo_last("stock")
+    actions = [r[0] for r in conn.execute("SELECT action FROM AuditLog ORDER BY audit_id").fetchall()]
+    assert actions == ["Manual receipt 1001", "UNDO: Manual receipt 1001"]

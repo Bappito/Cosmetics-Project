@@ -4,20 +4,17 @@ import pandas as pd
 import streamlit as st
 from datetime import date, datetime, timedelta
 
+from cosmetics_erp.services.manufacturing import plan_components, post_run
 from cosmetics_erp.ui.context import PageContext
 
 
 def render(ctx: PageContext) -> None:
     L = ctx.L
     UI = ctx.UI
-    add_batch = ctx.add_batch
-    apply_picks = ctx.apply_picks
     conn = ctx.conn
+    svc = ctx.inventory_service
     gen_batch_no = ctx.gen_batch_no
     is_he = ctx.is_he
-    log_consumption = ctx.log_consumption
-    log_move = ctx.log_move
-    plan_fefo = ctx.plan_fefo
     push_backup = ctx.push_backup
     render_where_used_simulator = ctx.render_where_used_simulator
     u_label = ctx.u_label
@@ -119,57 +116,38 @@ def render(ctx: PageContext) -> None:
                 st.stop()
             bom_p = pd.read_sql("SELECT component_sku, comp_type, req_qty_units, req_weight_grams FROM BOM WHERE parent_sku = ?", conn, params=(f_sku,))
             now_d = datetime.now().strftime("%Y-%m-%d")
-
-            plans = []
-            errors = []
+            components = []
             for _, br in bom_p.iterrows():
-                is_w_c = (br["comp_type"] == "BULK")
-                need = float(br["req_weight_grams"] if is_w_c else br["req_qty_units"]) * units_to_pack
-                picks, short = plan_fefo(br["component_sku"], need, is_w_c)
-                if short > 1e-6:
-                    short_txt = f"{short/1000:.2f} ק\"ג" if is_w_c else f"{short:.0f} יח'"
-                    errors.append(f"{br['component_sku']}: " + L(f"חסרים {short_txt} במלאי תקף (לא פג תוקף)", f"short {short_txt} of valid stock (not expired)"))
-                plans.append((br["component_sku"], is_w_c, need, picks))
-
+                is_w_c = br["comp_type"] == "BULK"
+                components.append({
+                    "sku": br["component_sku"],
+                    "need": float(br["req_weight_grams"] if is_w_c else br["req_qty_units"]) * units_to_pack,
+                    "is_weight": is_w_c,
+                    "from_wh": "WH_BULK" if is_w_c else "WH_PACK",
+                })
+            plans, shortages = plan_components(svc, components)
+            errors = []
+            for sh in shortages:
+                short_txt = f"{sh['short'] / 1000:.2f} ק\"ג" if sh["is_weight"] else f"{sh['short']:.0f} יח'"
+                errors.append(f"{sh['sku']}: " + L(f"חסרים {short_txt} במלאי תקף (לא פג תוקף)", f"short {short_txt} of valid stock (not expired)"))
             requested_batch = (pack_batch_in or "").strip() or gen_batch_no(f_sku)
             if ctx.batch_exists(f_sku, requested_batch):
-                errors.append(L(f"אצווה {requested_batch} כבר קיימת למוצר {f_sku}. בחר/י מספר אצווה אחר.", f"Batch {requested_batch} already exists for product {f_sku}. Choose another batch number."))
+                errors.append(L(
+                    f"אצווה {requested_batch} כבר קיימת למוצר {f_sku}. בחר/י מספר אצווה אחר.",
+                    f"Batch {requested_batch} already exists for product {f_sku}. Choose another batch number.",
+                ))
 
             if errors:
                 st.error(L("לא ניתן לבצע אריזה – אין מספיק רכיבים תקפים:", "Cannot pack – not enough valid components:") + "\n\n" + "\n\n".join(errors))
             else:
                 push_backup("stock", f"{L('אריזת', 'Packing')} {f_sku} ({units_to_pack} {u_label})")
-                new_batch_no = (pack_batch_in or "").strip() or gen_batch_no(f_sku)
-
-                limiting = None
-                for _, _, _, picks in plans:
-                    for p in picks:
-                        if p["expiry"] and (limiting is None or p["expiry"] < limiting):
-                            limiting = p["expiry"]
-                exp_s = pack_exp_in.strftime("%Y-%m-%d")
-                capped = False
-                if limiting and exp_s > limiting:
-                    exp_s = limiting
-                    capped = True
-
-                for comp_sku, is_w_c, need, picks in plans:
-                    apply_picks(picks, is_w_c)
-                    log_consumption(f_sku, new_batch_no, comp_sku, picks, is_w_c, f"PACK {f_sku}")
-                    log_move(comp_sku, "WH_BULK" if is_w_c else "WH_PACK", "WH_LINE", need, is_w_c, f"PACK {f_sku} / {new_batch_no}")
-                    if is_w_c:
-                        conn.execute("UPDATE Catalog SET weight_grams = MAX(0, weight_grams - ?), stock_movements = ? WHERE sku = ?",
-                                     (need, f"-{need/1000:.2f} ק\"ג לאריזת {f_sku}", comp_sku))
-                    else:
-                        conn.execute("UPDATE Catalog SET qty_units = MAX(0, qty_units - ?), stock_movements = ? WHERE sku = ?",
-                                     (need, f"-{need:.0f} יח' לאריזת {f_sku}", comp_sku))
-
-                add_batch(f_sku, new_batch_no, float(units_to_pack), False, exp_s, "PACKING")
-                log_move(f_sku, "WH_LINE", "WH_FG", float(units_to_pack), False, f"PACK {f_sku} / {new_batch_no}")
-                conn.execute("UPDATE Catalog SET qty_units = qty_units + ?, last_stock_entry = ? WHERE sku = ?",
-                             (units_to_pack, f"{now_d} (+{units_to_pack} יח')", f_sku))
-                conn.commit()
-                msg = f"נארזו {units_to_pack} יח' של {f_sku} באצווה {new_batch_no} (תפוגה {exp_s}). המלאי נגרע ממחסן הבלקים וממחסן האריזות לפי FEFO."
-                if capped:
-                    msg += f" שים לב: התפוגה הוגבלה לתפוגה המוקדמת ביותר של הרכיבים ({limiting})."
+                result = post_run(
+                    conn, svc, kind="packaging", parent_sku=f_sku, batch_no=requested_batch, plans=plans,
+                    expiry=pack_exp_in.strftime("%Y-%m-%d"), output_amount=float(units_to_pack),
+                    output_is_weight=False, now_d=now_d,
+                )
+                msg = f"נארזו {units_to_pack} יח' של {f_sku} באצווה {requested_batch} (תפוגה {result['expiry']}). המלאי נגרע ממחסן הבלקים וממחסן האריזות לפי FEFO."
+                if result["capped"]:
+                    msg += f" שים לב: התפוגה הוגבלה לתפוגה המוקדמת ביותר של הרכיבים ({result['limiting']})."
                 st.session_state["flash"] = msg
                 st.rerun()

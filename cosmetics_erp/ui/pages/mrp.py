@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from cosmetics_erp.services.mrp import monthly_summary, mrp_suggestions, week_starts, weekly_excel_bytes
-from cosmetics_erp.services.planning import current_plan_start
+from cosmetics_erp.services.planning import get_plan_start
 from cosmetics_erp.ui.context import PageContext
 from cosmetics_erp.ui.formatting import sku_first
 
@@ -51,7 +51,7 @@ def render(ctx: PageContext) -> None:
         st.success(L("אין צורך ברכש נוסף לתוכנית הנוכחית.", "No purchases needed for the current plan."))
         return
 
-    plan_start = current_plan_start()
+    plan_start = get_plan_start(conn)
     summary = monthly_summary(suggestions, plan_start).copy()
     summary["is_weight"] = summary["item_type"].isin(WEIGHT_TYPES)
     table = pd.DataFrame({
@@ -87,7 +87,7 @@ def render(ctx: PageContext) -> None:
     confirm = st.checkbox(L("בדקתי את ההצעות ואני מאשר/ת ליצור הזמנות טיוטה.", "I reviewed the suggestions and confirm creating draft orders."), key="mrp_confirm")
     if st.button(L(":material/post_add: צור הזמנות טיוטה", ":material/post_add: Create draft POs"), key="mrp_create", type="primary", disabled=not confirm):
         ctx.push_backup("stock", L("תכנון רכש (MRP)", "MRP draft orders"))
-        plan_start = current_plan_start()
+        plan_start = get_plan_start(conn)
         stamp = datetime.now().strftime("%y%m%d")
         cat_idx = catalog.set_index("sku")
         # Drafts follow the monthly summary: one order per product per month, arriving at the

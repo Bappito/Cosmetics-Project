@@ -14,6 +14,7 @@ class PageContext:
     add_batch: Callable[..., Any]
     apply_picks: Callable[..., Any]
     batch_exists: Callable[..., Any]
+    inventory_service: Any
     conn: sqlite3.Connection
     eta_to_week: Callable[..., Any]
     eta_week_label: Callable[..., Any]
