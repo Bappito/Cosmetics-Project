@@ -37,8 +37,8 @@ def format_value(
     return f"{num_str} {unit}"
 
 
-SKU_KEYS = ("sku", "SKU", "מק\"ט", 'מק"ט')
-NAME_KEYS = ("name", "Item", "פריט", "Item Name")
+SKU_KEYS = ("sku", "SKU", "מק\"ט", 'מק"ט', "component_sku", "רכיב", "Component")
+NAME_KEYS = ("name", "Item", "פריט", "Item Name", "שם", "Name")
 
 
 def sku_first(columns, is_he: bool) -> list:

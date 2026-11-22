@@ -4,7 +4,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 APP = str(Path(__file__).resolve().parents[1] / "app.py")
-PAGES = ["dash", "inv", "wh", "mrp", "batch", "sim_prod", "sim_pack", "sim_work", "ai"]
+PAGES = ["dash", "inv", "wh", "mrp", "bom", "batch", "sim_prod", "sim_pack", "sim_work", "ai"]
 
 
 @pytest.fixture

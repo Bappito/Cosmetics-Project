@@ -8,7 +8,7 @@ import pandas as pd
 
 
 SCOPES = {
-    "stock": ["Catalog", "Batches", "BatchConsumption", "StockMovements", "PurchaseOrders"],
+    "stock": ["Catalog", "Batches", "BatchConsumption", "StockMovements", "PurchaseOrders", "BOM"],
     "schedule": ["WeeklySchedule"],
 }
 MAX_BACKUPS_PER_SCOPE = 20

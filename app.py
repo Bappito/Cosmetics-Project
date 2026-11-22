@@ -17,7 +17,7 @@ from cosmetics_erp.ui.navigation import (
     render_sidebar,
     render_theme_toggle,
 )
-from cosmetics_erp.ui.pages import batches, dashboard, inventory, master_work, mrp, packaging, production, purchase_orders, quick_command
+from cosmetics_erp.ui.pages import batches, bom, dashboard, inventory, master_work, mrp, packaging, production, purchase_orders, quick_command
 from cosmetics_erp.ui.styles import inject_stylesheet
 
 # 2026-11-20
@@ -145,6 +145,7 @@ page_renderers = {
     "sim_work": master_work.render,
     "wh": purchase_orders.render,
     "mrp": mrp.render,
+    "bom": bom.render,
     "batch": batches.render,
     "ai": quick_command.render
 }
