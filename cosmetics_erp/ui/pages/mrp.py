@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
 import pandas as pd
 import streamlit as st
 
-from cosmetics_erp.services.mrp import WEEKS, monthly_summary, mrp_suggestions, weekly_excel_bytes
+from cosmetics_erp.services.mrp import monthly_summary, mrp_suggestions, week_starts, weekly_excel_bytes
 from cosmetics_erp.services.planning import current_plan_start
 from cosmetics_erp.ui.context import PageContext
 from cosmetics_erp.ui.formatting import sku_first
@@ -90,10 +90,12 @@ def render(ctx: PageContext) -> None:
         plan_start = current_plan_start()
         stamp = datetime.now().strftime("%y%m%d")
         cat_idx = catalog.set_index("sku")
-        for n, row in enumerate(suggestions.itertuples(), start=1):
+        # Drafts follow the monthly summary: one order per product per month, arriving at the
+        # start of the first week of that month.
+        first_week = week_starts(plan_start).groupby("month")["week_start"].min()
+        for n, row in enumerate(summary.itertuples(), start=1):
             is_w = row.item_type in WEIGHT_TYPES
-            week_index = WEEKS.index(row.need_week)
-            eta = (plan_start + timedelta(days=7 * week_index)).strftime("%Y-%m-%d")
+            eta = first_week[row.month].strftime("%Y-%m-%d")
             target_wh = cat_idx.loc[row.sku, "primary_warehouse"] or "WH_RAW"
             conn.execute(
                 "INSERT INTO PurchaseOrders (po_number, sku, supplier, order_qty_units, order_weight_grams, unit_price, order_date, eta_date, target_wh, status) "
@@ -112,5 +114,5 @@ def render(ctx: PageContext) -> None:
                 ),
             )
         conn.commit()
-        st.session_state["flash"] = L(f"נוצרו {len(suggestions)} הזמנות טיוטה.", f"Created {len(suggestions)} draft orders.")
+        st.session_state["flash"] = L(f"נוצרו {len(summary)} הזמנות טיוטה (לפי חודש).", f"Created {len(summary)} draft orders (by month).")
         st.rerun()
