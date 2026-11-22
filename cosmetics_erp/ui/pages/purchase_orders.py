@@ -80,7 +80,7 @@ def render(ctx: PageContext) -> None:
                 })
             st.dataframe(
                 pd.DataFrame(view_rows),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
                 column_config={
                     L("הזמנה", "PO"): st.column_config.TextColumn(L("הזמנה", "PO"), width="small"),
@@ -96,7 +96,7 @@ def render(ctx: PageContext) -> None:
     po_confirm_key = f"po_review_confirmed_{po_review_version}"
     ed_po = st.data_editor(
         df_po,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         num_rows="dynamic",
         key="po_editor",
@@ -180,7 +180,7 @@ def render(ctx: PageContext) -> None:
         preview_pos = set(added_pos) | set(changed_pos)
         preview_rows = ed_po[po_number_values.isin(preview_pos)]
         if not preview_rows.empty:
-            st.dataframe(preview_rows, use_container_width=True, hide_index=True)
+            st.dataframe(preview_rows, width="stretch", hide_index=True)
         confirmed_po = st.checkbox(
             L("בדקתי את התצוגה המקדימה ואני מאשר/ת לשמור את השינויים.", "I reviewed the preview and confirm these changes."),
             key=po_confirm_key,
@@ -202,24 +202,40 @@ def render(ctx: PageContext) -> None:
     if save_po:
         st.session_state[po_review_key] = False
         push_backup("stock", L("שמירת הזמנות רכש", "PO save"))
-        conn.execute("DELETE FROM PurchaseOrders")
+        # Update existing rows in place (keeps po_id stable), insert new rows, and delete only rows
+        # the user removed from the editor. Previously every save recreated all rows with new IDs.
+        existing_po_ids = {int(x) for x in df_po["po_id"]}
+        kept_po_ids = set()
         for _, r in ed_po.iterrows():
-            if pd.notna(r["po_number"]) and pd.notna(r["sku"]):
+            if not (pd.notna(r["po_number"]) and pd.notna(r["sku"])):
+                continue
+            values = (
+                str(r["po_number"]).strip(),
+                str(r["sku"]).strip(),
+                "" if pd.isna(r["supplier"]) else str(r["supplier"]),
+                0.0 if pd.isna(r["order_qty_units"]) else float(r["order_qty_units"]),
+                0.0 if pd.isna(r["order_weight_grams"]) else float(r["order_weight_grams"]),
+                0.0 if pd.isna(r["unit_price"]) else float(r["unit_price"]),
+                "" if pd.isna(r["order_date"]) else str(r["order_date"]),
+                "" if pd.isna(r["eta_date"]) else str(r["eta_date"]),
+                "WH_RAW" if pd.isna(r["target_wh"]) or not str(r["target_wh"]).strip() else str(r["target_wh"]),
+                "In Transit" if pd.isna(r["status"]) or not str(r["status"]).strip() else str(r["status"]),
+            )
+            row_id = None if pd.isna(r["po_id"]) else int(r["po_id"])
+            if row_id in existing_po_ids:
+                conn.execute("""
+                    UPDATE PurchaseOrders SET po_number=?, sku=?, supplier=?, order_qty_units=?, order_weight_grams=?,
+                        unit_price=?, order_date=?, eta_date=?, target_wh=?, status=?
+                    WHERE po_id=?
+                """, (*values, row_id))
+                kept_po_ids.add(row_id)
+            else:
                 conn.execute("""
                     INSERT INTO PurchaseOrders (po_number, sku, supplier, order_qty_units, order_weight_grams, unit_price, order_date, eta_date, target_wh, status)
                     VALUES (?,?,?,?,?,?,?,?,?,?)
-                """, (
-                    str(r["po_number"]).strip(),
-                    str(r["sku"]).strip(),
-                    "" if pd.isna(r["supplier"]) else str(r["supplier"]),
-                    0.0 if pd.isna(r["order_qty_units"]) else float(r["order_qty_units"]),
-                    0.0 if pd.isna(r["order_weight_grams"]) else float(r["order_weight_grams"]),
-                    0.0 if pd.isna(r["unit_price"]) else float(r["unit_price"]),
-                    "" if pd.isna(r["order_date"]) else str(r["order_date"]),
-                    "" if pd.isna(r["eta_date"]) else str(r["eta_date"]),
-                    "WH_RAW" if pd.isna(r["target_wh"]) or not str(r["target_wh"]).strip() else str(r["target_wh"]),
-                    "In Transit" if pd.isna(r["status"]) or not str(r["status"]).strip() else str(r["status"]),
-                ))
+                """, values)
+        for removed_id in existing_po_ids - kept_po_ids:
+            conn.execute("DELETE FROM PurchaseOrders WHERE po_id=?", (removed_id,))
         conn.commit()
         st.session_state["flash"] = "נשמר!"
         st.rerun()
@@ -303,6 +319,12 @@ def render(ctx: PageContext) -> None:
                 ))
                 if rcv_exp < date.today() and not rcv_no_exp:
                     st.warning(L("תאריך התפוגה כבר עבר; האצווה תהיה חסומה לשימוש FEFO.", "This expiry date is in the past; FEFO will block the batch from use."))
+                receipt_batch_taken = ctx.batch_exists(rcv_sku, preview_batch)
+                if receipt_batch_taken:
+                    st.error(L(
+                        f"אצווה {preview_batch} כבר קיימת למק\"ט {rcv_sku}. ערוך/י את מספר האצווה לפני האישור.",
+                        f"Batch {preview_batch} already exists for SKU {rcv_sku}. Edit the batch number before confirming.",
+                    ))
                 confirmed_receive = st.checkbox(
                     L("בדקתי את פרטי הקבלה ואני מאשר/ת לעדכן את המלאי.", "I reviewed the receipt and confirm the stock update."),
                     key=receive_confirm_key,
@@ -312,7 +334,7 @@ def render(ctx: PageContext) -> None:
                     receive_po = st.button(
                         L(":material/download_done: אשר קבלה", ":material/download_done: Confirm receipt"),
                         key="rcv_confirm_btn",
-                        disabled=not confirmed_receive or not receive_is_valid,
+                        disabled=not confirmed_receive or not receive_is_valid or receipt_batch_taken,
                         type="primary",
                     )
                 with cancel_col:

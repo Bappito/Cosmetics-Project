@@ -48,6 +48,8 @@ UI_TEXTS = {
         "nav_inventory": "מלאי ורכש",
         "nav_planning": "תכנון וייצור",
         "nav_operations": "פעולות",
+        "nav_overview": "סקירה",
+        "m_dash": "לוח בקרה",
         "m_inv": "מחסנים (מלאי, תפוגה ורכש)",
         "m_sim_prod": "1. סימולטור קו ייצור",
         "m_sim_pack": "2. סימולטור אריזה",
@@ -65,6 +67,8 @@ UI_TEXTS = {
         "nav_inventory": "Inventory & Purchasing",
         "nav_planning": "Planning & Production",
         "nav_operations": "Operations",
+        "nav_overview": "Overview",
+        "m_dash": "Dashboard",
         "m_inv": "Warehouses (Stock, Expiry & PO)",
         "m_sim_prod": "1. Production Line Simulator",
         "m_sim_pack": "2. Packaging Simulator",
@@ -80,6 +84,7 @@ UI_TEXTS = {
 
 def build_nav_items(ui: dict[str, str]) -> list[tuple[str, str, str, str]]:
     return [
+        (ui["nav_overview"], "dash", ":material/dashboard:", ui["m_dash"]),
         (ui["nav_inventory"], "inv", ":material/warehouse:", ui["m_inv"]),
         (ui["nav_inventory"], "wh", ":material/local_shipping:", ui["m_wh"]),
         (ui["nav_inventory"], "batch", ":material/qr_code_2:", ui["m_batch"]),

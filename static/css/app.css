@@ -10,8 +10,7 @@ html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], 
     padding-right: 1rem !important;
     max-width: 100% !important;
 }
-section[data-testid="stSidebar"][aria-expanded="true"],
-section[data-testid="stSidebar"][aria-expanded="false"] {
+section[data-testid="stSidebar"] {
     width: __SIDEBAR_WIDTH__ !important;
     min-width: __SIDEBAR_WIDTH__ !important;
     max-width: __SIDEBAR_WIDTH__ !important;
@@ -27,7 +26,10 @@ section[data-testid="stSidebar"][aria-expanded="false"] {
     opacity: 1 !important;
     direction: __UI_DIR__ !important;
     text-align: __UI_ALIGN__ !important;
-    transition: width 0.2s ease;
+    transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.28s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.28s cubic-bezier(0.4, 0, 0.2, 1), flex-basis 0.28s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+section[data-testid="stSidebar"] > div {
+    transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.28s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 section[data-testid="stSidebar"] > div {
     box-sizing: border-box !important;
@@ -909,6 +911,114 @@ div.st-key-floating_lang_btn {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
+    }
+}
+
+/* ---------- Visual polish layer ---------- */
+html, body, .stApp, [data-testid="stAppViewContainer"] {
+    font-family: "Segoe UI Variable", "Segoe UI", "Heebo", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+.clean-header {
+    box-shadow: var(--erp-shadow);
+    padding: 14px 20px !important;
+}
+.clean-header h2 {
+    font-weight: 700 !important;
+    letter-spacing: -0.01em;
+}
+div[data-testid="stMetric"] {
+    position: relative;
+    overflow: hidden;
+    padding: 14px 16px !important;
+    box-shadow: var(--erp-shadow);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+div[data-testid="stMetric"]::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--erp-accent), var(--erp-accent-strong));
+    opacity: 0.85;
+}
+div[data-testid="stMetric"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.10);
+}
+div[data-testid="stMetricValue"] > div {
+    font-weight: 700 !important;
+    letter-spacing: -0.01em;
+}
+div[data-testid="stMetricLabel"] > div {
+    font-size: 0.82rem !important;
+    font-weight: 600 !important;
+    color: var(--erp-muted) !important;
+}
+div[data-testid="stTabs"] [data-baseweb="tab-list"] {
+    gap: 4px;
+    border-bottom: 1px solid var(--erp-border);
+}
+div[data-testid="stTabs"] button[data-baseweb="tab"] {
+    border-radius: 8px 8px 0 0;
+    padding: 8px 14px;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+div[data-testid="stTabs"] button[data-baseweb="tab"]:hover {
+    background: var(--erp-accent-soft);
+}
+div[data-testid="stTabs"] button[aria-selected="true"] {
+    color: var(--erp-accent-strong) !important;
+    font-weight: 700;
+}
+.stButton button,
+.stFormSubmitButton button,
+.stDownloadButton button {
+    border-radius: var(--erp-radius) !important;
+    transition: transform 0.12s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease !important;
+    font-weight: 600;
+}
+.stButton button[kind="primary"]:hover,
+.stFormSubmitButton button[kind="primary"]:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(11, 105, 199, 0.28);
+}
+.stButton button:active {
+    transform: translateY(0);
+}
+.stButton button:focus-visible,
+.stFormSubmitButton button:focus-visible,
+div[data-baseweb="input"] > div:focus-within,
+div[data-baseweb="select"] > div:focus-within {
+    box-shadow: var(--erp-focus-ring) !important;
+}
+div[data-testid="stExpander"] {
+    border-radius: var(--erp-radius);
+    border: 1px solid var(--erp-border);
+    box-shadow: var(--erp-shadow);
+    overflow: hidden;
+}
+div[data-testid="stDataFrame"] [role="columnheader"],
+div[data-testid="stDataEditor"] [role="columnheader"] {
+    font-weight: 700;
+}
+div[data-testid="stAlert"] {
+    border-radius: var(--erp-radius);
+}
+section[data-testid="stSidebar"] .stButton button:hover {
+    background: var(--erp-surface-muted) !important;
+}
+section[data-testid="stSidebar"] .app-brand-mark {
+    background: linear-gradient(135deg, var(--erp-accent), var(--erp-accent-strong));
+    box-shadow: 0 4px 12px rgba(11, 105, 199, 0.30);
+}
+.plan-box {
+    box-shadow: var(--erp-shadow);
+}
+@media (prefers-reduced-motion: reduce) {
+    div[data-testid="stMetric"]:hover {
+        transform: none;
     }
 }
 

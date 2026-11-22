@@ -15,7 +15,7 @@ def initialize_session_state() -> None:
         st.session_state.nav_collapsed = True
         st.session_state.hover_sidebar_initialized = True
     if "active_page" not in st.session_state:
-        st.session_state.active_page = "inv"
+        st.session_state.active_page = "dash"
     if "selected_weight_unit" not in st.session_state:
         st.session_state.selected_weight_unit = "kg"
     if "app_theme" not in st.session_state:
@@ -68,7 +68,7 @@ def render_sidebar(
         on_click=toggle_nav,
         help=collapse_help,
         key="toggle_nav_collapse",
-        use_container_width=True,
+        width="stretch",
     )
     st.sidebar.divider()
 
@@ -87,7 +87,7 @@ def render_sidebar(
             key=f"nav_btn_{page_key}",
             help=page_title,
             type="primary" if is_active else "secondary",
-            use_container_width=True,
+            width="stretch",
         ):
             st.session_state.active_page = page_key
             st.rerun()

@@ -96,7 +96,7 @@ def render(ctx: PageContext) -> None:
                         L("מקור", "Source"): r["source"],
                         L("תאריך כניסה", "Received"): format_date(r["received_date"], is_he=is_he),
                     })
-                st.dataframe(pd.DataFrame(out_rows), use_container_width=True, hide_index=True)
+                st.dataframe(pd.DataFrame(out_rows), width="stretch", hide_index=True)
             else:
                 st.info(L("לא נמצאו אצוות התואמות לסינון.", "No batches match these filters."))
         render_undo_button("stock", "undo_batches")
@@ -177,6 +177,12 @@ def render(ctx: PageContext) -> None:
             ))
             if mb_exp < date.today() and not mb_noexp:
                 st.warning(L("תאריך התפוגה כבר עבר; האצווה תהיה חסומה לשימוש FEFO.", "This expiry date is in the past; FEFO will block the batch from use."))
+            manual_batch_taken = ctx.batch_exists(mb_sku, preview_bno)
+            if manual_batch_taken:
+                st.error(L(
+                    f"אצווה {preview_bno} כבר קיימת למק\"ט {mb_sku}. בחר/י מספר אצווה אחר.",
+                    f"Batch {preview_bno} already exists for SKU {mb_sku}. Choose another batch number.",
+                ))
             confirmed_manual = st.checkbox(
                 L("בדקתי את פרטי האצווה ואני מאשר/ת לעדכן את המלאי.", "I reviewed the batch details and confirm the stock update."),
                 key=manual_confirm_key,
@@ -186,7 +192,7 @@ def render(ctx: PageContext) -> None:
                 receive_manual = st.button(
                     L(":material/add: אשר כניסה", ":material/add: Confirm receipt"),
                     key="mb_confirm_btn",
-                    disabled=not confirmed_manual or mb_amt <= 0,
+                    disabled=not confirmed_manual or mb_amt <= 0 or manual_batch_taken,
                     type="primary",
                 )
             with cancel_col:
@@ -238,11 +244,11 @@ def render(ctx: PageContext) -> None:
             fwd_rows = trace_chain(tr_sku, tr_batch, "fwd")
             st.markdown(f"**{L('ממה הוכנה האצווה (אחורה)', 'Made from (backward)')}**")
             if back_rows:
-                st.dataframe(trace_df(back_rows), use_container_width=True, hide_index=True)
+                st.dataframe(trace_df(back_rows), width="stretch", hide_index=True)
             else:
                 st.caption(L("אין רשומות (חומר גלם נכנס או מלאי פתיחה).", "No records."))
             st.markdown(f"**{L('לאילו אצוות נכנסה (קדימה)', 'Went into (forward)')}**")
             if fwd_rows:
-                st.dataframe(trace_df(fwd_rows), use_container_width=True, hide_index=True)
+                st.dataframe(trace_df(fwd_rows), width="stretch", hide_index=True)
             else:
                 st.caption(L("האצווה עדיין לא נצרכה באף אצוות מוצר.", "Not consumed yet."))

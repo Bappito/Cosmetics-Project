@@ -1,10 +1,11 @@
+import sqlite3
 from datetime import datetime, timedelta
 
 from .connection import get_connection
 
 
-def init_db():
-    conn = get_connection()
+def init_db(conn: sqlite3.Connection | None = None):
+    conn = conn or get_connection()
     c = conn.cursor()
 
     c.execute("""CREATE TABLE IF NOT EXISTS Catalog (
@@ -166,4 +167,4 @@ def init_db():
                 """, (b_sku, f"OPEN-{b_sku}", 0.0 if is_w_b else b_qty, b_wg if is_w_b else 0.0,
                       exp_b, today_dt.strftime("%Y-%m-%d"), "OPENING"))
         conn.commit()
-    conn.close()
+    # The connection is shared across reruns (see db/connection.py), so it must not be closed here.

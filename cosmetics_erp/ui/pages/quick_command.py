@@ -36,7 +36,8 @@ def render(ctx: PageContext) -> None:
             ))
         else:
             amount = float(nums[0].replace(",", "."))
-            sku = nums[-1]
+            # "ל-1001" is "to 1001": the regex captures the hyphen as a minus sign, so strip it from the SKU.
+            sku = nums[-1].lstrip("-")
             if amount <= 0:
                 st.error(L("הכמות חייבת להיות גדולה מאפס.", "The quantity must be greater than zero."))
             else:
