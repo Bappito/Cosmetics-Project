@@ -86,7 +86,6 @@ def render(ctx: PageContext) -> None:
                     is_w_b = r["item_type"] in ("RAW", "BULK")
                     dl = r["days_left"]
                     out_rows.append({
-                        L("מק\"ט", "SKU"): r["sku"],
                         L("פריט", "Item"): r["name"],
                         "Batch #": r["batch_no"],
                         L("יתרה", "Remaining"): fmt_val(float(r["weight_grams"] if is_w_b else r["qty_units"]), is_w_b),
@@ -95,6 +94,7 @@ def render(ctx: PageContext) -> None:
                         L("סטטוס", "Status"): L("פעילה", "Active") if r["status"] == "Active" else L("אזלה", "Depleted"),
                         L("מקור", "Source"): r["source"],
                         L("תאריך כניסה", "Received"): format_date(r["received_date"], is_he=is_he),
+                        L("מק\"ט", "SKU"): r["sku"],
                     })
                 st.dataframe(pd.DataFrame(out_rows), width="stretch", hide_index=True)
             else:
@@ -230,13 +230,13 @@ def render(ctx: PageContext) -> None:
                 for lvl, s, b, qu, wg, mdt, ref in rows:
                     is_w_t = (name_map.loc[s]["item_type"] in ("RAW", "BULK")) if s in name_map.index else False
                     out.append({
-                        L("מק\"ט", "SKU"): s,
                         L("רמה", "Level"): lvl,
                         L("פריט", "Item"): name_map.loc[s]["name"] if s in name_map.index else "?",
                         "Batch #": b,
                         L("כמות", "Qty"): fmt_val(float(wg if is_w_t else qu), is_w_t),
                         L("תאריך", "Date"): format_date(mdt, is_he=is_he),
                         L("אסמכתא", "Reference"): ref,
+                        L("מק\"ט", "SKU"): s,
                     })
                 return pd.DataFrame(out)
 

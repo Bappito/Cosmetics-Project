@@ -55,6 +55,7 @@ def render_stock_count(
     })
     edited = st.data_editor(
         base.assign(counted=base["system"]),
+        column_order=["name", "system", "counted", "sku"],
         column_config={
             "sku": st.column_config.TextColumn(L("מק\"ט", "SKU"), disabled=True),
             "name": st.column_config.TextColumn(L("שם פריט", "Item"), disabled=True),
@@ -166,6 +167,8 @@ def render_erp_import(
     if kind == "stock":
         rows, errors = build_stock_rows(df, mapping, known, weight_skus, factor)
         preview = rows.rename(columns={"sku": "SKU", "counted": L("כמות שתיקבע", "New balance (base units)")}) if not rows.empty else rows
+        if not preview.empty:
+            preview = preview[[c for c in preview.columns if c != "SKU"] + ["SKU"]]
     else:
         po_rows, errors = build_po_rows(df, mapping, known, weight_skus, factor)
         preview = pd.DataFrame(po_rows)
@@ -175,7 +178,7 @@ def render_erp_import(
                 "supplier": L("ספק", "Supplier"), "qty_base": L("כמות (בסיס)", "Qty (base)"), "eta": "ETA",
             })
             sku_name = L("מק\"ט", "SKU")
-            preview = preview[[sku_name] + [c for c in preview.columns if c != sku_name]]
+            preview = preview[[c for c in preview.columns if c != sku_name] + [sku_name]]
 
     for error in errors:
         st.error(error)

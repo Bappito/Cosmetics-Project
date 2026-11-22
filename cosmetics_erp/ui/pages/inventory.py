@@ -89,11 +89,11 @@ def render(ctx: PageContext) -> None:
             exp_info = exp_summary_map.get(raw_sku, {"batch_no": "-", "expiry_html": "-"})
             rows_stock_only += (
                 f"<tr>"
+                f"<th scope='row'><b>{s_code}</b></th>"
                 f"<td><b>{escape(str(r['name']))}</b></td>"
                 f"<td style='font-size:1.0rem;'><b>{stock_str}</b></td>"
                 f"<td>{escape(str(exp_info['batch_no']))}</td>"
                 f"<td>{exp_info['expiry_html']}</td>"
-                f"<th scope='row'><b>{s_code}</b></th>"
                 f"</tr>"
             )
         if df_wh_view.empty:
@@ -104,11 +104,11 @@ def render(ctx: PageContext) -> None:
             f"<div class='table-responsive'><table class='rtl-table'>"
             f"<caption class='sr-only'>{stock_caption}</caption>"
             f"<thead><tr>"
+            f"<th scope='col'>{sku_heading}</th>"
             f"<th scope='col'>{L('שם פריט', 'Item Name')}</th>"
             f"<th scope='col'>{L('כמות מלאי נוכחית', 'Current Stock')} ({w_label if is_w_wh else u_label})</th>"
             f"<th scope='col'>{L('אצווה פעילה (Batch #)', 'Active Batch #')}</th>"
             f"<th scope='col'>{L('תאריך תפוגה קרוב (FEFO)', 'Nearest Expiry Date')}</th>"
-            f"<th scope='col'>{sku_heading}</th>"
             f"</tr></thead><tbody>{rows_stock_only}</tbody></table></div>",
             unsafe_allow_html=True
         )
@@ -127,13 +127,12 @@ def render(ctx: PageContext) -> None:
                 po_rows_html += (
                     f"<tr>"
                     f"<td><b>{escape(str(pr['po_number']))}</b></td>"
-                    f"<td>{escape(str(name_lookup.get(pr['sku'], '')))}</td>"
+                    f"<td><b>{escape(str(pr['sku']))}</b> - {escape(str(name_lookup.get(pr['sku'], '')))}</td>"
                     f"<td>{escape(str(pr['supplier']))}</td>"
                     f"<td><b>{amt_po}</b></td>"
                     f"<td>{format_date(pr['eta_date'], is_he=is_he)}</td>"
                     f"<td><b>{eta_week_label(pr['eta_date'])}</b></td>"
                     f"<td><span class='status-badge'>{escape(str(pr['status']))}</span></td>"
-                    f"<td><b>{escape(str(pr['sku']))}</b></td>"
                     f"</tr>"
                 )
             st.markdown(
@@ -147,7 +146,6 @@ def render(ctx: PageContext) -> None:
                 f"<th scope='col'>{L('תאריך הגעה (ETA)', 'ETA Date')}</th>"
                 f"<th scope='col'>{L('שבוע כניסה לסימולטור', 'Simulator Arrival Week')}</th>"
                 f"<th scope='col'>{L('סטטוס', 'Status')}</th>"
-                f"<th scope='col'>{L('מק\"ט', 'SKU')}</th>"
                 f"</tr></thead><tbody>{po_rows_html}</tbody></table></div>",
                 unsafe_allow_html=True
             )
@@ -158,12 +156,12 @@ def render(ctx: PageContext) -> None:
         for _, r in df_wh_sub.iterrows():
             rows_sup_html += (
                 f"<tr>"
+                f"<th scope='row'><b>{escape(str(r['sku']))}</b></th>"
                 f"<td><b>{escape(str(r['name']))}</b></td>"
                 f"<td>{escape(str(r['main_supplier']))}</td>"
                 f"<td>{escape(str(r['alt_suppliers']))}</td>"
                 f"<td>{escape(str(r['last_stock_entry']))}</td>"
                 f"<td>{escape(str(r['stock_movements']))}</td>"
-                f"<th scope='row'><b>{escape(str(r['sku']))}</b></th>"
                 f"</tr>"
             )
         sku_heading = L('מק"ט', "SKU")
@@ -171,12 +169,12 @@ def render(ctx: PageContext) -> None:
             f"<div class='table-responsive'><table class='rtl-table'>"
             f"<caption class='sr-only'>{L('ספקים ותנועות לפי פריט', 'Suppliers and movements by item')}</caption>"
             f"<thead><tr>"
+            f"<th scope='col'>{sku_heading}</th>"
             f"<th scope='col'>{L('שם פריט', 'Item Name')}</th>"
             f"<th scope='col'>{L('ספק ראשי', 'Main Supplier')}</th>"
             f"<th scope='col'>{L('ספק חלופי', 'Alt Supplier')}</th>"
             f"<th scope='col'>{L('כניסת מלאי אחרונה', 'Last Stock Entry')}</th>"
             f"<th scope='col'>{L('תנועות מלאי אחרונות', 'Recent Movements')}</th>"
-            f"<th scope='col'>{sku_heading}</th>"
             f"</tr></thead><tbody>{rows_sup_html}</tbody></table></div>",
             unsafe_allow_html=True
         )

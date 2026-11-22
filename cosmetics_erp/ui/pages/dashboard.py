@@ -79,10 +79,10 @@ def render(ctx: PageContext) -> None:
             ))
         st.dataframe(
             pd.DataFrame({
-                L("מק\"ט", "SKU"): capacity["sku"],
                 L("פריט", "Item"): capacity["name"],
                 L("ניתן לארוז (יח')", "Can pack (units)"): capacity["packable_units"],
                 L("הרכיב המגביל", "Limiting component"): capacity["limiting_component"],
+                L("מק\"ט", "SKU"): capacity["sku"],
             }),
             hide_index=True,
         )
@@ -120,7 +120,6 @@ def render(ctx: PageContext) -> None:
         st.plotly_chart(fig)
 
         profit_view = pd.DataFrame({
-            L("מק\"ט", "SKU"): margins["sku"],
             L("פריט", "Item"): margins["name"].fillna("?"),
             L("מחיר מכירה", "Price"): margins["price"].map(lambda v: f"₪{v:,.2f}"),
             L("עלות", "Cost"): margins["cost"].map(lambda v: f"₪{v:,.2f}"),
@@ -128,6 +127,7 @@ def render(ctx: PageContext) -> None:
             L("רווח %", "Margin %"): margins["margin_pct"].map(lambda v: "—" if pd.isna(v) else f"{v:,.1f}%"),
             L("מלאי (יח')", "Stock (units)"): margins["stock_units"].map(lambda v: f"{v:,.0f}"),
             L("רווח צפוי מהמלאי", "Profit on stock"): margins["stock_margin"].map(lambda v: f"₪{v:,.0f}"),
+            L("מק\"ט", "SKU"): margins["sku"],
         })
         st.dataframe(profit_view, hide_index=True)
         st.caption(L(
@@ -142,7 +142,6 @@ def render(ctx: PageContext) -> None:
     else:
         is_w = nearest["item_type"].isin(["RAW", "BULK"])
         nearest_view = pd.DataFrame({
-            L("מק\"ט", "SKU"): nearest["sku"],
             L("פריט", "Item"): nearest["name"].fillna("?"),
             L("אצווה", "Batch"): nearest["batch_no"],
             L("כמות", "Qty"): [
@@ -150,6 +149,7 @@ def render(ctx: PageContext) -> None:
                 for w, q, weighted in zip(nearest["weight_grams"], nearest["qty_units"], is_w)
             ],
             L("תפוגה", "Expiry"): nearest["expiry_date"].map(lambda v: format_date(v, is_he=is_he)),
+            L("מק\"ט", "SKU"): nearest["sku"],
         })
         st.dataframe(nearest_view, hide_index=True)
 
@@ -158,11 +158,11 @@ def render(ctx: PageContext) -> None:
         st.caption(L("אין הזמנות רכש פתוחות.", "No open purchase orders."))
     else:
         po_view = pd.DataFrame({
-            L("מק\"ט", "SKU"): pos["sku"],
             L("הזמנה", "PO"): pos["po_number"],
             L("פריט", "Item"): pos["name"].fillna("?"),
             L("ספק", "Supplier"): pos["supplier"],
             "ETA": pos["eta_date"].map(lambda v: format_date(v, is_he=is_he)),
             L("סטטוס", "Status"): pos["status"],
+            L("מק\"ט", "SKU"): pos["sku"],
         })
         st.dataframe(po_view, hide_index=True)
