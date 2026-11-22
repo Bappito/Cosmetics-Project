@@ -22,7 +22,7 @@ def render_catalog_editor(*, L, conn, df_cat, w_factor, w_label, push_backup, re
     catalog_confirm_key = f"catalog_review_confirmed_{catalog_review_version}"
     edited_cat = st.data_editor(
         df_ed[editor_columns],
-        column_order=[c for c in editor_columns if c != "sku"] + ["sku"],
+        column_order=[c for c in editor_columns if c not in ("name", "sku")] + ["name", "sku"],
         column_config={
             "sku": st.column_config.TextColumn(L("מק\"ט", "SKU"), required=True),
             "name": st.column_config.TextColumn(L("שם פריט", "Item name"), required=True),

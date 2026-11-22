@@ -55,7 +55,7 @@ def render_stock_count(
     })
     edited = st.data_editor(
         base.assign(counted=base["system"]),
-        column_order=["name", "system", "counted", "sku"],
+        column_order=["system", "counted", "name", "sku"],
         column_config={
             "sku": st.column_config.TextColumn(L("מק\"ט", "SKU"), disabled=True),
             "name": st.column_config.TextColumn(L("שם פריט", "Item"), disabled=True),

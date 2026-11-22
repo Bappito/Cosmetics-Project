@@ -126,8 +126,9 @@ def render(ctx: PageContext) -> None:
                 amt_po = fmt_val(float(pr["order_weight_grams"] if is_w_wh else pr["order_qty_units"]), is_w_wh)
                 po_rows_html += (
                     f"<tr>"
+                    f"<th scope='row'><b>{escape(str(pr['sku']))}</b></th>"
+                    f"<td>{escape(str(name_lookup.get(pr['sku'], '')))}</td>"
                     f"<td><b>{escape(str(pr['po_number']))}</b></td>"
-                    f"<td><b>{escape(str(pr['sku']))}</b> - {escape(str(name_lookup.get(pr['sku'], '')))}</td>"
                     f"<td>{escape(str(pr['supplier']))}</td>"
                     f"<td><b>{amt_po}</b></td>"
                     f"<td>{format_date(pr['eta_date'], is_he=is_he)}</td>"
@@ -139,8 +140,9 @@ def render(ctx: PageContext) -> None:
                 f"<div class='table-responsive'><table class='rtl-table'>"
                 f"<caption class='sr-only'>{L('הזמנות רכש פתוחות למחסן', 'Open purchase orders by warehouse')}</caption>"
                 f"<thead><tr>"
-                f"<th scope='col'>{L('מספר הזמנה (PO)', 'PO #')}</th>"
+                f"<th scope='col'>{L('מק"ט', 'SKU')}</th>"
                 f"<th scope='col'>{L('פריט', 'Item')}</th>"
+                f"<th scope='col'>{L('מספר הזמנה (PO)', 'PO #')}</th>"
                 f"<th scope='col'>{L('ספק', 'Supplier')}</th>"
                 f"<th scope='col'>{L('כמות מוזמנת', 'Ordered Qty')}</th>"
                 f"<th scope='col'>{L('תאריך הגעה (ETA)', 'ETA Date')}</th>"

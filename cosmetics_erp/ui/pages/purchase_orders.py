@@ -70,12 +70,12 @@ def render(ctx: PageContext) -> None:
                 amt_plain = fmt_val(float(r.order_weight_grams if is_w_po else r.order_qty_units), is_w_po)
                 view_rows.append({
                     L("הזמנה", "PO"): r.po_number,
-                    L("פריט", "Item"): nm,
                     L("ספק", "Supplier"): r.supplier,
                     L("כמות", "Qty"): amt_plain,
                     "ETA": format_date(r.eta_date, is_he=is_he),
                     L("נכנס למאזן בשבוע", "Counted in week"): eta_week_label(r.eta_date),
                     L("סטטוס", "Status"): r.status,
+                    L("פריט", "Item"): nm,
                     L("מק\"ט", "SKU"): r.sku,
                 })
             st.dataframe(
