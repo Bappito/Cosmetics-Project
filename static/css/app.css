@@ -976,6 +976,10 @@ section[data-testid="stSidebar"] .stButton button[data-testid="stBaseButton-prim
     font-weight: 700 !important;
     box-shadow: 0 2px 8px rgba(11, 105, 199, 0.12);
 }
+section[data-testid="stSidebar"] .stButton button [role="img"],
+section[data-testid="stSidebar"] .stButton button [data-testid="stIconMaterial"] {
+    font-size: 1.25rem;
+}
 section[data-testid="stSidebar"] .nav-section-label {
     margin: 1rem 0 0.35rem;
     padding: 0.2rem 0.65rem 0.35rem;

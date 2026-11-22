@@ -26,7 +26,6 @@ section[data-testid="stSidebar"] > div {
 }
 section[data-testid="stSidebar"] .app-brand-copy,
 section[data-testid="stSidebar"] .nav-section-label,
-section[data-testid="stSidebar"] .stButton button [data-testid="stMarkdownContainer"],
 section[data-testid="stSidebar"] [data-testid="stRadio"] {
     opacity: 0 !important;
     max-width: 0 !important;
@@ -37,6 +36,42 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] {
 section[data-testid="stSidebar"] .stButton button {
     justify-content: center !important;
     padding-inline: 0 !important;
+}
+section[data-testid="stSidebar"] .stButton button [role="img"],
+section[data-testid="stSidebar"] .stButton button [data-testid="stIconMaterial"] {
+    font-size: 1.55rem !important;
+    line-height: 1 !important;
+}
+/* Hide the label text but keep the icon, which sits in the same markdown block. */
+section[data-testid="stSidebar"] .stButton button [data-testid="stMarkdownContainer"] p {
+    font-size: 0 !important;
+    margin: 0 !important;
+}
+section[data-testid="stSidebar"] .stButton button {
+    min-height: 3rem !important;
+    width: 3rem !important;
+    margin-inline: auto !important;
+    border-radius: 12px !important;
+}
+section[data-testid="stSidebar"] .stButton {
+    display: flex !important;
+    justify-content: center !important;
+}
+section[data-testid="stSidebar"] .app-brand {
+    justify-content: center !important;
+    padding-inline: 0 !important;
+}
+section[data-testid="stSidebar"] .app-brand-mark {
+    width: 2.6rem !important;
+    height: 2.6rem !important;
+    flex-basis: 2.6rem !important;
+    font-size: 1.2rem !important;
+}
+section[data-testid="stSidebar"] .nav-section-label {
+    display: none !important;
+}
+section[data-testid="stSidebar"] hr {
+    margin: 0.9rem 0.6rem !important;
 }
 """ if is_collapsed else "",
         "__SIDEBAR_TOUCH_RULES__": """
