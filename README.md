@@ -41,7 +41,8 @@ Run the command from the repository root. The application creates or opens `cosm
 
 | Screen | What it is for |
 | --- | --- |
-| Warehouses | Stock, expiry dates, purchase orders, suppliers, stock movements, and catalog editing for raw materials, bulk, and packaging. |
+| Dashboard | Opening page: stock totals, expiry and PO counts, what can be packed now, and estimated profit per finished product. |
+| Warehouses | Stock, expiry dates, purchase orders, suppliers, stock movements, and catalog editing for raw materials, bulk, and packaging. Also **Update by Count** (physical count) and **ERP Import** (SAP / Priority CSV or Excel exports). |
 | Production Line Simulator | Plan bulk production and check raw-material availability; report production to consume raw-material batches and add a bulk batch. |
 | Packaging Simulator | Plan finished-product packaging and check bulk and packaging availability; report packaging to create a finished-goods batch. |
 | Master Work Simulator | Review finished-product plans across the eight-week schedule and see projected availability and shortages. |
@@ -98,4 +99,32 @@ The SQLite schema is initialized by [`cosmetics_erp/db/schema.py`](./cosmetics_e
 
 ## Current scope
 
-This repository contains a local Streamlit app and SQLite storage. It does not include authentication, a hosted database, or live SAP connectivity; SAP codes are catalog fields only. The quick-command screen is rule-based and does not currently use the `google-genai` package listed in the requirements. Treat the seeded data as demonstration data and take appropriate database backups before using real operational records.
+This repository contains a local Streamlit app and SQLite storage. It does not include authentication, a hosted database, or live SAP connectivity; SAP codes are catalog fields only. The quick-command screen is rule-based and does not call any external AI service. Treat the seeded data as demonstration data and take appropriate database backups before using real operational records.
+
+## Access control
+
+Set a password before hosting the app. The app checks it on the first screen.
+
+- Streamlit Cloud: add `APP_PASSWORD = "..."` in the app's secrets.
+- Local or server: set the environment variable `COSMETICS_APP_PASSWORD`.
+
+If neither is set, the app opens without a password. Use that only on a single machine.
+
+## ERP import and assumptions to confirm
+
+- **ERP Import** reads CSV or Excel exports. The default column guesses use common SAP names (`MATNR`, `LABST`, `CHARG`, `VFDAT`, `EBELN`, `EINDT`, `LIFNR`) and Priority-style names (`PARTNAME`, `BALANCE`, `LOTNAME`, `EXPIRYDATE`, `ORDNAME`, `DUEDATE`). Confirm them against a real export. The app has no live SAP or Priority connection.
+- Stock and PO quantities for weight items (RAW and BULK) are read in kg by default. The import screen lets you switch to grams.
+- Catalog prices: RAW and BULK `item_price` is per kg. PKG and FG `item_price` is per unit. FG `item_price` is treated as the selling price. Profit figures depend on these assumptions.
+
+## Testing
+
+```powershell
+python -m pip install pytest
+python -m pytest
+```
+
+The tests use an in-memory database and do not touch `cosmetics_3sim_erp.db`.
+
+## Database notes
+
+The database runs in WAL mode with a busy timeout, so a few users can read while one writes. Stock changes that do not come from production or packaging, such as physical counts and reconciliations, are logged as `ADJUST` movements and consumption.

@@ -4,6 +4,7 @@ WH_NAMES = {
     "he": {
         "WH_RAW": "מחסן חומר גלם",
         "WH_BULK": "מחסן בלקים (חומר מוכן)",
+        "WH_COLOR": "מחסן צבעים",
         "WH_PACK": "מחסן מלאי אריזות",
         "WH_LINE": "קו ייצור",
         "WH_QA": "מחסן איכות",
@@ -14,6 +15,7 @@ WH_NAMES = {
     "en": {
         "WH_RAW": "Raw Materials WH",
         "WH_BULK": "Bulks (Ready Material) WH",
+        "WH_COLOR": "Colours WH",
         "WH_PACK": "Packaging Stock WH",
         "WH_LINE": "Production Line",
         "WH_QA": "Quality Assurance WH",
@@ -48,7 +50,10 @@ UI_TEXTS = {
         "nav_inventory": "מלאי ורכש",
         "nav_planning": "תכנון וייצור",
         "nav_operations": "פעולות",
+        "nav_overview": "סקירה",
+        "m_dash": "לוח בקרה",
         "m_inv": "מחסנים (מלאי, תפוגה ורכש)",
+        "m_mrp": "תכנון רכש (MRP)",
         "m_sim_prod": "1. סימולטור קו ייצור",
         "m_sim_pack": "2. סימולטור אריזה",
         "m_sim_work": "3. סימולטור עבודה מסכם",
@@ -65,7 +70,10 @@ UI_TEXTS = {
         "nav_inventory": "Inventory & Purchasing",
         "nav_planning": "Planning & Production",
         "nav_operations": "Operations",
+        "nav_overview": "Overview",
+        "m_dash": "Dashboard",
         "m_inv": "Warehouses (Stock, Expiry & PO)",
+        "m_mrp": "Purchase Planning (MRP)",
         "m_sim_prod": "1. Production Line Simulator",
         "m_sim_pack": "2. Packaging Simulator",
         "m_sim_work": "3. Master Work Simulator",
@@ -80,8 +88,10 @@ UI_TEXTS = {
 
 def build_nav_items(ui: dict[str, str]) -> list[tuple[str, str, str, str]]:
     return [
+        (ui["nav_overview"], "dash", ":material/dashboard:", ui["m_dash"]),
         (ui["nav_inventory"], "inv", ":material/warehouse:", ui["m_inv"]),
         (ui["nav_inventory"], "wh", ":material/local_shipping:", ui["m_wh"]),
+        (ui["nav_inventory"], "mrp", ":material/event_repeat:", ui["m_mrp"]),
         (ui["nav_inventory"], "batch", ":material/qr_code_2:", ui["m_batch"]),
         (ui["nav_planning"], "sim_prod", ":material/precision_manufacturing:", ui["m_sim_prod"]),
         (ui["nav_planning"], "sim_pack", ":material/inventory_2:", ui["m_sim_pack"]),

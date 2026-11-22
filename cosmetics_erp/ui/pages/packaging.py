@@ -22,7 +22,7 @@ def render(ctx: PageContext) -> None:
     render_where_used_simulator = ctx.render_where_used_simulator
     u_label = ctx.u_label
     st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_sim_pack"]}</h2></div>', unsafe_allow_html=True)
-    st.info("**סימולטור אריזה משולב:** קבע כמה יחידות מוצר סופי את/ה מתכנן/ת לארוז ולמתי – המערכת בודקת במקביל את **החומר המוכן ממחסן הבלקים (`BULK`)** ואת **האריזות ממחסן האריזות (`PKG`)**.")
+    st.info(L("**סימולטור אריזה משולב:** קבע כמה יחידות מוצר סופי את/ה מתכנן/ת לארוז ולמתי – המערכת בודקת במקביל את **החומר המוכן ממחסן הבלקים (`BULK`)** ואת **האריזות ממחסן האריזות (`PKG`)**.", "**Packaging simulator:** set how many finished units to pack and when – the system checks the **bulk warehouse (`BULK`)** and the **packaging warehouse (`PKG`)** together."))
 
     fg_df = pd.read_sql("SELECT sku, name FROM Catalog WHERE item_type = 'FG'", conn)
     for _, f_r in fg_df.iterrows():
@@ -70,7 +70,7 @@ def render(ctx: PageContext) -> None:
     st.divider()
     st.subheader(L("ביצוע פעולת מילוי ואריזה (גריעה ממחסן בלקים וממחסן אריזות)", "Execute Filling & Packaging"))
     if fg_df.empty:
-        st.warning("אין מוצרים סופיים בקטלוג.")
+        st.warning(L("אין מוצרים סופיים בקטלוג.", "No finished products in the catalog."))
     else:
         with st.container(border=True):
             st.caption(L(
@@ -109,7 +109,7 @@ def render(ctx: PageContext) -> None:
                 run_packaging = st.form_submit_button(
                     L(":material/check_circle: בצע אריזה", ":material/check_circle: Pack product"),
                     type="primary",
-                    use_container_width=True,
+                    width="stretch",
                 )
 
         if run_packaging:
@@ -128,11 +128,15 @@ def render(ctx: PageContext) -> None:
                 picks, short = plan_fefo(br["component_sku"], need, is_w_c)
                 if short > 1e-6:
                     short_txt = f"{short/1000:.2f} ק\"ג" if is_w_c else f"{short:.0f} יח'"
-                    errors.append(f"{br['component_sku']}: חסרים {short_txt} במלאי תקף (לא פג תוקף)")
+                    errors.append(f"{br['component_sku']}: " + L(f"חסרים {short_txt} במלאי תקף (לא פג תוקף)", f"short {short_txt} of valid stock (not expired)"))
                 plans.append((br["component_sku"], is_w_c, need, picks))
 
+            requested_batch = (pack_batch_in or "").strip() or gen_batch_no(f_sku)
+            if ctx.batch_exists(f_sku, requested_batch):
+                errors.append(L(f"אצווה {requested_batch} כבר קיימת למוצר {f_sku}. בחר/י מספר אצווה אחר.", f"Batch {requested_batch} already exists for product {f_sku}. Choose another batch number."))
+
             if errors:
-                st.error("לא ניתן לבצע אריזה – אין מספיק רכיבים תקפים:\n\n" + "\n\n".join(errors))
+                st.error(L("לא ניתן לבצע אריזה – אין מספיק רכיבים תקפים:", "Cannot pack – not enough valid components:") + "\n\n" + "\n\n".join(errors))
             else:
                 push_backup("stock", f"{L('אריזת', 'Packing')} {f_sku} ({units_to_pack} {u_label})")
                 new_batch_no = (pack_batch_in or "").strip() or gen_batch_no(f_sku)

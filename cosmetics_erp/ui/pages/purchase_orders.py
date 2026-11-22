@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 
 from cosmetics_erp.ui.change_review import summarize_editor_changes
 from cosmetics_erp.ui.context import PageContext
-from cosmetics_erp.ui.formatting import format_date
+from cosmetics_erp.ui.formatting import format_date, sku_first
 
 
 def render(ctx: PageContext) -> None:
@@ -70,17 +70,17 @@ def render(ctx: PageContext) -> None:
                 amt_plain = fmt_val(float(r.order_weight_grams if is_w_po else r.order_qty_units), is_w_po)
                 view_rows.append({
                     L("הזמנה", "PO"): r.po_number,
-                    L("מק\"ט", "SKU"): r.sku,
-                    L("פריט", "Item"): nm,
                     L("ספק", "Supplier"): r.supplier,
                     L("כמות", "Qty"): amt_plain,
                     "ETA": format_date(r.eta_date, is_he=is_he),
                     L("נכנס למאזן בשבוע", "Counted in week"): eta_week_label(r.eta_date),
                     L("סטטוס", "Status"): r.status,
+                    L("פריט", "Item"): nm,
+                    L("מק\"ט", "SKU"): r.sku,
                 })
             st.dataframe(
-                pd.DataFrame(view_rows),
-                use_container_width=True,
+                pd.DataFrame(view_rows), column_order=sku_first((pd.DataFrame(view_rows)).columns, is_he),
+                width="stretch",
                 hide_index=True,
                 column_config={
                     L("הזמנה", "PO"): st.column_config.TextColumn(L("הזמנה", "PO"), width="small"),
@@ -95,8 +95,8 @@ def render(ctx: PageContext) -> None:
     po_review_version = st.session_state.get(po_review_version_key, 0)
     po_confirm_key = f"po_review_confirmed_{po_review_version}"
     ed_po = st.data_editor(
-        df_po,
-        use_container_width=True,
+        df_po, column_order=sku_first((df_po).columns, is_he),
+        width="stretch",
         hide_index=True,
         num_rows="dynamic",
         key="po_editor",
@@ -104,7 +104,7 @@ def render(ctx: PageContext) -> None:
         column_config={
             "status": st.column_config.SelectboxColumn(
                 L("סטטוס", "Status"),
-                options=["In Transit", "Confirmed", "Received", "Cancelled"],
+                options=["Draft", "In Transit", "Confirmed", "Received", "Cancelled"],
             ),
         }
     )
@@ -137,7 +137,7 @@ def render(ctx: PageContext) -> None:
         ))
     if invalid_quantities.any():
         validation_errors.append(L("כמויות ומחירים חייבים להיות מספרים שאינם שליליים.", "Quantities and prices must be valid non-negative numbers."))
-    allowed_statuses = {"In Transit", "Confirmed", "Received", "Cancelled"}
+    allowed_statuses = {"Draft", "In Transit", "Confirmed", "Received", "Cancelled"}
     invalid_statuses = sorted(set(ed_po.loc[has_any_data, "status"].dropna().astype(str)) - allowed_statuses)
     if invalid_statuses:
         validation_errors.append(L("נמצאו סטטוסים לא מוכרים בהזמנות.", "One or more orders have an unsupported status."))
@@ -180,7 +180,7 @@ def render(ctx: PageContext) -> None:
         preview_pos = set(added_pos) | set(changed_pos)
         preview_rows = ed_po[po_number_values.isin(preview_pos)]
         if not preview_rows.empty:
-            st.dataframe(preview_rows, use_container_width=True, hide_index=True)
+            st.dataframe(preview_rows, column_order=sku_first((preview_rows).columns, is_he), width="stretch", hide_index=True)
         confirmed_po = st.checkbox(
             L("בדקתי את התצוגה המקדימה ואני מאשר/ת לשמור את השינויים.", "I reviewed the preview and confirm these changes."),
             key=po_confirm_key,
@@ -202,24 +202,40 @@ def render(ctx: PageContext) -> None:
     if save_po:
         st.session_state[po_review_key] = False
         push_backup("stock", L("שמירת הזמנות רכש", "PO save"))
-        conn.execute("DELETE FROM PurchaseOrders")
+        # Update existing rows in place (keeps po_id stable), insert new rows, and delete only rows
+        # the user removed from the editor. Previously every save recreated all rows with new IDs.
+        existing_po_ids = {int(x) for x in df_po["po_id"]}
+        kept_po_ids = set()
         for _, r in ed_po.iterrows():
-            if pd.notna(r["po_number"]) and pd.notna(r["sku"]):
+            if not (pd.notna(r["po_number"]) and pd.notna(r["sku"])):
+                continue
+            values = (
+                str(r["po_number"]).strip(),
+                str(r["sku"]).strip(),
+                "" if pd.isna(r["supplier"]) else str(r["supplier"]),
+                0.0 if pd.isna(r["order_qty_units"]) else float(r["order_qty_units"]),
+                0.0 if pd.isna(r["order_weight_grams"]) else float(r["order_weight_grams"]),
+                0.0 if pd.isna(r["unit_price"]) else float(r["unit_price"]),
+                "" if pd.isna(r["order_date"]) else str(r["order_date"]),
+                "" if pd.isna(r["eta_date"]) else str(r["eta_date"]),
+                "WH_RAW" if pd.isna(r["target_wh"]) or not str(r["target_wh"]).strip() else str(r["target_wh"]),
+                "In Transit" if pd.isna(r["status"]) or not str(r["status"]).strip() else str(r["status"]),
+            )
+            row_id = None if pd.isna(r["po_id"]) else int(r["po_id"])
+            if row_id in existing_po_ids:
+                conn.execute("""
+                    UPDATE PurchaseOrders SET po_number=?, sku=?, supplier=?, order_qty_units=?, order_weight_grams=?,
+                        unit_price=?, order_date=?, eta_date=?, target_wh=?, status=?
+                    WHERE po_id=?
+                """, (*values, row_id))
+                kept_po_ids.add(row_id)
+            else:
                 conn.execute("""
                     INSERT INTO PurchaseOrders (po_number, sku, supplier, order_qty_units, order_weight_grams, unit_price, order_date, eta_date, target_wh, status)
                     VALUES (?,?,?,?,?,?,?,?,?,?)
-                """, (
-                    str(r["po_number"]).strip(),
-                    str(r["sku"]).strip(),
-                    "" if pd.isna(r["supplier"]) else str(r["supplier"]),
-                    0.0 if pd.isna(r["order_qty_units"]) else float(r["order_qty_units"]),
-                    0.0 if pd.isna(r["order_weight_grams"]) else float(r["order_weight_grams"]),
-                    0.0 if pd.isna(r["unit_price"]) else float(r["unit_price"]),
-                    "" if pd.isna(r["order_date"]) else str(r["order_date"]),
-                    "" if pd.isna(r["eta_date"]) else str(r["eta_date"]),
-                    "WH_RAW" if pd.isna(r["target_wh"]) or not str(r["target_wh"]).strip() else str(r["target_wh"]),
-                    "In Transit" if pd.isna(r["status"]) or not str(r["status"]).strip() else str(r["status"]),
-                ))
+                """, values)
+        for removed_id in existing_po_ids - kept_po_ids:
+            conn.execute("DELETE FROM PurchaseOrders WHERE po_id=?", (removed_id,))
         conn.commit()
         st.session_state["flash"] = "נשמר!"
         st.rerun()
@@ -303,6 +319,12 @@ def render(ctx: PageContext) -> None:
                 ))
                 if rcv_exp < date.today() and not rcv_no_exp:
                     st.warning(L("תאריך התפוגה כבר עבר; האצווה תהיה חסומה לשימוש FEFO.", "This expiry date is in the past; FEFO will block the batch from use."))
+                receipt_batch_taken = ctx.batch_exists(rcv_sku, preview_batch)
+                if receipt_batch_taken:
+                    st.error(L(
+                        f"אצווה {preview_batch} כבר קיימת למק\"ט {rcv_sku}. ערוך/י את מספר האצווה לפני האישור.",
+                        f"Batch {preview_batch} already exists for SKU {rcv_sku}. Edit the batch number before confirming.",
+                    ))
                 confirmed_receive = st.checkbox(
                     L("בדקתי את פרטי הקבלה ואני מאשר/ת לעדכן את המלאי.", "I reviewed the receipt and confirm the stock update."),
                     key=receive_confirm_key,
@@ -312,7 +334,7 @@ def render(ctx: PageContext) -> None:
                     receive_po = st.button(
                         L(":material/download_done: אשר קבלה", ":material/download_done: Confirm receipt"),
                         key="rcv_confirm_btn",
-                        disabled=not confirmed_receive or not receive_is_valid,
+                        disabled=not confirmed_receive or not receive_is_valid or receipt_batch_taken,
                         type="primary",
                     )
                 with cancel_col:

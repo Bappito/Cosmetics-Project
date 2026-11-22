@@ -21,38 +21,62 @@ def inject_stylesheet(ui: Mapping[str, str], is_collapsed: bool, theme: str = "l
         "__BUTTON_PADDING__": "8px 0px" if is_collapsed else "8px 12px",
         "__BORDER_SIDE__": "right" if ui["dir"] == "rtl" else "left",
         "__SIDEBAR_COLLAPSE_RULES__": """
-section[data-testid="stSidebar"][aria-expanded="true"]:hover,
-section[data-testid="stSidebar"][aria-expanded="false"]:hover {
-    width: __SIDEBAR_EXPANDED_WIDTH__ !important;
-    min-width: __SIDEBAR_EXPANDED_WIDTH__ !important;
-    max-width: __SIDEBAR_EXPANDED_WIDTH__ !important;
-    flex: 0 0 __SIDEBAR_EXPANDED_WIDTH__ !important;
-    z-index: 1000 !important;
-    box-shadow: 12px 0 28px rgba(15, 23, 42, 0.16) !important;
-}
-section[data-testid="stSidebar"]:hover > div {
-    width: __SIDEBAR_EXPANDED_WIDTH__ !important;
-    min-width: __SIDEBAR_EXPANDED_WIDTH__ !important;
-    max-width: __SIDEBAR_EXPANDED_WIDTH__ !important;
-}
-section[data-testid="stSidebar"]:not(:hover) > div {
+section[data-testid="stSidebar"] > div {
     padding-inline: 0.45rem !important;
 }
-section[data-testid="stSidebar"]:not(:hover) .app-brand-copy,
-section[data-testid="stSidebar"]:not(:hover) .nav-section-label,
-section[data-testid="stSidebar"]:not(:hover) .stButton button [data-testid="stMarkdownContainer"],
-section[data-testid="stSidebar"]:not(:hover) [data-testid="stRadio"] {
-    display: none !important;
+section[data-testid="stSidebar"] .app-brand-copy,
+section[data-testid="stSidebar"] .nav-section-label,
+section[data-testid="stSidebar"] [data-testid="stRadio"] {
+    opacity: 0 !important;
+    max-width: 0 !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+    transition: opacity 0.15s ease, max-width 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
-section[data-testid="stSidebar"]:not(:hover) .stButton button {
+section[data-testid="stSidebar"] .stButton button {
     justify-content: center !important;
     padding-inline: 0 !important;
+}
+section[data-testid="stSidebar"] .stButton button [role="img"],
+section[data-testid="stSidebar"] .stButton button [data-testid="stIconMaterial"] {
+    font-size: 1.55rem !important;
+    line-height: 1 !important;
+}
+/* Hide the label text but keep the icon, which sits in the same markdown block. */
+section[data-testid="stSidebar"] .stButton button [data-testid="stMarkdownContainer"] p {
+    font-size: 0 !important;
+    margin: 0 !important;
+}
+section[data-testid="stSidebar"] .stButton button {
+    min-height: 3rem !important;
+    width: 3rem !important;
+    margin-inline: auto !important;
+    border-radius: 12px !important;
+}
+section[data-testid="stSidebar"] .stButton {
+    display: flex !important;
+    justify-content: center !important;
+}
+section[data-testid="stSidebar"] .app-brand {
+    justify-content: center !important;
+    padding-inline: 0 !important;
+}
+section[data-testid="stSidebar"] .app-brand-mark {
+    width: 2.6rem !important;
+    height: 2.6rem !important;
+    flex-basis: 2.6rem !important;
+    font-size: 1.2rem !important;
+}
+section[data-testid="stSidebar"] .nav-section-label {
+    display: none !important;
+}
+section[data-testid="stSidebar"] hr {
+    margin: 0.9rem 0.6rem !important;
 }
 """ if is_collapsed else "",
         "__SIDEBAR_TOUCH_RULES__": """
 @media (max-width: 768px) {
-    section[data-testid="stSidebar"][aria-expanded="true"],
-    section[data-testid="stSidebar"][aria-expanded="false"] {
+    section[data-testid="stSidebar"] {
         position: fixed !important;
         top: 0 !important;
         bottom: 0 !important;
@@ -64,11 +88,6 @@ section[data-testid="stSidebar"]:not(:hover) .stButton button {
         flex: 0 0 __TOUCH_SIDEBAR_WIDTH__ !important;
         z-index: 10000 !important;
         overflow-y: auto !important;
-    }
-    section[data-testid="stSidebar"]:hover {
-        width: __TOUCH_SIDEBAR_WIDTH__ !important;
-        min-width: __TOUCH_SIDEBAR_WIDTH__ !important;
-        max-width: __TOUCH_SIDEBAR_WIDTH__ !important;
     }
     section[data-testid="stSidebar"] > div {
         width: __TOUCH_SIDEBAR_WIDTH__ !important;
@@ -83,8 +102,7 @@ __TOUCH_HIDDEN_NAV_RULES__
 }
 """ if is_collapsed else """
 @media (max-width: 768px) {
-    section[data-testid="stSidebar"][aria-expanded="true"],
-    section[data-testid="stSidebar"][aria-expanded="false"] {
+    section[data-testid="stSidebar"] {
         position: fixed !important;
         top: 0 !important;
         bottom: 0 !important;

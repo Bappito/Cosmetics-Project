@@ -134,11 +134,18 @@ class InventoryService:
         n = self.conn.execute("SELECT COUNT(*) FROM Batches WHERE sku=? AND received_date=?", (sku, today_s)).fetchone()[0] + 1
         return f"L{sku}-{date.today().strftime('%y%m%d')}-{n:02d}"
 
+    def batch_exists(self, sku, batch_no):
+        return self.conn.execute(
+            "SELECT 1 FROM Batches WHERE sku=? AND batch_no=?", (sku, batch_no)
+        ).fetchone() is not None
+
     def reconcile_batches(self):
         self.conn.execute("DELETE FROM Batches WHERE sku NOT IN (SELECT sku FROM Catalog)")
-        cat = self.conn.execute("SELECT sku, item_type, qty_units, weight_grams FROM Catalog").fetchall()
+        cat = self.conn.execute(
+            "SELECT sku, item_type, qty_units, weight_grams, primary_warehouse FROM Catalog"
+        ).fetchall()
         today_s = date.today().strftime("%Y-%m-%d")
-        for sku, tp, qu, wg in cat:
+        for sku, tp, qu, wg, wh in cat:
             is_w = tp in ("RAW", "BULK")
             col = self.batch_col(is_w)
             target = float(wg if is_w else qu)
@@ -147,10 +154,17 @@ class InventoryService:
             ).fetchone()[0] or 0)
             diff = target - cur
             if diff > 1e-6:
-                self.add_batch(sku, f"ADJ-{sku}-{today_s.replace('-', '')}", diff, is_w, "", "ADJUST")
+                adj_batch = f"ADJ-{sku}-{today_s.replace('-', '')}"
+                self.add_batch(sku, adj_batch, diff, is_w, "", "ADJUST")
+                self.log_move(sku, "ADJUST", wh or "WH_RAW", diff, is_w, f"ADJ {adj_batch}")
             elif diff < -1e-6:
+                # Stock was reduced outside a production/packaging run; record the consumption
+                # so the traceability chain does not silently lose these units.
+                adj_batch = f"ADJ-{sku}-{today_s.replace('-', '')}"
                 picks, _ = self.plan_fefo(sku, -diff, is_w, allow_expired=True)
                 self.apply_picks(picks, is_w)
+                self.log_consumption("ADJUST", adj_batch, sku, picks, is_w, "ADJUST")
+                self.log_move(sku, wh or "WH_RAW", "ADJUST", -diff, is_w, f"ADJ {adj_batch}")
         self.conn.commit()
 
     def trace_chain(self, sku, batch_no, direction):

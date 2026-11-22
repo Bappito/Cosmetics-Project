@@ -1,10 +1,11 @@
+import sqlite3
 from datetime import datetime, timedelta
 
 from .connection import get_connection
 
 
-def init_db():
-    conn = get_connection()
+def init_db(conn: sqlite3.Connection | None = None):
+    conn = conn or get_connection()
     c = conn.cursor()
 
     c.execute("""CREATE TABLE IF NOT EXISTS Catalog (
@@ -166,4 +167,26 @@ def init_db():
                 """, (b_sku, f"OPEN-{b_sku}", 0.0 if is_w_b else b_qty, b_wg if is_w_b else 0.0,
                       exp_b, today_dt.strftime("%Y-%m-%d"), "OPENING"))
         conn.commit()
-    conn.close()
+    # Colour warehouse: hair-colour raw materials. They are RAW items stored in WH_COLOR,
+    # so they are bought, planned and consumed like other raw materials. Added on
+    # existing databases too, but only when no colour items exist yet.
+    c.execute("SELECT COUNT(*) FROM Catalog WHERE primary_warehouse = 'WH_COLOR'")
+    if c.fetchone()[0] == 0:
+        color_items = [
+            ("6001", "צבע שיער 4.0 חום (דוגמה)", "RAW", 0.0, 5000.0, "0", "-", "ספק צבעים (דוגמה)", "-", "2026-11-10 (+5 ק\"ג)", 60.0, 1.0, 58.0, "WH_COLOR", "SAP-6001"),
+            ("6002", "צבע שיער 6.0 חום כהה (דוגמה)", "RAW", 0.0, 9000.0, "0", "-", "ספק צבעים (דוגמה)", "-", "2026-11-10 (+9 ק\"ג)", 62.0, 1.0, 60.0, "WH_COLOR", "SAP-6002"),
+            ("6003", "צבע שיער 7.1 בלונד אפר (דוגמה)", "RAW", 0.0, 4000.0, "0", "-", "ספק צבעים (דוגמה)", "-", "2026-11-09 (+4 ק\"ג)", 75.0, 1.0, 72.0, "WH_COLOR", "SAP-6003"),
+            ("6004", "צבע שיער 9.3 בלונד זהוב בהיר (דוגמה)", "RAW", 0.0, 3000.0, "0", "-", "ספק צבעים (דוגמה)", "-", "2026-11-09 (+3 ק\"ג)", 78.0, 1.0, 75.0, "WH_COLOR", "SAP-6004"),
+            ("6005", "מחמצן 6% / אוקסידנט (דוגמה)", "RAW", 0.0, 12000.0, "0", "-", "ספק צבעים (דוגמה)", "-", "2026-11-11 (+12 ק\"ג)", 25.0, 2.0, 23.0, "WH_COLOR", "SAP-6005"),
+        ]
+        c.executemany("INSERT INTO Catalog VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", color_items)
+        today_dt = datetime.today()
+        for item in color_items:
+            b_sku, b_wg = item[0], item[4]
+            c.execute("""
+                INSERT INTO Batches (sku, batch_no, qty_units, weight_grams, expiry_date, received_date, source, status)
+                VALUES (?,?,0,?,?,?,'OPENING','Active')
+            """, (b_sku, f"OPEN-{b_sku}", b_wg,
+                  (today_dt + timedelta(days=730)).strftime("%Y-%m-%d"), today_dt.strftime("%Y-%m-%d")))
+        conn.commit()
+    # The connection is shared across reruns (see db/connection.py), so it must not be closed here.

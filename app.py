@@ -7,6 +7,7 @@ from cosmetics_erp.db import get_connection, init_db
 from cosmetics_erp.services.backups import BackupService
 from cosmetics_erp.services.inventory import InventoryService
 from cosmetics_erp.services.planning import PlanningService
+from cosmetics_erp.ui.auth import require_login
 from cosmetics_erp.ui.components import UIComponents
 from cosmetics_erp.ui.context import PageContext
 from cosmetics_erp.ui.formatting import format_value
@@ -16,7 +17,7 @@ from cosmetics_erp.ui.navigation import (
     render_sidebar,
     render_theme_toggle,
 )
-from cosmetics_erp.ui.pages import batches, inventory, master_work, packaging, production, purchase_orders, quick_command
+from cosmetics_erp.ui.pages import batches, dashboard, inventory, master_work, mrp, packaging, production, purchase_orders, quick_command
 from cosmetics_erp.ui.styles import inject_stylesheet
 
 # 2026-11-20
@@ -28,6 +29,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+require_login()
 initialize_session_state()
 
 lang = st.session_state.lang
@@ -112,7 +114,9 @@ page_context = PageContext(
     UI=UI,
     add_batch=add_batch,
     apply_picks=apply_picks,
+    batch_exists=inventory_service.batch_exists,
     conn=conn,
+    eta_to_week=eta_to_week,
     eta_week_label=eta_week_label,
     fmt_val=fmt_val,
     gen_batch_no=gen_batch_no,
@@ -134,11 +138,13 @@ page_context = PageContext(
     w_label=w_label
 )
 page_renderers = {
+    "dash": dashboard.render,
     "inv": inventory.render,
     "sim_prod": production.render,
     "sim_pack": packaging.render,
     "sim_work": master_work.render,
     "wh": purchase_orders.render,
+    "mrp": mrp.render,
     "batch": batches.render,
     "ai": quick_command.render
 }

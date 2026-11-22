@@ -21,7 +21,7 @@ def render(ctx: PageContext) -> None:
     push_backup = ctx.push_backup
     render_where_used_simulator = ctx.render_where_used_simulator
     st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_sim_prod"]}</h2></div>', unsafe_allow_html=True)
-    st.info("**סימולטור קו ייצור:** קבע כמה ק\"ג בלק את/ה מתכנן/ת לייצר ולמתי – המערכת בודקת את **מחסן חומרי הגלם (`RAW`)** ומראה מתי יהיה חוסר.")
+    st.info(L("**סימולטור קו ייצור:** קבע כמה ק\"ג בלק את/ה מתכנן/ת לייצר ולמתי – המערכת בודקת את **מחסן חומרי הגלם (`RAW`)** ומראה מתי יהיה חוסר.", "**Production line simulator:** set how many kg of bulk to make and when – the system checks the **raw material warehouse (`RAW`)** and shows when shortages occur."))
 
     bulk_df = pd.read_sql("SELECT sku, name FROM Catalog WHERE item_type = 'BULK'", conn)
     for _, b_r in bulk_df.iterrows():
@@ -55,7 +55,7 @@ def render(ctx: PageContext) -> None:
     st.divider()
     st.subheader(L("דיווח ייצור בקו והעברת החומר המוכן למחסן בלקים", "Report Production & Transfer Ready Bulk"))
     if bulk_df.empty:
-        st.warning("אין בלקים בקטלוג.")
+        st.warning(L("אין בלקים בקטלוג.", "No bulk items in the catalog."))
     else:
         with st.container(border=True):
             st.caption(L(
@@ -94,7 +94,7 @@ def render(ctx: PageContext) -> None:
                 run_production = st.form_submit_button(
                     L(":material/play_arrow: ייצר בלק עכשיו", ":material/play_arrow: Produce bulk"),
                     type="primary",
-                    use_container_width=True,
+                    width="stretch",
                 )
 
         if run_production:
@@ -111,11 +111,15 @@ def render(ctx: PageContext) -> None:
                 need_g = float(br["req_weight_grams"]) * kg_to_make
                 picks, short = plan_fefo(br["component_sku"], need_g, True)
                 if short > 1e-6:
-                    errors.append(f"{br['component_sku']}: חסרים {short/1000:.2f} ק\"ג במלאי תקף (לא פג תוקף)")
+                    errors.append(f"{br['component_sku']}: " + L(f"חסרים {short/1000:.2f} ק\"ג במלאי תקף (לא פג תוקף)", f"short {short/1000:.2f} kg of valid stock (not expired)"))
                 plans.append((br["component_sku"], need_g, picks))
 
+            requested_batch = (prod_batch_in or "").strip() or gen_batch_no(b_sku)
+            if ctx.batch_exists(b_sku, requested_batch):
+                errors.append(L(f"אצווה {requested_batch} כבר קיימת למק\"ט {b_sku}. בחר/י מספר אצווה אחר.", f"Batch {requested_batch} already exists for SKU {b_sku}. Choose another batch number."))
+
             if errors:
-                st.error("לא ניתן לייצר – אין מספיק חומר גלם תקף:\n\n" + "\n\n".join(errors))
+                st.error(L("לא ניתן לייצר – אין מספיק חומר גלם תקף:", "Cannot produce – not enough valid raw material:") + "\n\n" + "\n\n".join(errors))
             else:
                 kg_unit = L('ק"ג', "kg")
                 push_backup("stock", f"{L('ייצור בלק', 'Bulk production')} {b_sku} ({kg_to_make:g} {kg_unit})")

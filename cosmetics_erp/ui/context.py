@@ -13,7 +13,9 @@ class PageContext:
     UI: Mapping[str, str]
     add_batch: Callable[..., Any]
     apply_picks: Callable[..., Any]
+    batch_exists: Callable[..., Any]
     conn: sqlite3.Connection
+    eta_to_week: Callable[..., Any]
     eta_week_label: Callable[..., Any]
     fmt_val: Callable[..., Any]
     gen_batch_no: Callable[..., Any]

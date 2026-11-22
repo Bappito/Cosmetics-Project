@@ -1,10 +1,17 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Callable, Sequence
 
+from ..config.constants import PLAN_START_OVERRIDE
 
-PLAN_START = date(2026, 11, 15)
+
+def current_plan_start(today: date | None = None) -> date:
+    """Return the Sunday that starts the current week, unless PLAN_START_OVERRIDE is set."""
+    if PLAN_START_OVERRIDE:
+        return PLAN_START_OVERRIDE
+    today = today or date.today()
+    return today - timedelta(days=(today.weekday() + 1) % 7)
 
 
 class PlanningService:
@@ -12,11 +19,11 @@ class PlanningService:
         self,
         periods: Sequence[tuple[str, str, str]],
         translate: Callable[[str, str], str],
-        plan_start: date = PLAN_START,
+        plan_start: date | None = None,
     ) -> None:
         self.periods = periods
         self.translate = translate
-        self.plan_start = plan_start
+        self.plan_start = plan_start or current_plan_start()
 
     @staticmethod
     def parse_date(value: object) -> date | None:
