@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from cosmetics_erp.services.capacity import packable_units
+from cosmetics_erp.services.costing import product_margins
 from cosmetics_erp.ui.context import PageContext
 from cosmetics_erp.ui.formatting import format_date
 
@@ -84,6 +85,27 @@ def render(ctx: PageContext) -> None:
             }),
             hide_index=True,
         )
+
+    st.subheader(L("רווח משוער מכל מוצר סופי", "Estimated profit per finished product"))
+    margins = product_margins(cat, bom)
+    if margins.empty:
+        st.caption(L("אין מוצרים סופיים בקטלוג.", "No finished products in the catalog."))
+    else:
+        profit_view = pd.DataFrame({
+            L("פריט", "Item"): margins["name"].fillna("?"),
+            L("מחיר מכירה", "Price"): margins["price"].map(lambda v: f"₪{v:,.2f}"),
+            L("עלות", "Cost"): margins["cost"].map(lambda v: f"₪{v:,.2f}"),
+            L("רווח ליחידה", "Profit / unit"): margins["margin"].map(lambda v: f"₪{v:,.2f}"),
+            L("רווח %", "Margin %"): margins["margin_pct"].map(lambda v: "—" if pd.isna(v) else f"{v:,.1f}%"),
+            L("מלאי (יח')", "Stock (units)"): margins["stock_units"].map(lambda v: f"{v:,.0f}"),
+            L("רווח צפוי מהמלאי", "Profit on stock"): margins["stock_margin"].map(lambda v: f"₪{v:,.0f}"),
+            L("מק\"ט", "SKU"): margins["sku"],
+        })
+        st.dataframe(profit_view, width="stretch", hide_index=True)
+        st.caption(L(
+            "העלות מחושבת לפי ה-BOM ומחירי הקטלוג. מחיר המכירה הוא item_price של המוצר הסופי.",
+            "Cost is calculated from the BOM and catalog prices. Selling price is the finished product's item_price.",
+        ))
 
     st.subheader(L("תפוגות קרובות", "Nearest expiry dates"))
     nearest = batches[batches["exp"].notna()].sort_values("exp").head(8)
