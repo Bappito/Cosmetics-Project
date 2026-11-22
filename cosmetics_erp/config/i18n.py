@@ -4,6 +4,7 @@ WH_NAMES = {
     "he": {
         "WH_RAW": "מחסן חומר גלם",
         "WH_BULK": "מחסן בלקים (חומר מוכן)",
+        "WH_COLOR": "מחסן צבעים",
         "WH_PACK": "מחסן מלאי אריזות",
         "WH_LINE": "קו ייצור",
         "WH_QA": "מחסן איכות",
@@ -14,6 +15,7 @@ WH_NAMES = {
     "en": {
         "WH_RAW": "Raw Materials WH",
         "WH_BULK": "Bulks (Ready Material) WH",
+        "WH_COLOR": "Colours WH",
         "WH_PACK": "Packaging Stock WH",
         "WH_LINE": "Production Line",
         "WH_QA": "Quality Assurance WH",

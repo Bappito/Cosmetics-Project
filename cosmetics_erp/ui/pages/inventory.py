@@ -36,13 +36,26 @@ def render(ctx: PageContext) -> None:
         [
             L("1. מחסן חומר גלם (RAW)", "1. Raw Materials WH"),
             L("2. מחסן בלקים - חומר שהוכן (BULK)", "2. Bulks WH"),
-            L("3. מחסן אריזות (PKG)", "3. Packaging WH")
+            L("3. מחסן אריזות (PKG)", "3. Packaging WH"),
+            L("4. מחסן צבעים (שיער)", "4. Colours WH (hair)"),
         ],
         horizontal=True
     )
-    active_wh_type = "RAW" if "1." in wh_selector else ("BULK" if "2." in wh_selector else "PKG")
-    is_w_wh = active_wh_type in ("RAW", "BULK")
-    df_wh_sub = df_cat[df_cat["item_type"] == active_wh_type]
+    if "4." in wh_selector:
+        active_wh_type = "COL"
+    elif "1." in wh_selector:
+        active_wh_type = "RAW"
+    elif "2." in wh_selector:
+        active_wh_type = "BULK"
+    else:
+        active_wh_type = "PKG"
+    is_w_wh = active_wh_type in ("RAW", "BULK", "COL")
+    if active_wh_type == "COL":
+        df_wh_sub = df_cat[(df_cat["item_type"] == "RAW") & (df_cat["primary_warehouse"] == "WH_COLOR")]
+    elif active_wh_type == "RAW":
+        df_wh_sub = df_cat[(df_cat["item_type"] == "RAW") & (df_cat["primary_warehouse"] != "WH_COLOR")]
+    else:
+        df_wh_sub = df_cat[df_cat["item_type"] == active_wh_type]
     if active_wh_type == "BULK":
         # Bulk item names start with "בלק" in the data; drop that prefix on this screen only.
         df_wh_sub = df_wh_sub.assign(name=df_wh_sub["name"].astype(str).str.replace(r"^בלק\s+", "", regex=True))
