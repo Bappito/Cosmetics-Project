@@ -3,11 +3,9 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 import pandas as pd
-import plotly.express as px
 import streamlit as st
 
 from cosmetics_erp.services.capacity import packable_units
-from cosmetics_erp.services.costing import product_margins
 from cosmetics_erp.ui.context import PageContext
 from cosmetics_erp.ui.formatting import format_date
 
@@ -86,54 +84,6 @@ def render(ctx: PageContext) -> None:
             }),
             hide_index=True,
         )
-
-    st.subheader(L("רווח משוער מכל מוצר סופי", "Estimated profit per finished product"))
-    margins = product_margins(cat, bom)
-    if margins.empty:
-        st.caption(L("אין מוצרים סופיים בקטלוג.", "No finished products in the catalog."))
-    else:
-        margins["label"] = margins["sku"] + " - " + margins["name"].fillna("")
-        cost_label = L("עלות ליחידה", "Cost per unit")
-        profit_label = L("רווח ליחידה", "Profit per unit")
-        chart_rows = []
-        for row in margins.itertuples():
-            chart_rows.append({"product": row.label, "part": cost_label, "value": max(row.cost, 0.0)})
-            chart_rows.append({"product": row.label, "part": profit_label, "value": max(row.margin, 0.0)})
-        chart_df = pd.DataFrame(chart_rows)
-        fig = px.bar(
-            chart_df,
-            x="value",
-            y="product",
-            color="part",
-            orientation="h",
-            barmode="stack",
-            color_discrete_map={cost_label: "#cbd5e1", profit_label: "#0284c7"},
-        )
-        fig.update_layout(
-            height=max(180, 90 * len(margins)),
-            margin=dict(l=190, r=10, t=10, b=10),
-            xaxis_title=L("₪ ליחידה (מחיר המכירה)", "₪ per unit (selling price)"),
-            yaxis_title=None,
-            legend_title=None,
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        )
-        st.plotly_chart(fig)
-
-        profit_view = pd.DataFrame({
-            L("מחיר מכירה", "Price"): margins["price"].map(lambda v: f"₪{v:,.2f}"),
-            L("עלות", "Cost"): margins["cost"].map(lambda v: f"₪{v:,.2f}"),
-            L("רווח ליחידה", "Profit / unit"): margins["margin"].map(lambda v: f"₪{v:,.2f}"),
-            L("רווח %", "Margin %"): margins["margin_pct"].map(lambda v: "—" if pd.isna(v) else f"{v:,.1f}%"),
-            L("מלאי (יח')", "Stock (units)"): margins["stock_units"].map(lambda v: f"{v:,.0f}"),
-            L("רווח צפוי מהמלאי", "Profit on stock"): margins["stock_margin"].map(lambda v: f"₪{v:,.0f}"),
-            L("פריט", "Item"): margins["name"].fillna("?"),
-            L("מק\"ט", "SKU"): margins["sku"],
-        })
-        st.dataframe(profit_view, hide_index=True)
-        st.caption(L(
-            "העלות מחושבת לפי ה-BOM ומחירי הקטלוג (חומרי גלם ואריזות). מחיר המכירה הוא item_price של המוצר הסופי.",
-            "Cost is calculated from the BOM and catalog prices (raw materials and packaging). Selling price is the finished product's item_price.",
-        ))
 
     st.subheader(L("תפוגות קרובות", "Nearest expiry dates"))
     nearest = batches[batches["exp"].notna()].sort_values("exp").head(8)
