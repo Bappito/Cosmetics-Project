@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 import pandas as pd
 import streamlit as st
 
-from cosmetics_erp.services.mrp import WEEKS, mrp_suggestions
+from cosmetics_erp.services.mrp import WEEKS, monthly_summary, mrp_suggestions, weekly_excel_bytes
 from cosmetics_erp.services.planning import current_plan_start
 from cosmetics_erp.ui.context import PageContext
 from cosmetics_erp.ui.formatting import sku_first
@@ -51,17 +51,34 @@ def render(ctx: PageContext) -> None:
         st.success(L("אין צורך ברכש נוסף לתוכנית הנוכחית.", "No purchases needed for the current plan."))
         return
 
-    shown = suggestions.copy()
-    shown["is_weight"] = shown["item_type"].isin(WEIGHT_TYPES)
+    plan_start = current_plan_start()
+    summary = monthly_summary(suggestions, plan_start).copy()
+    summary["is_weight"] = summary["item_type"].isin(WEIGHT_TYPES)
     table = pd.DataFrame({
-        L("מק\"ט", "SKU"): shown["sku"],
-        L("פריט", "Item"): shown["name"],
-        L("שבוע נדרש", "Needed in"): shown["need_week"],
-        L("חסר", "Short"): [fmt_val(v, w) for v, w in zip(shown["shortfall_base"], shown["is_weight"])],
-        L("להזמין (מעוגל ל-MOQ)", "To order (rounded to MOQ)"): [fmt_val(v, w) for v, w in zip(shown["order_base"], shown["is_weight"])],
-        L("ספק", "Supplier"): shown["supplier"],
+        L("מק\"ט", "SKU"): summary["sku"],
+        L("פריט", "Item"): summary["name"],
+        L("חודש", "Month"): summary["month"],
+        L("חסר בחודש", "Short in month"): [fmt_val(v, w) for v, w in zip(summary["shortfall_base"], summary["is_weight"])],
+        L("להזמין בחודש", "To order in month"): [fmt_val(v, w) for v, w in zip(summary["order_base"], summary["is_weight"])],
+        L("ספק", "Supplier"): summary["supplier"],
     })
-    st.dataframe(table, column_order=sku_first((table).columns, is_he), width="stretch", hide_index=True)
+    st.caption(L(
+        "סיכום לפי חודש. להורדה לאקסל יש פירוט שבועי.",
+        "Summary by month. The Excel download has the weekly detail.",
+    ))
+    st.dataframe(table, column_order=sku_first(table.columns, is_he), width="stretch", hide_index=True)
+    headers = [
+        L("מק\"ט", "SKU"), L("פריט", "Item"), L("סוג", "Type"), L("שבוע", "Week"),
+        L("תחילת שבוע", "Week start"), L("סוף שבוע", "Week end"), L("חודש", "Month"),
+        L("חסר", "Short"), L("להזמין", "To order"), L("יחידה", "Unit"), L("ספק", "Supplier"),
+    ]
+    st.download_button(
+        L(":material/download: הורד לאקסל (שבועי)", ":material/download: Download Excel (weekly)"),
+        data=weekly_excel_bytes(suggestions, plan_start, headers),
+        file_name=f"mrp-weekly-{date.today():%Y%m%d}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        key="mrp_download",
+    )
 
     st.caption(L(
         "ההזמנות נוצרות כטיוטה עם תאריך הגעה בתחילת השבוע הנדרש. טיוטות נחשבות כהזמנות פתוחות, ולכן לא ייווצרו שוב בהרצה הבאה.",

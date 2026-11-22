@@ -13,6 +13,7 @@ Schedule values are planned parent quantities: units for FG, kg for BULK.
 
 import math
 from collections import defaultdict
+from datetime import date, timedelta
 
 import pandas as pd
 
@@ -119,3 +120,59 @@ def mrp_suggestions(
     return pd.DataFrame(suggestions, columns=[
         "sku", "name", "item_type", "need_week", "shortfall_base", "order_base", "supplier",
     ])
+
+
+def week_starts(plan_start: date) -> pd.DataFrame:
+    """One row per planning week with its start date, end date and calendar month."""
+    rows = []
+    for i, label in enumerate(WEEKS):
+        start = plan_start + timedelta(days=7 * i)
+        rows.append({
+            "need_week": label,
+            "week_start": start,
+            "week_end": start + timedelta(days=6),
+            "month": start.strftime("%Y-%m"),
+        })
+    return pd.DataFrame(rows)
+
+
+def monthly_summary(suggestions: pd.DataFrame, plan_start: date) -> pd.DataFrame:
+    """Suggestions added up per product and calendar month (a week belongs to the month it starts in)."""
+    if suggestions.empty:
+        return suggestions.assign(month=pd.Series(dtype=str))
+    joined = suggestions.merge(week_starts(plan_start)[["need_week", "month"]], on="need_week", how="left")
+    return (
+        joined.groupby(["sku", "name", "item_type", "month", "supplier"], as_index=False)
+        .agg(shortfall_base=("shortfall_base", "sum"), order_base=("order_base", "sum"))
+        .sort_values(["month", "sku"])
+        .reset_index(drop=True)
+    )
+
+
+def weekly_export(suggestions: pd.DataFrame, plan_start: date, headers: list[str]) -> pd.DataFrame:
+    """Week-by-week detail for Excel. headers: [sku, item, type, week, week start, week end, month, short, order, unit, supplier]."""
+    detail = suggestions.merge(week_starts(plan_start), on="need_week", how="left")
+    unit_for = lambda t: "g" if t in WEIGHT_TYPES else "units"
+    out = pd.DataFrame({
+        headers[0]: detail["sku"],
+        headers[1]: detail["name"],
+        headers[2]: detail["item_type"],
+        headers[3]: detail["need_week"],
+        headers[4]: detail["week_start"].map(lambda d: d.strftime("%d/%m/%Y")),
+        headers[5]: detail["week_end"].map(lambda d: d.strftime("%d/%m/%Y")),
+        headers[6]: detail["month"],
+        headers[7]: detail["shortfall_base"],
+        headers[8]: detail["order_base"],
+        headers[9]: detail["item_type"].map(unit_for),
+        headers[10]: detail["supplier"],
+    })
+    return out
+
+
+def weekly_excel_bytes(suggestions: pd.DataFrame, plan_start: date, headers: list[str]) -> bytes:
+    from io import BytesIO
+    table = weekly_export(suggestions, plan_start, headers)
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        table.to_excel(writer, index=False, sheet_name="MRP weekly")
+    return buffer.getvalue()

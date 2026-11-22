@@ -73,3 +73,35 @@ def test_later_week_need_is_reported_for_that_week():
     result = mrp_suggestions(catalog(), bom(), schedule(fg_units_w2=200.0), NO_POS)
     pkg = result[result["sku"] == "P1"].iloc[0]
     assert pkg["need_week"] == "W2"
+
+
+def test_monthly_summary_adds_weeks_within_the_same_month():
+    from datetime import date
+    from cosmetics_erp.services.mrp import monthly_summary
+    sugg = pd.DataFrame([
+        {"sku": "P1", "name": "Bottle", "item_type": "PKG", "need_week": "W1", "shortfall_base": 10.0, "order_base": 50.0, "supplier": "Pack"},
+        {"sku": "P1", "name": "Bottle", "item_type": "PKG", "need_week": "W2", "shortfall_base": 20.0, "order_base": 50.0, "supplier": "Pack"},
+    ])
+    # plan starts 2026-11-22: W1 and W2 both begin in November
+    result = monthly_summary(sugg, date(2026, 11, 22))
+    assert len(result) == 1
+    assert result.iloc[0]["month"] == "2026-11"
+    assert result.iloc[0]["shortfall_base"] == 30.0
+    assert result.iloc[0]["order_base"] == 100.0
+
+
+def test_weekly_excel_keeps_week_detail(tmp_path):
+    from datetime import date
+    from io import BytesIO
+    from cosmetics_erp.services.mrp import weekly_excel_bytes
+    sugg = pd.DataFrame([
+        {"sku": "R1", "name": "Oil", "item_type": "RAW", "need_week": "W3", "shortfall_base": 900.0, "order_base": 3000.0, "supplier": "Acme"},
+    ])
+    headers = ["SKU", "Item", "Type", "Week", "Week start", "Week end", "Month", "Short", "Order", "Unit", "Supplier"]
+    data = weekly_excel_bytes(sugg, date(2026, 11, 22), headers)
+    back = pd.read_excel(BytesIO(data))
+    assert list(back.columns) == headers
+    row = back.iloc[0]
+    assert row["Week"] == "W3"
+    assert row["Week start"] == "06/12/2026"
+    assert row["Unit"] == "g"
