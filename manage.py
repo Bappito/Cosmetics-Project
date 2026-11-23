@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-"""Django entry point for the web version of Cosmetics ERP."""
+"""Django's command-line entry point for the web version of the Cosmetics ERP."""
 import os
 import sys
 
 
 def main() -> None:
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "webapp.settings")
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "erp_web.settings")
     from django.core.management import execute_from_command_line
 
     execute_from_command_line(sys.argv)

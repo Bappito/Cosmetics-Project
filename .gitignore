@@ -7,4 +7,8 @@ venv/
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Django web app
+django.sqlite3
 django_internal.sqlite3
+staticfiles/
