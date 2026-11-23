@@ -21,11 +21,12 @@ def open_database(path: str = DB_NAME) -> sqlite3.Connection:
     return conn
 
 
-@st.cache_resource
-def _shared_connection() -> sqlite3.Connection:
-    # One connection per server process, reused across Streamlit reruns.
-    return open_database(DB_NAME)
-
-
 def get_connection() -> sqlite3.Connection:
-    return _shared_connection()
+    """One connection per browser session, reused across that session's reruns.
+
+    Separate sessions no longer share a transaction. SQLite's busy timeout handles
+    writes that happen at the same moment.
+    """
+    if "db_connection" not in st.session_state:
+        st.session_state["db_connection"] = open_database(DB_NAME)
+    return st.session_state["db_connection"]

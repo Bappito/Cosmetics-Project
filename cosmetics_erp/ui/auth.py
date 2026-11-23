@@ -18,21 +18,39 @@ def configured_password() -> str | None:
     return secret or os.environ.get("COSMETICS_APP_PASSWORD") or None
 
 
+_LOGIN_TEXT = {
+    "he": {
+        "prompt": "הזן/י סיסמה כדי להמשיך",
+        "password": "סיסמה",
+        "submit": "כניסה",
+        "wrong": "סיסמה שגויה",
+    },
+    "en": {
+        "prompt": "Enter the password to continue",
+        "password": "Password",
+        "submit": "Sign in",
+        "wrong": "Incorrect password",
+    },
+}
+
+
 def require_login() -> None:
     """Stop the script until the viewer enters the configured password."""
     expected = configured_password()
     if not expected or st.session_state.get("authenticated"):
         return
 
+    is_he = st.session_state.get("lang", "he") == "he"
+    text = _LOGIN_TEXT["he" if is_he else "en"]
     st.markdown("<div class='clean-header'><h2 style='margin:0;'>Cosmetics ERP</h2></div>", unsafe_allow_html=True)
-    st.caption("הזן/י סיסמה כדי להמשיך · Enter the password to continue")
+    st.caption(text["prompt"])
     with st.form("login_form"):
-        entered = st.text_input("סיסמה / Password", type="password")
-        submitted = st.form_submit_button("כניסה / Sign in", type="primary")
+        entered = st.text_input(text["password"], type="password")
+        submitted = st.form_submit_button(text["submit"], type="primary")
     if submitted:
         if hmac.compare_digest(entered.encode("utf-8"), expected.encode("utf-8")):
             st.session_state["authenticated"] = True
             st.rerun()
         else:
-            st.error("סיסמה שגויה · Incorrect password")
+            st.error(text["wrong"])
     st.stop()

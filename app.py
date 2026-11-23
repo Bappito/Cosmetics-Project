@@ -6,7 +6,7 @@ from cosmetics_erp.config import CLOSED_PO_STATUSES, Localization
 from cosmetics_erp.db import get_connection, init_db
 from cosmetics_erp.services.backups import BackupService
 from cosmetics_erp.services.inventory import InventoryService
-from cosmetics_erp.services.planning import PlanningService
+from cosmetics_erp.services.planning import PlanningService, get_plan_start
 from cosmetics_erp.ui.auth import require_login
 from cosmetics_erp.ui.components import UIComponents
 from cosmetics_erp.ui.context import PageContext
@@ -17,7 +17,7 @@ from cosmetics_erp.ui.navigation import (
     render_sidebar,
     render_theme_toggle,
 )
-from cosmetics_erp.ui.pages import batches, dashboard, inventory, master_work, mrp, packaging, production, purchase_orders, quick_command
+from cosmetics_erp.ui.pages import audit, batches, bom, dashboard, inventory, master_work, mrp, packaging, production, purchase_orders, quick_command
 from cosmetics_erp.ui.styles import inject_stylesheet
 
 # 2026-11-20
@@ -35,21 +35,22 @@ initialize_session_state()
 lang = st.session_state.lang
 is_collapsed = st.session_state.nav_collapsed
 
-i18n = Localization(lang)
+init_db()
+conn = get_connection()
+plan_start = get_plan_start(conn)
+
+i18n = Localization(lang, plan_start)
 is_he = i18n.is_he
 UI = i18n.ui
 NAV_ITEMS = i18n.nav_items
 PLAN_PERIODS = i18n.plan_periods
 L = i18n.translate
-planning = PlanningService(PLAN_PERIODS, L)
+planning = PlanningService(PLAN_PERIODS, L, plan_start=plan_start)
 parse_date = planning.parse_date
 eta_to_week = planning.eta_to_week
 eta_week_label = planning.eta_week_label
 
 inject_stylesheet(UI, is_collapsed, st.session_state.app_theme)
-
-init_db()
-conn = get_connection()
 
 active_page, use_kg = render_sidebar(UI, NAV_ITEMS, is_collapsed)
 w_factor = 1000.0 if use_kg else 1.0
@@ -115,6 +116,7 @@ page_context = PageContext(
     add_batch=add_batch,
     apply_picks=apply_picks,
     batch_exists=inventory_service.batch_exists,
+    inventory_service=inventory_service,
     conn=conn,
     eta_to_week=eta_to_week,
     eta_week_label=eta_week_label,
@@ -145,6 +147,8 @@ page_renderers = {
     "sim_work": master_work.render,
     "wh": purchase_orders.render,
     "mrp": mrp.render,
+    "bom": bom.render,
+    "audit": audit.render,
     "batch": batches.render,
     "ai": quick_command.render
 }

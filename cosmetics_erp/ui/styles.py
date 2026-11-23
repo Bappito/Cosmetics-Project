@@ -8,7 +8,7 @@ import streamlit as st
 
 def inject_stylesheet(ui: Mapping[str, str], is_collapsed: bool, theme: str = "light") -> None:
     if is_collapsed:
-        sidebar_width = "64px"
+        sidebar_width = "56px"
     elif ui["dir"] == "rtl":
         sidebar_width = "300px"
     else:
@@ -72,6 +72,52 @@ section[data-testid="stSidebar"] .nav-section-label {
 }
 section[data-testid="stSidebar"] hr {
     margin: 0.9rem 0.6rem !important;
+}
+/* Hover preview: a collapsed rail opens while the pointer is over it (like frappe.io). */
+section[data-testid="stSidebar"]:hover {
+    width: 280px !important;
+    min-width: 280px !important;
+    max-width: 280px !important;
+    flex: 0 0 280px !important;
+    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.35) !important;
+}
+section[data-testid="stSidebar"]:hover > div {
+    width: 280px !important;
+    min-width: 280px !important;
+    max-width: 280px !important;
+}
+section[data-testid="stSidebar"]:hover .app-brand {
+    justify-content: flex-start !important;
+    padding-inline: 0.6rem !important;
+}
+section[data-testid="stSidebar"]:hover .app-brand-copy {
+    max-width: 200px !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+}
+section[data-testid="stSidebar"]:hover .app-brand-mark {
+    flex-shrink: 0 !important;
+}
+section[data-testid="stSidebar"]:hover .app-brand-copy,
+section[data-testid="stSidebar"]:hover .nav-section-label,
+section[data-testid="stSidebar"]:hover [data-testid="stRadio"] {
+    opacity: 1 !important;
+    max-width: 240px !important;
+    display: block !important;
+}
+section[data-testid="stSidebar"]:hover .stButton {
+    display: block !important;
+}
+section[data-testid="stSidebar"]:hover .stButton button {
+    width: 100% !important;
+    justify-content: flex-start !important;
+    padding-inline: 0.75rem !important;
+    min-height: 2.5rem !important;
+}
+section[data-testid="stSidebar"]:hover .stButton button [data-testid="stMarkdownContainer"] p {
+    font-size: inherit !important;
 }
 """ if is_collapsed else "",
         "__SIDEBAR_TOUCH_RULES__": """

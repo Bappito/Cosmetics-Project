@@ -5,6 +5,24 @@ from typing import Callable, Sequence
 
 from ..config.constants import PLAN_START_OVERRIDE
 
+PLAN_START_KEY = "plan_start"
+
+
+def get_plan_start(conn) -> date:
+    """The stored start of the eight-week plan. The plan does not move on its own."""
+    row = conn.execute("SELECT value FROM Settings WHERE key = ?", (PLAN_START_KEY,)).fetchone()
+    if row:
+        return date.fromisoformat(row[0])
+    return current_plan_start()
+
+
+def set_plan_start(conn, value: date) -> None:
+    conn.execute(
+        "INSERT INTO Settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (PLAN_START_KEY, value.isoformat()),
+    )
+    conn.commit()
+
 
 def current_plan_start(today: date | None = None) -> date:
     """Return the Sunday that starts the current week, unless PLAN_START_OVERRIDE is set."""

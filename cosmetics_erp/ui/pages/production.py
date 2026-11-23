@@ -4,20 +4,17 @@ import pandas as pd
 import streamlit as st
 from datetime import date, datetime, timedelta
 
+from cosmetics_erp.services.manufacturing import plan_components, post_run
 from cosmetics_erp.ui.context import PageContext
 
 
 def render(ctx: PageContext) -> None:
     L = ctx.L
     UI = ctx.UI
-    add_batch = ctx.add_batch
-    apply_picks = ctx.apply_picks
     conn = ctx.conn
+    svc = ctx.inventory_service
     gen_batch_no = ctx.gen_batch_no
     is_he = ctx.is_he
-    log_consumption = ctx.log_consumption
-    log_move = ctx.log_move
-    plan_fefo = ctx.plan_fefo
     push_backup = ctx.push_backup
     render_where_used_simulator = ctx.render_where_used_simulator
     st.markdown(f'<div class="clean-header"><h2 style="margin:0;">{UI["m_sim_prod"]}</h2></div>', unsafe_allow_html=True)
@@ -104,62 +101,38 @@ def render(ctx: PageContext) -> None:
                 st.stop()
             bom_rows = pd.read_sql("SELECT component_sku, req_weight_grams FROM BOM WHERE parent_sku = ?", conn, params=(b_sku,))
             now_d = datetime.now().strftime("%Y-%m-%d")
-
-            plans = []
-            errors = []
-            for _, br in bom_rows.iterrows():
-                need_g = float(br["req_weight_grams"]) * kg_to_make
-                picks, short = plan_fefo(br["component_sku"], need_g, True)
-                if short > 1e-6:
-                    errors.append(f"{br['component_sku']}: " + L(f"חסרים {short/1000:.2f} ק\"ג במלאי תקף (לא פג תוקף)", f"short {short/1000:.2f} kg of valid stock (not expired)"))
-                plans.append((br["component_sku"], need_g, picks))
-
+            components = [
+                {"sku": br["component_sku"], "need": float(br["req_weight_grams"]) * kg_to_make,
+                 "is_weight": True, "from_wh": "WH_RAW"}
+                for _, br in bom_rows.iterrows()
+            ]
+            plans, shortages = plan_components(svc, components)
+            errors = [
+                f"{sh['sku']}: " + L(
+                    f"חסרים {sh['short'] / 1000:.2f} ק\"ג במלאי תקף (לא פג תוקף)",
+                    f"short {sh['short'] / 1000:.2f} kg of valid stock (not expired)",
+                )
+                for sh in shortages
+            ]
             requested_batch = (prod_batch_in or "").strip() or gen_batch_no(b_sku)
             if ctx.batch_exists(b_sku, requested_batch):
-                errors.append(L(f"אצווה {requested_batch} כבר קיימת למק\"ט {b_sku}. בחר/י מספר אצווה אחר.", f"Batch {requested_batch} already exists for SKU {b_sku}. Choose another batch number."))
+                errors.append(L(
+                    f"אצווה {requested_batch} כבר קיימת למק\"ט {b_sku}. בחר/י מספר אצווה אחר.",
+                    f"Batch {requested_batch} already exists for SKU {b_sku}. Choose another batch number.",
+                ))
 
             if errors:
                 st.error(L("לא ניתן לייצר – אין מספיק חומר גלם תקף:", "Cannot produce – not enough valid raw material:") + "\n\n" + "\n\n".join(errors))
             else:
                 kg_unit = L('ק"ג', "kg")
                 push_backup("stock", f"{L('ייצור בלק', 'Bulk production')} {b_sku} ({kg_to_make:g} {kg_unit})")
-                new_batch_no = (prod_batch_in or "").strip() or gen_batch_no(b_sku)
-
-                limiting = None
-                for _, _, picks in plans:
-                    for p in picks:
-                        if p["expiry"] and (limiting is None or p["expiry"] < limiting):
-                            limiting = p["expiry"]
-                exp_s = prod_exp_in.strftime("%Y-%m-%d")
-                capped = False
-                if limiting and exp_s > limiting:
-                    exp_s = limiting
-                    capped = True
-
-                for comp_sku, need_g, picks in plans:
-                    apply_picks(picks, True)
-                    log_consumption(b_sku, new_batch_no, comp_sku, picks, True, f"PROD {b_sku}")
-                    log_move(comp_sku, "WH_RAW", "WH_LINE", need_g, True, f"PROD {b_sku} / {new_batch_no}")
-                    conn.execute("""
-                        UPDATE Catalog
-                        SET weight_grams = MAX(0, weight_grams - ?),
-                            stock_movements = ?
-                        WHERE sku = ?
-                    """, (need_g, f"-{need_g/1000:.2f} ק\"ג לבלק {b_sku}", comp_sku))
-
-                produced_g = kg_to_make * 1000.0
-                add_batch(b_sku, new_batch_no, produced_g, True, exp_s, "PRODUCTION")
-                log_move(b_sku, "WH_LINE", "WH_BULK", produced_g, True, f"PROD {b_sku} / {new_batch_no}")
-                conn.execute("""
-                    UPDATE Catalog
-                    SET weight_grams = weight_grams + ?,
-                        stock_movements = ?,
-                        last_stock_entry = ?
-                    WHERE sku = ?
-                """, (produced_g, f"+{kg_to_make:.1f} ק\"ג מקו ייצור", f"{now_d} (+{kg_to_make:.1f} ק\"ג)", b_sku))
-                conn.commit()
-                msg = f"יוצרו {kg_to_make} ק\"ג של בלק {b_sku} באצווה {new_batch_no} (תפוגה {exp_s}). חומרי הגלם נגרעו לפי FEFO והבלק הועבר למחסן בלקים."
-                if capped:
-                    msg += f" שים לב: התפוגה הוגבלה לתפוגה המוקדמת ביותר של חומר הגלם ({limiting})."
+                result = post_run(
+                    conn, svc, kind="production", parent_sku=b_sku, batch_no=requested_batch, plans=plans,
+                    expiry=prod_exp_in.strftime("%Y-%m-%d"), output_amount=kg_to_make * 1000.0,
+                    output_is_weight=True, now_d=now_d, kg_display=kg_to_make,
+                )
+                msg = f"יוצרו {kg_to_make} ק\"ג של בלק {b_sku} באצווה {requested_batch} (תפוגה {result['expiry']}). חומרי הגלם נגרעו לפי FEFO והבלק הועבר למחסן בלקים."
+                if result["capped"]:
+                    msg += f" שים לב: התפוגה הוגבלה לתפוגה המוקדמת ביותר של חומר הגלם ({result['limiting']})."
                 st.session_state["flash"] = msg
                 st.rerun()

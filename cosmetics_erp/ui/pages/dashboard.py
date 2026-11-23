@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from cosmetics_erp.services.capacity import packable_units
+from cosmetics_erp.services.planning import get_plan_start, set_plan_start
 from cosmetics_erp.services.costing import product_margins
 from cosmetics_erp.ui.context import PageContext
 from cosmetics_erp.ui.formatting import format_date, sku_first
@@ -17,6 +18,7 @@ def render(ctx: PageContext) -> None:
     L = ctx.L
     UI = ctx.UI
     conn = ctx.conn
+    push_backup = ctx.push_backup
     fmt_val = ctx.fmt_val
     is_he = ctx.is_he
     parse_date = ctx.parse_date
@@ -52,6 +54,22 @@ def render(ctx: PageContext) -> None:
     s1.metric(L("הזמנות רכש פתוחות", "Open purchase orders"), len(pos))
     s2.metric(L(f"אצוות שפגות ב-{EXPIRY_WARNING_DAYS} ימים", f"Batches expiring in {EXPIRY_WARNING_DAYS} days"), len(expiring))
     s3.metric(L("אצוות שפג תוקפן", "Expired active batches"), len(expired))
+
+    plan_start = get_plan_start(conn)
+    with st.expander(L(f"תוכנית 8 שבועות מתחילה ב-{plan_start:%d/%m/%Y}", f"8-week plan starts {plan_start:%d/%m/%Y}")):
+        st.caption(L(
+            "התוכנית לא זזה לבד. כשמשנים את תאריך ההתחלה, הכמויות השבועיות נשארות כמו שהן ונקשרות לשבועות החדשים.",
+            "The plan does not move on its own. Changing the start date keeps the weekly quantities as they are and attaches them to the new weeks.",
+        ))
+        new_start = st.date_input(L("תאריך התחלה (יום ראשון)", "Start date (a Sunday)"), value=plan_start, key="plan_start_input")
+        if st.button(L("שמור תאריך התחלה", "Save start date"), key="plan_start_save"):
+            if new_start.weekday() != 6:
+                st.error(L("תאריך ההתחלה חייב להיות יום ראשון.", "The start date must be a Sunday."))
+            else:
+                push_backup("schedule", L("שינוי תאריך התחלה לתכנון", "Changed plan start date"))
+                set_plan_start(conn, new_start)
+                st.session_state["flash"] = L("תאריך ההתחלה נשמר.", "Start date saved.")
+                st.rerun()
 
     st.subheader(L("כמה יחידות ניתן לארוז עכשיו", "Units that can be packed now"))
     capacity = packable_units(cat, bom)

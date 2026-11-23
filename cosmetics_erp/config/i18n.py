@@ -51,6 +51,8 @@ UI_TEXTS = {
         "nav_planning": "תכנון וייצור",
         "nav_operations": "פעולות",
         "nav_overview": "סקירה",
+        "m_bom": "עצי מוצר (BOM)",
+        "m_audit": "יומן שינויים",
         "m_dash": "לוח בקרה",
         "m_inv": "מחסנים (מלאי, תפוגה ורכש)",
         "m_mrp": "תכנון רכש (MRP)",
@@ -71,6 +73,8 @@ UI_TEXTS = {
         "nav_planning": "Planning & Production",
         "nav_operations": "Operations",
         "nav_overview": "Overview",
+        "m_bom": "Product trees (BOM)",
+        "m_audit": "Change log",
         "m_dash": "Dashboard",
         "m_inv": "Warehouses (Stock, Expiry & PO)",
         "m_mrp": "Purchase Planning (MRP)",
@@ -93,33 +97,50 @@ def build_nav_items(ui: dict[str, str]) -> list[tuple[str, str, str, str]]:
         (ui["nav_inventory"], "wh", ":material/local_shipping:", ui["m_wh"]),
         (ui["nav_inventory"], "mrp", ":material/event_repeat:", ui["m_mrp"]),
         (ui["nav_inventory"], "batch", ":material/qr_code_2:", ui["m_batch"]),
+        (ui["nav_planning"], "bom", ":material/account_tree:", ui["m_bom"]),
         (ui["nav_planning"], "sim_prod", ":material/precision_manufacturing:", ui["m_sim_prod"]),
         (ui["nav_planning"], "sim_pack", ":material/inventory_2:", ui["m_sim_pack"]),
         (ui["nav_planning"], "sim_work", ":material/analytics:", ui["m_sim_work"]),
         (ui["nav_operations"], "ai", ":material/terminal:", ui["m_ai"]),
+        (ui["nav_operations"], "audit", ":material/history:", ui["m_audit"]),
     ]
 
-def build_plan_periods(is_he: bool) -> list[tuple[str, str, str]]:
-    return [
-        ("W1", "נובמבר 2026" if is_he else "Nov 2026", "שבוע 1 (15-21/11)" if is_he else "Week 1 (Nov 15)"),
-        ("W2", "נובמבר 2026" if is_he else "Nov 2026", "שבוע 2 (22-28/11)" if is_he else "Week 2 (Nov 22)"),
-        ("W3", "נובמבר 2026" if is_he else "Nov 2026", "שבוע 3 (29/11-05/12)" if is_he else "Week 3 (Nov 29)"),
-        ("W4", "נובמבר 2026" if is_he else "Nov 2026", "שבוע 4 (06-12/12)" if is_he else "Week 4 (Dec 06)"),
-        ("W5", "דצמבר 2026" if is_he else "Dec 2026", "שבוע 5 (13-19/12)" if is_he else "Week 5 (Dec 13)"),
-        ("W6", "דצמבר 2026" if is_he else "Dec 2026", "שבוע 6 (20-26/12)" if is_he else "Week 6 (Dec 20)"),
-        ("W7", "דצמבר 2026" if is_he else "Dec 2026", "שבוע 7 (27/12-02/01)" if is_he else "Week 7 (Dec 27)"),
-        ("W8", "דצמבר 2026" if is_he else "Dec 2026", "שבוע 8 (03-09/01)" if is_he else "Week 8 (Jan 03)"),
-    ]
+HE_MONTHS = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"]
+
+
+def build_plan_periods(is_he: bool, plan_start) -> list[tuple[str, str, str]]:
+    """Eight weeks starting at plan_start, labelled with the real dates."""
+    from datetime import timedelta
+
+    periods = []
+    for i in range(8):
+        start = plan_start + timedelta(days=7 * i)
+        end = start + timedelta(days=6)
+        if is_he:
+            month = f"{HE_MONTHS[start.month - 1]} {start.year}"
+            label = f"שבוע {i + 1} ({start:%d/%m}-{end:%d/%m})"
+        else:
+            month = start.strftime("%b %Y")
+            label = f"Week {i + 1} ({start:%b %d})"
+        periods.append((f"W{i + 1}", month, label))
+    return periods
+
 
 class Localization:
-    def __init__(self, lang: str) -> None:
+    def __init__(self, lang: str, plan_start=None) -> None:
+        from datetime import date, timedelta
+
+        if plan_start is None:
+            today = date.today()
+            plan_start = today - timedelta(days=(today.weekday() + 1) % 7)
         if lang not in UI_TEXTS:
             raise ValueError(f"Unsupported language: {lang}")
         self.lang = lang
         self.is_he = lang == "he"
         self.ui = UI_TEXTS[lang]
         self.nav_items = build_nav_items(self.ui)
-        self.plan_periods = build_plan_periods(self.is_he)
+        self.plan_start = plan_start
+        self.plan_periods = build_plan_periods(self.is_he, plan_start)
 
     def translate(self, he_txt: str, en_txt: str) -> str:
         return he_txt if self.is_he else en_txt

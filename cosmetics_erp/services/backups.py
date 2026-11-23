@@ -8,7 +8,7 @@ import pandas as pd
 
 
 SCOPES = {
-    "stock": ["Catalog", "Batches", "BatchConsumption", "StockMovements", "PurchaseOrders"],
+    "stock": ["Catalog", "Batches", "BatchConsumption", "StockMovements", "PurchaseOrders", "BOM"],
     "schedule": ["WeeklySchedule"],
 }
 MAX_BACKUPS_PER_SCOPE = 20
@@ -20,7 +20,7 @@ class BackupService:
     def push_backup(self, scope, label):
         payload = {}
         for t in SCOPES[scope]:
-            payload[t] = json.loads(pd.read_sql(f"SELECT * FROM {t}", self.conn).to_json(orient="records", force_ascii=False))
+            payload[t] = json.loads(pd.read_sql(f"SELECT * FROM {t}", self.conn).to_json(orient="records", force_ascii=False, double_precision=15))
         self.conn.execute(
             "INSERT INTO TableBackups (scope, label, created_at, payload) VALUES (?,?,?,?)",
             (scope, label, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), json.dumps(payload, ensure_ascii=False))
@@ -30,7 +30,15 @@ class BackupService:
             "(SELECT backup_id FROM TableBackups WHERE scope=? ORDER BY backup_id DESC LIMIT ?)",
             (scope, scope, MAX_BACKUPS_PER_SCOPE)
         )
+        self.log_action(scope, label)
         self.conn.commit()
+
+    def log_action(self, scope, action):
+        """Append to the audit log. Unlike backups, audit rows are never trimmed."""
+        self.conn.execute(
+            "INSERT INTO AuditLog (at, scope, action) VALUES (?,?,?)",
+            (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), scope, action),
+        )
 
     def last_backup(self, scope):
         return self.conn.execute(
@@ -53,5 +61,6 @@ class BackupService:
                     [rec[k] for k in cols]
                 )
         self.conn.execute("DELETE FROM TableBackups WHERE backup_id=?", (row[0],))
+        self.log_action(scope, f"UNDO: {row[1]}")
         self.conn.commit()
         return row[1]

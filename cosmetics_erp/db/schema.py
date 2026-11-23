@@ -98,6 +98,22 @@ def init_db(conn: sqlite3.Connection | None = None):
         payload TEXT
     )""")
 
+    c.execute("""CREATE TABLE IF NOT EXISTS AuditLog (
+        audit_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        at TEXT,
+        scope TEXT,
+        action TEXT
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS Settings (
+        key TEXT PRIMARY KEY,
+        value TEXT
+    )""")
+    from cosmetics_erp.services.planning import PLAN_START_KEY, current_plan_start
+
+    c.execute("INSERT OR IGNORE INTO Settings (key, value) VALUES (?, ?)",
+              (PLAN_START_KEY, current_plan_start().isoformat()))
+    conn.commit()  # release the write lock right away; other connections need it
+
     c.execute("SELECT COUNT(*) FROM Catalog")
     if c.fetchone()[0] == 0:
         seed_items = [
