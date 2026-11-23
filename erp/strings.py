@@ -1,6 +1,6 @@
 """Interface strings for the page chrome (navigation, login, buttons).
 
-Screen content uses ``cosmetics_erp.config.Localization`` so the wording matches the Streamlit app.
+Screen content uses ``cosmetics_erp.config.Localization`` so the wording is shared across screens.
 """
 
 UI = {
@@ -16,6 +16,7 @@ UI = {
         "denied_title": "אין הרשאה",
         "denied_text": "אין לך הרשאה לצפות במסך הזה. פנה/י למנהל המערכת.",
         "errors": "שם המשתמש או הסיסמה שגויים.",
+        "unit_label": "יחידת משקל",
     },
     "en": {
         "app_name": "Cosmetics ERP",
@@ -29,5 +30,6 @@ UI = {
         "denied_title": "Access denied",
         "denied_text": "You do not have permission to view this screen. Ask an administrator.",
         "errors": "Incorrect username or password.",
+        "unit_label": "Weight unit",
     },
 }

@@ -1,4 +1,4 @@
-"""Access to the existing ERP SQLite database, shared with the Streamlit app.
+"""Access to the business SQLite database.
 
 The services in ``cosmetics_erp`` take a plain sqlite3 connection, so the web app opens one
 per request and closes it when the request ends.
@@ -21,7 +21,7 @@ def open_erp_connection() -> sqlite3.Connection:
     conn.execute("PRAGMA busy_timeout=10000")
     conn.execute("PRAGMA foreign_keys=ON")
 
-    # Create the schema and demo data once per database file, the same way the Streamlit app does.
+    # Create the schema and demo data once per database file.
     with _init_lock:
         if path not in _initialized_paths:
             init_db(conn)

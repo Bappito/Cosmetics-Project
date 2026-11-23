@@ -1,7 +1,8 @@
 """Django settings for the Cosmetics ERP web app.
 
-The ERP data (catalog, batches, purchase orders...) stays in the existing SQLite file that the
-Streamlit app uses. Django keeps its own small database for users, groups and sessions.
+The ERP data (catalog, batches, purchase orders...) lives in the business SQLite file, which is
+the same file the app used before the move from Streamlit. Django keeps its own small database
+for users, groups and sessions.
 """
 import os
 from pathlib import Path
@@ -81,5 +82,5 @@ LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "dashboard"
 LOGOUT_REDIRECT_URL = "login"
 
-# The existing ERP SQLite file. Defaults to the repository root, matching the Streamlit app.
+# The business SQLite file. Defaults to the repository root.
 ERP_DB_PATH = os.environ.get("ERP_DB_PATH", str(BASE_DIR / "cosmetics_3sim_erp.db"))

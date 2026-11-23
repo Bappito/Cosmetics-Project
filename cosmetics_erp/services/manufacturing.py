@@ -3,7 +3,7 @@ from __future__ import annotations
 """Production (bulk) and packaging runs: plan the components with FEFO, then post the movements.
 
 The UI collects the inputs and shows messages. Everything that changes stock lives here,
-so it can be tested without Streamlit.
+so it can be tested without the web layer.
 """
 
 from datetime import date

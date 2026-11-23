@@ -1,0 +1,65 @@
+{% extends "erp/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ title }}</h1>
+  <p class="muted">{{ subtitle }}</p>
+</div>
+
+<nav class="tabs" aria-label="{% if is_he %}מצב עריכה{% else %}Mode{% endif %}">
+  <a href="?mode=existing" class="tab{% if mode == 'existing' %} active{% endif %}">{% if is_he %}עריכת עץ מוצר קיים{% else %}Edit an existing product tree{% endif %}</a>
+  <a href="?mode=new" class="tab{% if mode == 'new' %} active{% endif %}">{% if is_he %}עץ מוצר חדש{% else %}New product tree{% endif %}</a>
+</nav>
+
+<form method="post" action="{% url 'bom' %}" class="stack">
+  {% csrf_token %}
+  <input type="hidden" name="mode" value="{{ mode }}">
+
+  {% if mode == "existing" %}
+    {% if has_parents %}
+    <label>{% if is_he %}בחר מוצר{% else %}Choose a product{% endif %}
+      <select name="parent" onchange="location.href='?mode=existing&parent=' + encodeURIComponent(this.value)">
+        {% for p in parents %}<option value="{{ p.sku }}"{% if p.sku == parent_sku %} selected{% endif %}>{{ p.label }}</option>{% endfor %}
+      </select>
+    </label>
+    <noscript><button type="submit" class="btn-ghost">{% if is_he %}בחר{% else %}Select{% endif %}</button></noscript>
+    {% else %}
+    <p class="muted">{% if is_he %}אין מוצרים עם עץ אפשרי בקטלוג.{% else %}No products that can have a tree yet.{% endif %}</p>
+    {% endif %}
+  {% else %}
+    <div class="grid-3">
+      <label>{% if is_he %}מק"ט המוצר החדש{% else %}New product SKU{% endif %}
+        <input name="new_sku" value="{{ new_sku }}" required></label>
+      <label>{% if is_he %}שם המוצר{% else %}Product name{% endif %}
+        <input name="new_name" value="{{ new_name }}" required></label>
+      <label>{% if is_he %}סוג המוצר{% else %}Product type{% endif %}
+        <select name="new_type">
+          {% for t in product_types %}<option value="{{ t }}"{% if t == new_type %} selected{% endif %}>{% if t == "BULK" %}BULK - {% if is_he %}בלק (חומר מוכן){% else %}bulk{% endif %}{% else %}FG - {% if is_he %}מוצר סופי{% else %}finished product{% endif %}{% endif %}</option>{% endfor %}
+        </select></label>
+    </div>
+  {% endif %}
+
+  <p><b>{% if is_he %}רכיבי העץ{% else %}Components{% endif %}</b> — {% if is_he %}סוג המוצר{% else %}type{% endif %}: {{ parent_type }}</p>
+  <div class="table-wrap"><table class="editor">
+    <thead><tr><th>{% if is_he %}רכיב{% else %}Component{% endif %}</th><th>{% if is_he %}כמות{% else %}Quantity{% endif %}</th></tr></thead>
+    <tbody>
+    {% for r in rows %}{% with i=forloop.counter0 %}
+      <tr>
+        <td><select name="comp_{{ i }}">
+          <option value="">—</option>
+          {% for o in options %}<option value="{{ o.sku }}"{% if o.sku == r.component_sku %} selected{% endif %}>{{ o.label }}</option>{% endfor %}
+        </select></td>
+        <td><input name="qty_{{ i }}" value="{{ r.quantity|default_if_none:'' }}" inputmode="decimal"></td>
+      </tr>
+    {% endwith %}{% endfor %}
+    </tbody>
+  </table></div>
+  <input type="hidden" name="row_count" value="{{ row_count }}">
+  <p class="muted small">{% if mode == "existing" and parent_type == "BULK" %}{% if is_he %}גרם לכל ק"ג של הבלק{% else %}grams per kg of bulk{% endif %}{% else %}{% if is_he %}גרם לכל יחידה (לרכיבי משקל) או יחידות (לאריזות){% else %}grams per unit (weight parts) or units (packaging){% endif %}{% endif %}</p>
+
+  <label class="check"><input type="checkbox" name="confirmed" value="1"> {% if is_he %}בדקתי את העץ ואני מאשר/ת לשמור אותו.{% else %}I reviewed the tree and confirm saving it.{% endif %}</label>
+  <div class="actions"><button type="submit" class="btn-primary">{% if is_he %}שמור עץ מוצר{% else %}Save product tree{% endif %}</button></div>
+</form>
+{% endblock %}

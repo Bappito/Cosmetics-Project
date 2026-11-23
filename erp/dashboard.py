@@ -1,6 +1,6 @@
-"""Dashboard screen: the web version of cosmetics_erp/ui/pages/dashboard.py.
+"""Dashboard figures.
 
-The calculations use the same services as the Streamlit app. Only the presentation differs.
+The calculations use the shared services in ``cosmetics_erp``; this module only prepares the page data.
 """
 from __future__ import annotations
 

@@ -9,6 +9,14 @@
   --warning-text: #8a5a00;
   --error-bg: #fdecec;
   --error-text: #9b1c1c;
+  --success-bg: #e8f7ee;
+  --success-text: #14532d;
+  --ok: #15803d;
+  --short: #b91c1c;
+  --ok-bg: #dcfce7;
+  --short-bg: #fee2e2;
+  --accent-soft: #e0f2fe;
+  --accent: #0369a1;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -174,4 +182,139 @@ tr:last-child td { border-bottom: none; }
     border-bottom: 1px solid var(--border);
   }
   .content { padding: 16px; }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --text: #e5e7eb;
+  --muted: #94a3b8;
+  --border: #334155;
+  --warning-bg: #3b2f12;
+  --warning-text: #fcd34d;
+  --error-bg: #3f1d1d;
+  --error-text: #fca5a5;
+  --success-bg: #123524;
+  --success-text: #86efac;
+  --ok: #4ade80;
+  --short: #f87171;
+  --ok-bg: #143d26;
+  --short-bg: #4a1d1d;
+  --accent-soft: #0c2a3d;
+  --accent: #38bdf8;
+}
+
+/* Warehouse, tabs and section switches */
+.segmented, .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+.seg, .tab {
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  background: var(--surface);
+  font-size: 14px;
+}
+.seg.active, .tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+/* Forms */
+.filter-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 12px; }
+.filter-row input, .filter-row select, .stack input, .stack select, .grid-3 input, .grid-3 select, .editor input, .editor select {
+  font: inherit;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  min-width: 0;
+}
+.editor input { width: 100%; min-width: 90px; }
+.editor td { padding: 4px 6px; }
+.stack { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; }
+.stack label, .grid-3 label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.stack label.check, label.check { flex-direction: row; align-items: center; gap: 8px; }
+.grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; align-items: end; margin: 10px 0; }
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 18px;
+}
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+.btn-primary.inline { width: auto; margin-top: 0; }
+.btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+.btn-ghost:hover { background: var(--bg); }
+fieldset { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
+legend { color: var(--muted); font-size: 13px; padding: 0 4px; }
+details { margin: 10px 0; }
+summary { cursor: pointer; color: var(--accent); }
+
+/* Notices: Django message tags are success, error and warning */
+.notice.success { background: var(--success-bg); color: var(--success-text); }
+.notice.info { background: var(--accent-soft); color: var(--accent); }
+
+/* Tables: right-aligned headings in rtl, stock and summary colours */
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+}
+.exp-badge-ok, .exp-badge-warn, .exp-badge-bad { padding: 2px 6px; border-radius: 6px; font-size: 13px; }
+.exp-badge-ok { color: var(--ok); }
+.exp-badge-warn { background: var(--warning-bg); color: var(--warning-text); }
+.exp-badge-bad { background: var(--error-bg); color: var(--error-text); }
+tr.row-expired td { color: var(--short); }
+.small { font-size: 13px; }
+.muted.small { margin: 4px 0 10px; }
+.legend-ok, .legend-short, .cell-sub.short { padding: 2px 8px; border-radius: 999px; margin-inline-end: 8px; }
+.legend-ok { background: var(--ok-bg); color: var(--ok); }
+.legend-short { background: var(--short-bg); color: var(--short); }
+.short { color: var(--short); font-weight: 700; }
+.ok { color: var(--ok); font-weight: 700; }
+
+/* Matrix tables (where-used and master work) */
+.matrix-table { font-size: 13px; }
+.matrix-table th, .matrix-table td { white-space: normal; text-align: center; min-width: 96px; vertical-align: top; }
+.matrix-table th { background: var(--bg); }
+.parent-col, .align-start { text-align: start; }
+.stock-ok { background: var(--ok-bg); }
+.stock-short { background: var(--short-bg); }
+.summary-ok { background: var(--ok-bg); color: var(--ok); font-weight: 700; }
+.summary-short { background: var(--short-bg); color: var(--short); font-weight: 700; }
+.merged-child { text-align: start; min-width: 150px; }
+.merged-stock { font-weight: 700; }
+.group-start td { border-top: 2px solid var(--border); }
+.wh-tag { display: inline-block; margin-top: 4px; padding: 1px 6px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); font-size: 12px; }
+.shared-badge { display: inline-block; margin-top: 4px; padding: 1px 6px; border-radius: 6px; background: var(--warning-bg); color: var(--warning-text); font-size: 12px; }
+
+/* Cell details: a click opens the breakdown below the value */
+.cell-details summary { list-style: none; color: inherit; }
+.cell-details summary::-webkit-details-marker { display: none; }
+.cell-main { display: block; font-weight: 700; }
+.cell-sub { display: block; font-size: 12px; color: var(--accent); }
+.cell-breakdown {
+  text-align: start;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  white-space: normal;
+  min-width: 220px;
+}
+.cell-title { font-weight: 800; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 4px; margin-bottom: 5px; }
+.cell-breakdown ul { margin: 4px 0 4px 16px; padding: 0; }
+.incoming, .incoming-title { color: var(--accent); }
+.incoming-title { font-weight: 700; margin-top: 6px; }
+
+/* Phone width: keep the forms and matrices scrollable instead of overflowing. */
+@media (max-width: 720px) {
+  .segmented, .tabs { gap: 4px; }
+  .grid-3 { grid-template-columns: 1fr; }
+  .topbar { flex-wrap: wrap; }
 }

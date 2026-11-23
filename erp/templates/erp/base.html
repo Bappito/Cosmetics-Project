@@ -1,5 +1,5 @@
 {% load static %}<!doctype html>
-<html lang="{{ lang }}" dir="{{ dir }}">
+<html lang="{{ lang }}" dir="{{ dir }}" data-theme="{{ theme|default:'' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,8 +10,22 @@
 <header class="topbar">
   <div class="brand">{{ ui.app_name }}</div>
   <div class="topbar-actions">
-    <a class="lang-toggle" href="{% url 'set_language' other_lang %}">{% if lang == 'he' %}English{% else %}עברית{% endif %}</a>
     {% if user.is_authenticated %}
+    <form method="post" action="{% url 'set_language' other_lang %}" class="inline-form">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <button type="submit" class="btn-ghost">{% if lang == 'he' %}English{% else %}עברית{% endif %}</button>
+    </form>
+    <form method="post" action="{% url 'set_unit' next_unit %}" class="inline-form">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <button type="submit" class="btn-ghost" title="{{ ui.unit_label }}">{% if unit == 'kg' %}{% if lang == 'he' %}ק"ג{% else %}kg{% endif %}{% else %}{% if lang == 'he' %}גרם{% else %}g{% endif %}{% endif %}</button>
+    </form>
+    <form method="post" action="{% url 'set_theme' next_theme %}" class="inline-form">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <button type="submit" class="btn-ghost">{% if theme == 'dark' %}☀{% else %}☾{% endif %}</button>
+    </form>
     <form method="post" action="{% url 'logout' %}" class="inline-form">
       {% csrf_token %}
       <button type="submit" class="btn-ghost">{{ ui.logout }}</button>
@@ -24,16 +38,17 @@
   {% if user.is_authenticated and nav %}
   <aside class="sidebar">
     {% for item in nav %}
-      {% if item.url %}
-        <a href="{{ item.url }}" class="nav-item{% if item.active %} active{% endif %}">{{ item.label }}</a>
-      {% else %}
-        <span class="nav-item disabled">{{ item.label }} <small>{{ ui.soon }}</small></span>
-      {% endif %}
+      <a href="{{ item.url }}" class="nav-item{% if item.active %} active{% endif %}">{{ item.label }}</a>
     {% endfor %}
   </aside>
   {% endif %}
 
   <main class="content">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="notice {{ message.tags }}" role="status">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
     {% block content %}{% endblock %}
   </main>
 </div>

@@ -7,17 +7,19 @@ Every screen has two permissions:
 Admins assign these to groups in the Django admin (Authentication and authorization > Groups).
 """
 
-# key -> (Hebrew label, English label, is the screen ported to the web app yet?)
+# key -> (Hebrew label, English label)
 SCREENS = {
-    "dashboard": ("לוח בקרה", "Dashboard", True),
-    "inventory": ("מלאי ומחסנים", "Inventory & warehouses", False),
-    "purchase_orders": ("הזמנות רכש", "Purchase orders", False),
-    "mrp": ("תכנון שמונה שבועות", "Eight-week planning", False),
-    "batches": ("אצוות ומעקב", "Batches & tracing", False),
-    "production": ("סימולציית ייצור", "Production simulation", False),
-    "packaging": ("סימולציית אריזה", "Packaging simulation", False),
-    "master_work": ("עבודה מול המאסטר", "Master data", False),
-    "quick_command": ("פקודה מהירה", "Quick command", False),
+    "dashboard": ("לוח בקרה", "Dashboard"),
+    "inventory": ("מחסנים (מלאי, תפוגה ורכש)", "Warehouses (stock, expiry & PO)"),
+    "purchase_orders": ("ניהול הזמנות רכש (PO)", "Purchase orders (PO)"),
+    "mrp": ("תכנון רכש (MRP)", "Purchase planning (MRP)"),
+    "batches": ("מרשם אצוות ועקיבות (FEFO)", "Batches & traceability (FEFO)"),
+    "bom": ("עצי מוצר (BOM)", "Product trees (BOM)"),
+    "production": ("1. סימולטור קו ייצור", "1. Production line simulator"),
+    "packaging": ("2. סימולטור אריזה", "2. Packaging simulator"),
+    "master_work": ("3. סימולטור עבודה מסכם", "3. Master work simulator"),
+    "quick_command": ("סוכן פקודות מהיר", "Quick command agent"),
+    "audit": ("יומן שינויים", "Change log"),
 }
 
 # Permissions that are not a whole screen: the profit section of the dashboard.
@@ -29,10 +31,10 @@ ALL_PERMISSIONS = [
     f"{action}_{key}" for key in SCREENS for action in ("view", "edit")
 ] + [codename for codename, _label in EXTRA_PERMISSIONS]
 
-# What a read-only user gets by default. Only the dashboard for now.
+# What a read-only user gets by default. Only the dashboard.
 VIEWER_PERMISSIONS = ["view_dashboard"]
 
-# Warehouse staff: the dashboard, the inventory and purchase-order screens, and editing them.
+# Warehouse staff: the dashboard, the warehouse and purchase-order screens, and editing them.
 WAREHOUSE_PERMISSIONS = [
     "view_dashboard",
     "view_inventory", "edit_inventory",
@@ -43,7 +45,7 @@ WAREHOUSE_PERMISSIONS = [
 def permission_choices():
     """(codename, label) pairs for the ScreenAccess model Meta.permissions."""
     choices = []
-    for key, (_he, en, _ported) in SCREENS.items():
+    for key, (_he, en) in SCREENS.items():
         choices.append((f"view_{key}", f"Can view {en}"))
         choices.append((f"edit_{key}", f"Can edit {en}"))
     return choices + list(EXTRA_PERMISSIONS)
