@@ -32,7 +32,7 @@ def _fmt_amount(value: float, is_weight: bool, words: dict) -> str:
     return f"{value:,.0f} {words['units']}"
 
 
-def build_dashboard(conn, is_he: bool, words: dict) -> dict:
+def build_dashboard(conn, is_he: bool, words: dict, include_profit: bool = True) -> dict:
     """Return everything the dashboard template shows."""
     cat = pd.read_sql("SELECT sku, name, item_type, qty_units, weight_grams, item_price FROM Catalog", conn)
     bom = pd.read_sql("SELECT parent_sku, component_sku, req_qty_units, req_weight_grams FROM BOM", conn)
@@ -64,7 +64,7 @@ def build_dashboard(conn, is_he: bool, words: dict) -> dict:
         for r in packable_units(cat, bom).itertuples()
     ]
 
-    margins = [
+    margins = [] if not include_profit else [
         {
             "sku": r.sku,
             "name": r.name or "",

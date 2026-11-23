@@ -33,7 +33,11 @@
 <body>
   <div class="topbar">
     <strong>Cosmetics ERP</strong>
-    <a href="?lang={{ t.lang_param }}">{{ t.other_lang }}</a>
+    <span>
+      <a href="?lang={{ t.lang_param }}">{{ t.other_lang }}</a>
+      &nbsp;·&nbsp;{{ user.get_username }}
+      &nbsp;·&nbsp;<form method="post" action="{% url 'logout' %}" style="display:inline"><input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}"><button type="submit" style="all:unset;color:#0b69c7;cursor:pointer;font-weight:600">{{ t.logout }}</button></form>
+    </span>
   </div>
   <main>
     <h1>{{ t.title }}</h1>
@@ -63,6 +67,7 @@
       </div>
     </section>
 
+    {% if show_profit %}
     <section>
       <h2>{{ t.profit_title }}</h2>
       <div class="muted">{{ t.profit_help }}</div>
@@ -79,6 +84,7 @@
         {% else %}<div class="empty">{{ t.none }}</div>{% endif %}
       </div>
     </section>
+    {% endif %}
 
     <section>
       <h2>{{ t.expiry_title }}</h2>
