@@ -20,6 +20,7 @@ SCREENS = {
     "master_work": ("3. סימולטור עבודה מסכם", "3. Master work simulator"),
     "quick_command": ("סוכן פקודות מהיר", "Quick command agent"),
     "audit": ("יומן שינויים", "Change log"),
+    "prr": ("PRR — מוכנות פרויקט", "PRR — project readiness"),
 }
 
 # Permissions that are not a whole screen: the profit section of the dashboard.
@@ -68,4 +69,5 @@ NAV_LAYOUT = {
     "production": ("planning", "factory"),
     "packaging": ("planning", "package"),
     "audit": ("ops", "history"),
+    "prr": ("planning", "chart"),
 }

@@ -8,6 +8,12 @@
   <p class="muted">{{ page_subtitle }}</p>
 </div>
 
+<section class="metrics">
+  {% for m in summary %}
+  <div class="metric"><div class="metric-label">{{ m.label }}</div><div class="metric-value">{{ m.value|safe }}</div></div>
+  {% endfor %}
+</section>
+
 <nav class="segmented" aria-label="{% if is_he %}בחירת מחסן{% else %}Warehouse{% endif %}">
   {% for w in wh_options %}
     <a href="?wh={{ w.key }}&tab={{ tab }}" class="seg{% if w.active %} active{% endif %}">{{ w.label }}</a>

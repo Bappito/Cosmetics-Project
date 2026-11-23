@@ -86,3 +86,57 @@ def compute_where_used(bom_rows: list[dict], incoming: dict) -> dict:
 def schedule_totals(schedule_rows: list[dict]) -> list[int]:
     """Planned total per parent SKU over the eight weeks."""
     return [int(sum(float(r[w] or 0) for w in WEEKS)) for r in schedule_rows]
+
+
+READY = "green"      # stock on hand covers the need through this week
+COVERED = "yellow"   # short on stock alone, but open POs arrive in time
+SHORT = "red"        # still short even with every arrival
+IDLE = "none"        # nothing is needed from this component this week
+
+
+def readiness(bom_rows: list[dict], incoming: dict) -> dict:
+    """Colour each component cell for every product that uses it.
+
+    The status follows the stock-on-hand rule:
+      green  - the balance without any arrivals is still zero or more;
+      yellow - it goes negative without arrivals, but is zero or more with the arrivals so far;
+      red    - it is negative even with the arrivals.
+    A cell with no need that week is "none".
+
+    Returns {"cells": [[{status, week, after, stock_only, used, incoming} per week] per row], "rows": bom_rows}.
+    """
+    result = compute_where_used(bom_rows, incoming)
+    arrivals_to_date: dict[tuple[str, str], float] = {}
+    running: dict[str, float] = defaultdict(float)
+    for w in WEEKS:
+        for comp in {r["component_sku"] for r in bom_rows}:
+            ent = incoming.get((comp, w))
+            if ent:
+                running[comp] += ent["amt"]
+            arrivals_to_date[(comp, w)] = running[comp]
+
+    cells: list[list[dict]] = []
+    for idx, row in enumerate(bom_rows):
+        comp = row["component_sku"]
+        row_cells = []
+        for cell in result["cells"][idx]:
+            w = cell["week"]
+            stock_only = cell["after"] - arrivals_to_date[(comp, w)]
+            if cell["used"] <= EPS and stock_only >= -EPS:
+                status = IDLE
+            elif stock_only >= -EPS:
+                status = READY
+            elif cell["after"] >= -EPS:
+                status = COVERED
+            else:
+                status = SHORT
+            row_cells.append({
+                "week": w,
+                "status": status,
+                "after": cell["after"],
+                "stock_only": stock_only,
+                "used": cell["used"],
+                "incoming": cell["incoming"],
+            })
+        cells.append(row_cells)
+    return {"cells": cells, "rows": bom_rows}

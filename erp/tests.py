@@ -58,7 +58,7 @@ class _DashboardTestSetup:
         self.make_user("admin", group="Admin")
         self.client.login(username="admin", password="pw-test-123")
         response = self.client.get("/")
-        self.assertEqual(len(response.context["nav"]), 11)
+        self.assertEqual(len(response.context["nav"]), 12)
 
     def test_default_groups_exist_after_migration(self):
         self.assertTrue(Group.objects.filter(name="Admin").exists())
@@ -392,3 +392,33 @@ class AuditTests(ScreenTestBase):
         response = self.client.get("/audit/")
         actions = [e["action"] for e in response.context["entries"]]
         self.assertTrue(any(a.startswith("UNDO") for a in actions))
+
+
+class PrrAndSummaryTests(ScreenTestBase):
+    def test_prr_colours_follow_the_stock_rule(self):
+        response = self.client.get("/prr/")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["rows"])
+        statuses = {c["status"] for r in response.context["rows"] for c in r["weeks"]}
+        self.assertTrue(statuses <= {"green", "yellow", "red", "none"})
+        self.assertContains(response, "prr-")
+
+    def test_prr_export_is_csv_with_one_line_per_week(self):
+        project = self.client.get("/prr/").context["selected"]
+        response = self.client.get(f"/prr/export/?project={project}")
+        self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
+        lines = response.content.decode("utf-8").strip().splitlines()
+        self.assertEqual(lines[0].split(",")[0], "SKU")
+        self.assertGreaterEqual(len(lines), 2)
+
+    def test_warehouse_screen_shows_summary_cards(self):
+        self.client.post("/settings/language/en/")
+        response = self.client.get("/inventory/")
+        labels = [m["label"] for m in response.context["summary"]]
+        self.assertIn("Unique SKUs", labels)
+
+    def test_viewer_cannot_open_prr(self):
+        viewer = User.objects.create_user(username="v2", password="pw-test-123")
+        viewer.groups.add(Group.objects.get(name="Viewer"))
+        self.client.login(username="v2", password="pw-test-123")
+        self.assertEqual(self.client.get("/prr/").status_code, 403)

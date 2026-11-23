@@ -90,3 +90,32 @@ def test_master_work_limited_by_packaging_stock():
     # The packaging balance went negative in W1 and carries forward, so W2 stays short too.
     assert cells[("F1", "W2")]["is_ok"] is False
     assert cells[("F1", "W2")]["shortages"][0]["sku"] == "P1"
+
+
+from cosmetics_erp.services.where_used import COVERED, IDLE, READY, SHORT, readiness
+
+
+def test_readiness_green_when_stock_alone_covers_the_need():
+    rows = [bom_row("PK1", "PKG", "F1", per_unit=10, stock=100, W1=2)]
+    cell = readiness(rows, {})["cells"][0][0]
+    assert cell["status"] == READY
+
+
+def test_readiness_yellow_only_when_the_arrival_gets_there_in_time():
+    rows = [bom_row("PK1", "PKG", "F1", per_unit=10, stock=10, W2=2)]  # needs 20, has 10
+    incoming = {("PK1", "W2"): {"amt": 15.0, "pos": ["PO-9"]}}          # arrives in the same week
+    cells = readiness(rows, incoming)["cells"][0]
+    assert cells[1]["status"] == COVERED
+    assert cells[0]["status"] == IDLE
+
+
+def test_readiness_red_even_with_every_arrival():
+    rows = [bom_row("PK1", "PKG", "F1", per_unit=10, stock=10, W2=5)]  # needs 50, has 10
+    incoming = {("PK1", "W2"): {"amt": 15.0, "pos": ["PO-9"]}}
+    assert readiness(rows, incoming)["cells"][0][1]["status"] == SHORT
+
+
+def test_readiness_arrival_after_the_need_does_not_help():
+    rows = [bom_row("PK1", "PKG", "F1", per_unit=10, stock=10, W1=2)]  # needs 20 in W1
+    incoming = {("PK1", "W2"): {"amt": 50.0, "pos": ["PO-9"]}}          # lands only in W2
+    assert readiness(rows, incoming)["cells"][0][0]["status"] == SHORT

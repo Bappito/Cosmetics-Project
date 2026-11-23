@@ -437,6 +437,21 @@ def _import_action(page: Page, request, action: str, cat: pd.DataFrame, types: d
         page.clear_pending(PENDING_IMPORT_FILE)
 
 
+def _summary(page: Page, cat: pd.DataFrame) -> list[dict]:
+    """Top cards: warehouses in use, catalog SKUs, units on hand, and weight on hand."""
+    L = page.L
+    used = cat["primary_warehouse"].fillna("")
+    warehouses = int(used[used != ""].nunique())
+    total_units = float(cat["qty_units"].fillna(0).sum())
+    total_weight = float(cat["weight_grams"].fillna(0).sum())
+    return [
+        {"label": L("מחסנים", "Warehouses"), "value": f"{warehouses:,}"},
+        {"label": L("מקטים ייחודיים", "Unique SKUs"), "value": f"{len(cat):,}"},
+        {"label": L('סה"כ יחידות', "Total units"), "value": f"{total_units:,.0f}"},
+        {"label": L("סה\"כ משקל", "Total weight"), "value": page.fmt(total_weight, True)},
+    ]
+
+
 def _render(page: Page, request, wh: str, tab: str, query: str):
     L = page.L
     cat = pd.read_sql("SELECT * FROM Catalog", page.conn)
@@ -449,6 +464,7 @@ def _render(page: Page, request, wh: str, tab: str, query: str):
         "SELECT * FROM PurchaseOrders WHERE status NOT IN ('Received','Cancelled') ORDER BY eta_date ASC", page.conn
     )
     data = {
+        "summary": _summary(page, cat),
         "wh_options": [{"key": k, "label": v, "active": k == wh} for k, v in _warehouses(page)],
         "tabs": [
             {"key": k, "label": L(he, en), "active": k == tab, "url": f"?wh={wh}&tab={k}"}

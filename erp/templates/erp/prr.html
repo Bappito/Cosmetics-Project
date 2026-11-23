@@ -1,0 +1,72 @@
+{% extends "erp/base.html" %}
+{% load erp_icons %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ title }}</h1>
+    <p class="muted">{{ subtitle }}</p>
+  </div>
+  <div class="page-actions">
+    {% if rows %}<a class="btn-ghost" href="{{ export_url }}">{{ "download"|icon }}{% if is_he %}ייצוא CSV{% else %}Export CSV{% endif %}</a>{% endif %}
+  </div>
+</div>
+
+{% if projects %}
+<form method="get" class="filter-row">
+  <select name="project" onchange="this.form.submit()" aria-label="{% if is_he %}בחר פרויקט{% else %}Choose project{% endif %}">
+    {% for p in projects %}<option value="{{ p.sku }}"{% if p.sku == selected %} selected{% endif %}>{{ p.sku }}{% if p.name %} - {{ p.name }}{% endif %}</option>{% endfor %}
+  </select>
+  <input type="search" name="q" value="{{ q }}" placeholder="{% if is_he %}חיפוש לפי מק\"ט או שם{% else %}Search by SKU or name{% endif %}">
+  <noscript><button type="submit" class="btn-primary inline">{% if is_he %}סנן{% else %}Filter{% endif %}</button></noscript>
+</form>
+
+<section class="metrics">
+  <div class="metric"><div class="metric-label">{% if is_he %}רכיבים בפרויקט{% else %}Components in project{% endif %}</div><div class="metric-value">{{ rows|length }}</div></div>
+  <div class="metric"><div class="metric-label">{% if is_he %}ירוק (מלאי מספיק){% else %}Green (stock enough){% endif %}</div><div class="metric-value" style="color:var(--success)">{{ counts.green }}</div></div>
+  <div class="metric"><div class="metric-label">{% if is_he %}צהוב (ממתין להגעה){% else %}Yellow (waiting for arrival){% endif %}</div><div class="metric-value" style="color:var(--warning)">{{ counts.yellow }}</div></div>
+  <div class="metric"><div class="metric-label">{% if is_he %}אדום (חסר){% else %}Red (short){% endif %}</div><div class="metric-value" style="color:var(--danger)">{{ counts.red }}</div></div>
+</section>
+
+<div class="legend">
+  {% for key, label in legend %}<span class="legend-dot legend-{{ key }}">{{ label }}</span>{% endfor %}
+</div>
+
+{% if rows %}
+<section class="block">
+  <div class="table-wrap">
+    <table class="matrix-table prr-table">
+      <thead>
+        <tr>
+          <th rowspan="2">{% if is_he %}מק"ט ופריט{% else %}SKU & item{% endif %}</th>
+          <th rowspan="2">{% if is_he %}מלאי נוכחי{% else %}Current stock{% endif %}</th>
+          <th colspan="8">{% if is_he %}שבועות{% else %}Weeks{% endif %}</th>
+        </tr>
+        <tr>{% for w in weeks %}<th title="{{ w.month }}">{{ w.label }}</th>{% endfor %}</tr>
+      </thead>
+      <tbody>
+      {% for r in rows %}
+        <tr>
+          <td class="parent-col"><span class="chip">{{ r.sku }}</span> {{ r.name }}</td>
+          <td><b>{{ r.stock|safe }}</b></td>
+          {% for c in r.weeks %}
+          <td class="prr-{{ c.status }}" title="{{ c.title }}">
+            {% if c.status == "none" %}<span class="muted">—</span>{% else %}<span class="prr-value">{{ c.value|safe }}</span>{% endif %}
+            {% if c.incoming %}<span class="incoming-tag">+{{ c.incoming.pos|join:", " }}</span>{% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% else %}
+<div class="notice info">{% if is_he %}אין עצי מוצר להצגה. הוסף/י עץ מוצר במסך עצי מוצר.{% else %}No product trees to show. Add one on the product trees screen.{% endif %}</div>
+{% endif %}
+{% else %}
+<div class="notice info">{% if is_he %}אין עצי מוצר בקטלוג עדיין.{% else %}No product trees in the catalog yet.{% endif %}</div>
+{% endif %}
+{% endblock %}
