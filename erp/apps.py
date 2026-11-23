@@ -27,9 +27,10 @@ def create_default_groups(sender, using="default", apps=None, **kwargs) -> None:
     def perms(codenames):
         return Permission.objects.using(using).filter(content_type__app_label="erp", codename__in=codenames)
 
-    admin_group, created = Group.objects.using(using).get_or_create(name="Admin")
-    if created:
-        admin_group.permissions.set(perms(ALL_PERMISSIONS))
+    # Admin is topped up with any new permission, so an existing database gets it on the next migrate.
+    # Admin's other changes are left alone.
+    admin_group, _ = Group.objects.using(using).get_or_create(name="Admin")
+    admin_group.permissions.add(*perms(ALL_PERMISSIONS))
 
     viewer_group, created = Group.objects.using(using).get_or_create(name="Viewer")
     if created:

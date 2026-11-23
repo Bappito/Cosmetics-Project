@@ -6,7 +6,7 @@ from django.contrib.auth.models import Group, User
 from django.test import Client, TestCase
 
 
-class DashboardAccessTests(TestCase):
+class _DashboardTestSetup:
     def setUp(self):
         # Give the tests their own copy of the ERP database so they never touch the real one.
         self.tmp = Path(tempfile.mkdtemp())
@@ -65,7 +65,11 @@ class DashboardAccessTests(TestCase):
         self.assertTrue(Group.objects.filter(name="Viewer").exists())
 
 
-class ProfitAndRoleTests(DashboardAccessTests):
+class DashboardAccessTests(_DashboardTestSetup, TestCase):
+    pass
+
+
+class ProfitAndRoleTests(_DashboardTestSetup, TestCase):
     """Profit is visible only with the view_profit permission; the Warehouse role exists."""
 
     def test_viewer_does_not_see_profit(self):

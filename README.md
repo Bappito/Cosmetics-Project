@@ -136,3 +136,34 @@ The tests use an in-memory database and do not touch `cosmetics_3sim_erp.db`.
 ## Database notes
 
 The database runs in WAL mode with a busy timeout, so a few users can read while one writes. Stock changes that do not come from production or packaging, such as physical counts and reconciliations, are logged as `ADJUST` movements and consumption.
+
+
+## Web app (Django)
+
+The Django web app lives in `erp/` and `erp_web/`. It reads the same business database as the Streamlit app, and keeps users, groups and sessions in its own `django.sqlite3` file.
+
+Run it from the repository folder:
+
+```powershell
+python -m pip install -r requirements.txt
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
+```
+
+Then open http://127.0.0.1:8000/ and sign in.
+
+Settings can be changed with environment variables:
+
+- `DJANGO_SECRET_KEY`: required before hosting.
+- `DJANGO_DEBUG`: set to `0` when hosting.
+- `DJANGO_ALLOWED_HOSTS`: comma-separated host names, for example `erp.example.com`.
+- `ERP_DB_PATH`: the business database file. Defaults to `cosmetics_3sim_erp.db`.
+
+Roles are set in the admin at http://127.0.0.1:8000/admin/ under Groups:
+
+- **Admin:** every screen, including profit.
+- **Warehouse:** the dashboard, inventory and purchase orders.
+- **Viewer:** the dashboard only, without profit.
+
+Run the web app's tests with `python manage.py test erp`, and the Streamlit tests with `python -m pytest`.
