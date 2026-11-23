@@ -112,6 +112,7 @@ def init_db(conn: sqlite3.Connection | None = None):
 
     c.execute("INSERT OR IGNORE INTO Settings (key, value) VALUES (?, ?)",
               (PLAN_START_KEY, current_plan_start().isoformat()))
+    conn.commit()  # release the write lock right away; other connections need it
 
     c.execute("SELECT COUNT(*) FROM Catalog")
     if c.fetchone()[0] == 0:
