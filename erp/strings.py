@@ -17,6 +17,7 @@ UI = {
         "denied_text": "אין לך הרשאה לצפות במסך הזה. פנה/י למנהל המערכת.",
         "errors": "שם המשתמש או הסיסמה שגויים.",
         "unit_label": "יחידת משקל",
+        "lang_switch": "החלף שפה",
     },
     "en": {
         "app_name": "Cosmetics ERP",
@@ -31,5 +32,6 @@ UI = {
         "denied_text": "You do not have permission to view this screen. Ask an administrator.",
         "errors": "Incorrect username or password.",
         "unit_label": "Weight unit",
+        "lang_switch": "Switch language",
     },
 }

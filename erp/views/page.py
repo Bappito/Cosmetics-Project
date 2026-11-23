@@ -18,7 +18,7 @@ from cosmetics_erp.services.backups import BackupService
 from cosmetics_erp.services.inventory import InventoryService
 from cosmetics_erp.services.planning import PlanningService, get_plan_start
 from erp.bridge import open_erp_connection
-from erp.screens import SCREENS
+from erp.screens import GROUPS, NAV_LAYOUT, SCREENS
 from erp.strings import UI
 
 LANGS = ("he", "en")
@@ -34,13 +34,27 @@ def nav_items(user, active: str, lang: str) -> list[dict]:
     for key, (he, en) in SCREENS.items():
         if not user.has_perm(f"erp.view_{key}"):
             continue
+        group, icon_name = NAV_LAYOUT.get(key, (None, "dashboard"))
         items.append({
             "key": key,
             "label": he if lang == "he" else en,
             "url": reverse(URL_NAMES[key]),
             "active": key == active,
+            "group": group,
+            "icon": icon_name,
         })
     return items
+
+
+def nav_groups(items: list[dict], lang: str) -> list[dict]:
+    """Group the sidebar entries for display: ungrouped items first, then each group in layout order."""
+    labels = GROUPS[lang]
+    groups: list[dict] = [{"label": None, "items": [i for i in items if i["group"] is None]}]
+    for key in ("logistics", "product", "planning", "ops"):
+        members = [i for i in items if i["group"] == key]
+        if members:
+            groups.append({"label": labels[key], "items": members})
+    return [g for g in groups if g["items"]]
 
 
 def safe_next(request, default: str) -> str:
@@ -106,6 +120,7 @@ class Page:
         context = {
             "screen": self.screen,
             "nav": nav_items(self.request.user, self.screen, self.lang),
+            "nav_groups": nav_groups(nav_items(self.request.user, self.screen, self.lang), self.lang),
             "is_he": self.is_he,
             "L": self.L,
             "periods": self.periods,

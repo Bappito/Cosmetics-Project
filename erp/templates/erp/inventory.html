@@ -41,7 +41,7 @@
     </tr></thead>
     <tbody>
     {% for r in stock.rows %}
-      <tr><th scope="row"><b>{{ r.sku }}</b></th><td><b>{{ r.name }}</b></td><td><b>{{ r.stock|safe }}</b></td><td>{{ r.batch_no }}</td><td>{{ r.expiry_html|safe }}</td></tr>
+      <tr><th scope="row"><span class="chip">{{ r.sku }}</span></th><td><b>{{ r.name }}</b></td><td><b>{{ r.stock|safe }}</b></td><td>{{ r.batch_no }}</td><td>{{ r.expiry_html|safe }}</td></tr>
     {% endfor %}
     </tbody>
   </table></div>
@@ -63,7 +63,7 @@
     </tr></thead>
     <tbody>
     {% for r in po_rows %}
-      <tr><th scope="row"><b>{{ r.sku }}</b></th><td>{{ r.name }}</td><td><b>{{ r.po_number }}</b></td><td>{{ r.supplier }}</td>
+      <tr><th scope="row"><span class="chip">{{ r.sku }}</span></th><td>{{ r.name }}</td><td><b>{{ r.po_number }}</b></td><td>{{ r.supplier }}</td>
       <td><b>{{ r.amount|safe }}</b></td><td>{{ r.eta }}</td><td><b>{{ r.week }}</b></td><td><span class="status-badge">{{ r.status }}</span></td></tr>
     {% endfor %}
     </tbody>
@@ -84,7 +84,7 @@
     </tr></thead>
     <tbody>
     {% for r in sup_rows %}
-      <tr><th scope="row"><b>{{ r.sku }}</b></th><td><b>{{ r.name }}</b></td><td>{{ r.main }}</td><td>{{ r.alt }}</td><td>{{ r.last_entry }}</td><td>{{ r.movements }}</td></tr>
+      <tr><th scope="row"><span class="chip">{{ r.sku }}</span></th><td><b>{{ r.name }}</b></td><td>{{ r.main }}</td><td>{{ r.alt }}</td><td>{{ r.last_entry }}</td><td>{{ r.movements }}</td></tr>
     {% endfor %}
     </tbody>
   </table></div>

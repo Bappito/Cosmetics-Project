@@ -49,3 +49,23 @@ def permission_choices():
         choices.append((f"view_{key}", f"Can view {en}"))
         choices.append((f"edit_{key}", f"Can edit {en}"))
     return choices + list(EXTRA_PERMISSIONS)
+
+
+# Sidebar layout: each screen's group (None = the top, ungrouped block) and its icon.
+GROUPS = {
+    "he": {"ops": "תפעול", "product": "מוצרים", "logistics": "לוגיסטיקה", "planning": "תכנון"},
+    "en": {"ops": "Operations", "product": "Products", "logistics": "Logistics", "planning": "Planning"},
+}
+NAV_LAYOUT = {
+    "dashboard": (None, "dashboard"),
+    "quick_command": (None, "zap"),
+    "bom": ("product", "tree"),
+    "inventory": ("logistics", "warehouse"),
+    "batches": ("logistics", "qr"),
+    "purchase_orders": ("logistics", "cart"),
+    "mrp": ("logistics", "calendar"),
+    "master_work": ("planning", "clipboard"),
+    "production": ("planning", "factory"),
+    "packaging": ("planning", "package"),
+    "audit": ("ops", "history"),
+}
