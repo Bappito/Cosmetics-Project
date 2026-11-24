@@ -87,7 +87,7 @@
     <p class="muted small">{% if is_he %}הוספת מלאי תעדכן גם את יתרת המק"ט. בדוק/י אצווה ותפוגה לפני האישור.{% else %}A receipt updates both the batch and SKU balance. Review the batch and expiry before confirming.{% endif %}</p>
     <div class="grid-3">
       <label>{% if is_he %}כמות ({{ unit_label }}){% else %}Quantity ({{ unit_label }}){% endif %}
-        <input name="amount" value="1" inputmode="decimal"></label>
+        <span class="qty-wrap"><input name="amount" value="1" inputmode="decimal"><span class="qty-unit">{{ w_label }} / {{ u_label }}</span></span></label>
       <label>{% if is_he %}מספר אצווה{% else %}Batch number{% endif %}
         <input name="batch" value="{{ receipt.default_batch }}"></label>
       <label>{% if is_he %}תאריך תפוגה{% else %}Expiry date{% endif %}

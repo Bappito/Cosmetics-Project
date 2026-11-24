@@ -406,3 +406,172 @@ summary { cursor: pointer; color: var(--primary); font-weight: 600; }
 .prr-value { font-weight: 700; }
 .incoming-tag { display: block; margin-top: 3px; font-size: 11.5px; color: var(--primary-text); }
 .prr-table td:first-child { min-width: 230px; white-space: normal; }
+
+/* Reference table style: a card with a title, count, search and filters above the grid */
+.table-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); margin-bottom: 26px; overflow: hidden;
+}
+.table-toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 16px 18px; border-bottom: 1px solid var(--border);
+}
+.table-toolbar h2 { margin: 0; font-size: 17px; font-weight: 700; }
+.table-toolbar .filter-row { margin: 0; }
+.table-card .table-wrap { border: none; box-shadow: none; border-radius: 0; max-height: 70vh; }
+.table-flat { border: none; box-shadow: none; }
+td.num { font-variant-numeric: tabular-nums; font-weight: 600; }
+.code {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 13px;
+  direction: ltr; unicode-bidi: isolate; display: inline-block; color: var(--text);
+}
+.status-pill {
+  display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+  background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+}
+.status-pill.pill-open { background: var(--primary-soft); color: var(--primary-text); border-color: transparent; }
+.status-pill.pill-closed { background: var(--success-soft); color: var(--success); border-color: transparent; }
+
+/* Table tools (search, count, sort, pager, export) added by tables.js */
+.grid-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 10px;
+}
+.grid-bar .grid-search {
+  flex: 1 1 220px; max-width: 320px; min-width: 0;
+  font: inherit; padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); color: var(--text);
+}
+.grid-bar .grid-count { margin-inline-start: auto; }
+.grid-bar .grid-export, .grid-pager button {
+  font: inherit; padding: 7px 12px; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+}
+.grid-bar .grid-export { color: var(--primary-text); }
+.grid-pager {
+  display: flex; align-items: center; justify-content: center; gap: 12px; margin: 10px 0 0;
+}
+.grid-pager button:disabled { opacity: .45; cursor: default; }
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable::after { content: " ↕"; opacity: .35; font-size: 11px; }
+th.sortable[data-sort="asc"]::after { content: " ▲"; opacity: .8; }
+th.sortable[data-sort="desc"]::after { content: " ▼"; opacity: .8; }
+.table-card .grid-bar { padding: 0 18px; margin-top: 12px; }
+.table-card .grid-pager { padding-bottom: 12px; }
+
+/* Dashboard: panels side by side, like the reference screen */
+.dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 0 18px; align-items: start; }
+.dash-grid > .block { min-width: 0; }
+@media (max-width: 900px) { .dash-grid { grid-template-columns: 1fr; } }
+
+/* Product trees (BOM) */
+.bom-form { display: block; }
+.bom-head-body { padding: 16px 18px 18px; }
+.bom-head-body .grid-3 { margin: 0; }
+.bom-meta { display: flex; flex-direction: column; gap: 6px; justify-content: flex-end; }
+.bom-count { font-size: 22px; font-weight: 800; }
+.type-badge {
+  display: inline-block; width: fit-content; padding: 3px 10px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 700; background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+}
+.type-raw { background: var(--success-soft); color: var(--success); border-color: transparent; }
+.type-bulk { background: var(--primary-soft); color: var(--primary-text); border-color: transparent; }
+.type-pkg { background: var(--warning-soft); color: var(--warning); border-color: transparent; }
+.type-fg { background: var(--violet-soft); color: var(--violet); border-color: transparent; }
+.bom-table td.rownum, .bom-table th.rownum { width: 44px; text-align: center; color: var(--muted); }
+.bom-table td { vertical-align: middle; }
+.qty-wrap { display: flex; align-items: center; gap: 8px; }
+.qty-wrap input { max-width: 140px; }
+.bom-hint { margin-top: 0; }
+.save-bar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 14px 18px; margin-top: 4px;
+}
+.save-bar label.check { margin: 0; }
+@media (max-width: 720px) { .save-bar { flex-direction: column; align-items: stretch; } }
+
+/* Reference table toolbar: title and count on one side, search and green export on the other */
+.grid-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin: 0 0 12px; }
+.grid-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.grid-title { margin: 0; font-size: 17px; font-weight: 700; }
+.grid-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-inline-start: auto; }
+.grid-searchbox { position: relative; display: block; }
+.grid-searchbox .grid-search {
+  width: 240px; max-width: 100%; font: inherit; padding: 9px 36px 9px 12px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2364748b' stroke-width='2' viewBox='0 0 24 24'><circle cx='11' cy='11' r='8'/><path d='M21 21l-4.3-4.3'/></svg>") no-repeat right 12px center;
+  color: var(--text);
+}
+.grid-bar .grid-export {
+  display: inline-flex; align-items: center; gap: 6px; font: inherit; font-weight: 600; cursor: pointer;
+  padding: 8px 14px; border-radius: 10px; border: 1px solid #16a34a; background: var(--surface); color: #15803d;
+}
+.grid-bar .grid-export:hover { background: var(--success-soft); }
+.grid-bar .grid-export .icon { width: 16px; height: 16px; }
+.grid-bar .grid-count { white-space: nowrap; }
+
+/* Stat cards with a round icon, as in the reference screens */
+.metric-ico {
+  position: absolute; inset-inline-end: 18px; top: 16px;
+  width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center;
+}
+.metric-ico .icon { width: 20px; height: 20px; }
+.bom-metrics .metric::after { display: none; }
+.bom-metrics .metric { padding-top: 16px; }
+.metric-ico.ico-blue { background: var(--primary-soft); color: var(--primary); }
+.metric-ico.ico-violet { background: var(--violet-soft); color: var(--violet); }
+.metric-ico.ico-teal { background: var(--teal-soft); color: var(--teal); }
+.metric-ico.ico-green { background: var(--success-soft); color: var(--success); }
+.bom-metrics .metric-label { padding-inline-start: 0; padding-inline-end: 56px; }
+.bom-split { font-size: 26px; }
+.bom-split small { color: var(--muted); font-size: 18px; font-weight: 600; }
+
+/* Every table section sits in a reference-style card: title and tools on top, grid below */
+.block.table-section {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 16px 18px 14px; overflow: hidden;
+}
+.block.table-section > .grid-bar { margin-bottom: 12px; }
+.block.table-section > .table-wrap, .block.table-section .table-wrap {
+  border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: none; background: var(--surface);
+}
+.block.table-section .grid-pager { margin-bottom: 0; }
+.status-pill.pill-bad { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.status-pill.pill-open { background: var(--primary-soft); color: var(--primary-text); border-color: transparent; }
+
+/* Product trees: the open button at the end (left side in Hebrew) of each parent row */
+.open-btn {
+  display: inline-block; padding: 6px 14px; border-radius: 10px; font-weight: 600; font-size: 13.5px;
+  background: var(--primary); color: #fff; text-decoration: none; white-space: nowrap;
+}
+.open-btn:hover { background: var(--primary-text); }
+
+/* Product tree: a bulk row opens to show its raw materials */
+.bom-sub { margin-top: 6px; }
+.bom-sub > summary { cursor: pointer; color: var(--primary-text); font-size: 13px; font-weight: 600; }
+.bom-nested { margin-top: 8px; padding: 10px; border: 1px dashed var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
+.bom-nested-table { width: 100%; font-size: 13px; }
+.bom-nested-table th, .bom-nested-table td { padding: 6px 8px; white-space: nowrap; }
+.bom-nested .open-btn { margin-top: 10px; }
+
+/* PRR screen, as in the reference: toolbar, two-level week header, status pills */
+.prr-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0 0 14px; }
+.prr-toolbar select, .prr-toolbar input[type="search"] {
+  font: inherit; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+}
+.prr-toolbar input[type="search"] { min-width: 260px; flex: 1 1 260px; }
+.prr-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-inline-start: auto; }
+.btn-export {
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 10px; font-weight: 600;
+  border: 1px solid #2563eb; color: #1d4ed8; background: var(--surface); text-decoration: none; white-space: nowrap;
+}
+.btn-export.danger { border-color: #dc2626; color: #b91c1c; }
+.btn-export .icon { width: 16px; height: 16px; }
+.prr-table .month-head { text-align: center; background: var(--primary-soft); color: var(--primary-text); }
+.prr-table td.prr-item .prr-sku { font-weight: 800; font-family: ui-monospace, Consolas, monospace; font-size: 13px; direction: ltr; text-align: start; }
+.prr-table td.prr-item .prr-name { font-weight: 600; white-space: normal; margin: 2px 0 4px; }
+.prr-table td.prr-products div { margin-bottom: 3px; font-size: 12.5px; white-space: nowrap; }
+.prr-table td.prr-products .chip { font-size: 11px; }
+.prr-table td.prr-note, .prr-table td.prr-alt { white-space: normal; min-width: 160px; font-size: 12.5px; color: var(--muted); }
+.prr-table td.prr-red .prr-value, .prr-table td.prr-yellow .prr-value { color: var(--danger); }
+.prr-table td.prr-yellow .prr-value { color: var(--warning); }
+.prr-table td.prr-green .prr-value { color: var(--success); }

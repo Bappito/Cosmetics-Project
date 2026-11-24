@@ -118,10 +118,10 @@ def build_plan_periods(is_he: bool, plan_start) -> list[tuple[str, str, str]]:
         end = start + timedelta(days=6)
         if is_he:
             month = f"{HE_MONTHS[start.month - 1]} {start.year}"
-            label = f"שבוע {i + 1} ({start:%d/%m}-{end:%d/%m})"
+            label = f"שבוע {i + 1}"
         else:
             month = start.strftime("%b %Y")
-            label = f"Week {i + 1} ({start:%b %d})"
+            label = f"Week {i + 1}"
         periods.append((f"W{i + 1}", month, label))
     return periods
 

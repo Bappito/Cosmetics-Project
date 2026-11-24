@@ -17,6 +17,7 @@ from cosmetics_erp.formatting import format_value
 from cosmetics_erp.services.backups import BackupService
 from cosmetics_erp.services.inventory import InventoryService
 from cosmetics_erp.services.planning import PlanningService, get_plan_start
+from cosmetics_erp.text_language import make_text_factory
 from erp.bridge import open_erp_connection
 from erp.screens import GROUPS, NAV_LAYOUT, SCREENS
 from erp.strings import UI
@@ -31,8 +32,13 @@ URL_NAMES = {key: key for key in SCREENS}  # each screen key is also its URL nam
 def nav_items(user, active: str, lang: str) -> list[dict]:
     """Sidebar entries. A screen appears only if the user may view it."""
     items = []
+    from erp.screens import HIDDEN_FROM_NAV, PLANNING_SUBSCREENS
+    if active in PLANNING_SUBSCREENS:
+        active = "production_planning"
+    if active == "prr_packaging":
+        active = "prr"
     for key, (he, en) in SCREENS.items():
-        if not user.has_perm(f"erp.view_{key}"):
+        if key in HIDDEN_FROM_NAV or not user.has_perm(f"erp.view_{key}"):
             continue
         group, icon_name = NAV_LAYOUT.get(key, (None, "dashboard"))
         items.append({
@@ -90,6 +96,9 @@ class Page:
 
     def __enter__(self) -> "Page":
         self.conn = open_erp_connection()
+        # Pages only show text. Writes and backups still read the stored two-language names.
+        if self.request.method == "GET":
+            self.conn.text_factory = make_text_factory(self.lang)
         self.plan_start = get_plan_start(self.conn)
         self.i18n = Localization(self.lang, self.plan_start)
         self.is_he = self.i18n.is_he

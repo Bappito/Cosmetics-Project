@@ -1,0 +1,35 @@
+{% extends "erp/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ title }}</h1>
+  <p class="muted">{{ subtitle }}</p>
+</div>
+
+<section class="metrics">
+  {% for m in metrics %}
+  <div class="metric">
+    <div class="metric-label">{{ m.label }}</div>
+    <div class="metric-value">{{ m.value }}</div>
+  </div>
+  {% endfor %}
+</section>
+
+<section class="table-card">
+  <div class="table-toolbar"><h2>{% if is_he %}רשימה ({{ count }}){% else %}List ({{ count }}){% endif %}</h2></div>
+  {% if rows %}
+  <div class="table-wrap table-flat"><table>
+    <thead><tr>{% for h in headers %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for row in rows %}
+      <tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <p class="muted">{% if is_he %}אין רשומות להצגה.{% else %}No records to show.{% endif %}</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -12,3 +12,6 @@ __pycache__/
 django.sqlite3
 django_internal.sqlite3
 staticfiles/
+
+# Backups of the local databases (contain business data)
+*.bak

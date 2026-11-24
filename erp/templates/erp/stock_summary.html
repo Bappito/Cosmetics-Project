@@ -1,0 +1,46 @@
+{% extends "erp/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ title }}</h1>
+  <p class="muted">{{ subtitle }}</p>
+</div>
+
+<section class="metrics">
+  {% for m in metrics %}
+  <div class="metric">
+    <div class="metric-label">{{ m.label }}</div>
+    <div class="metric-value">{{ m.value }}</div>
+  </div>
+  {% endfor %}
+</section>
+
+<section class="table-card">
+  <div class="table-toolbar"><h2>{% if is_he %}לפי מחסן{% else %}By warehouse{% endif %}</h2></div>
+  <div class="table-wrap table-flat"><table>
+    <thead><tr><th>{{ wh_label }}</th><th>{% if is_he %}מקטים{% else %}SKUs{% endif %}</th><th>{% if is_he %}מקטים עם מלאי{% else %}With stock{% endif %}</th><th>{% if is_he %}יחידות{% else %}Units{% endif %}</th><th>{% if is_he %}ק"ג{% else %}kg{% endif %}</th></tr></thead>
+    <tbody>{% for r in by_warehouse %}<tr><td><span class="code">{{ r.warehouse }}</span></td><td class="num">{{ r.skus }}</td><td class="num">{{ r.in_stock }}</td><td class="num">{{ r.units }}</td><td class="num">{{ r.kg }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+
+<section class="table-card">
+  <div class="table-toolbar"><h2>{% if is_he %}לפי סוג פריט{% else %}By item type{% endif %}</h2></div>
+  <div class="table-wrap table-flat"><table>
+    <thead><tr><th>{{ type_label }}</th><th>{% if is_he %}מקטים{% else %}SKUs{% endif %}</th><th>{% if is_he %}מקטים עם מלאי{% else %}With stock{% endif %}</th><th>{% if is_he %}יחידות{% else %}Units{% endif %}</th><th>{% if is_he %}ק"ג{% else %}kg{% endif %}</th></tr></thead>
+    <tbody>{% for r in by_type %}<tr><td><span class="code">{{ r.type }}</span></td><td class="num">{{ r.skus }}</td><td class="num">{{ r.in_stock }}</td><td class="num">{{ r.units }}</td><td class="num">{{ r.kg }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+<section class="table-card">
+  <div class="table-toolbar"><h2>{% if is_he %}בדיקת התאמה: יתרת קטלוג מול סכום האצוות ({{ mismatches|length }} חריגות){% else %}Check: catalog balance vs batch total ({{ mismatches|length }} differences){% endif %}</h2></div>
+  {% if mismatches %}
+  <div class="table-wrap table-flat"><table>
+    <thead><tr><th>{% if is_he %}מק"ט{% else %}SKU{% endif %}</th><th>{% if is_he %}שם{% else %}Item{% endif %}</th><th>{% if is_he %}סוג{% else %}Type{% endif %}</th><th>{% if is_he %}יתרת קטלוג{% else %}Catalog balance{% endif %}</th><th>{% if is_he %}סכום אצוות{% else %}Batch total{% endif %}</th><th>{% if is_he %}הפרש{% else %}Difference{% endif %}</th></tr></thead>
+    <tbody>{% for m in mismatches %}<tr><td><span class="code">{{ m.sku }}</span></td><td>{{ m.name }}</td><td><span class="type-badge type-{{ m.type|lower }}">{{ m.type }}</span></td><td class="num">{{ m.catalog|safe }}</td><td class="num">{{ m.batches|safe }}</td><td class="num">{{ m.diff|safe }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}
+  <p class="muted">{% if is_he %}כל היתרות תואמות לאצוות.{% else %}All balances match their batches.{% endif %}</p>
+  {% endif %}
+</section>
+{% endblock %}

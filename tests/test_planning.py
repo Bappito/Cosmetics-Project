@@ -35,9 +35,9 @@ def test_week_labels_show_real_dates():
     from cosmetics_erp.config.i18n import build_plan_periods
     periods = build_plan_periods(False, date(2026, 11, 22))
     assert periods[0][0] == "W1"
-    assert periods[0][2] == "Week 1 (Nov 22)"
-    assert periods[1][2] == "Week 2 (Nov 29)"
+    assert periods[0][2] == "Week 1"
+    assert periods[1][2] == "Week 2"
     assert periods[0][1] == "Nov 2026"
     hebrew = build_plan_periods(True, date(2026, 11, 22))
-    assert hebrew[0][2] == "שבוע 1 (22/11-28/11)"
+    assert hebrew[0][2] == "שבוע 1"
     assert hebrew[0][1] == "נובמבר 2026"

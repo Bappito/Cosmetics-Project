@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 from .screens import permission_choices
@@ -16,3 +17,23 @@ class ScreenAccess(models.Model):
         permissions = permission_choices()
         verbose_name = "screen access"
         verbose_name_plural = "screen access"
+
+
+class Scenario(models.Model):
+    """A personal what-if plan: planned finished-product orders by week.
+
+    Private to its owner unless shared. Shared scenarios are read-only for everyone else.
+    """
+
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="scenarios")
+    name = models.CharField(max_length=120)
+    lines = models.JSONField(default=list, blank=True)
+    shared = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+    def __str__(self) -> str:
+        return self.name

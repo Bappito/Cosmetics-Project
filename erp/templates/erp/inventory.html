@@ -146,7 +146,7 @@
             <td><input name="sku_{{ i }}" value="{{ r.sku }}"></td>
             <td><input name="name_{{ i }}" value="{{ r.name }}"></td>
             <td><select name="item_type_{{ i }}">{% for t in item_types %}<option value="{{ t }}"{% if t == r.item_type %} selected{% endif %}>{{ t }}</option>{% endfor %}</select></td>
-            <td><input name="stock_val_{{ i }}" value="{{ r.stock_val }}" inputmode="decimal"></td>
+            <td><span class="qty-wrap"><input name="stock_val_{{ i }}" value="{{ r.stock_val }}" inputmode="decimal"><span class="qty-unit">{% if r.item_type == "RAW" or r.item_type == "BULK" %}{{ w_label }}{% else %}{{ u_label }}{% endif %}</span></span></td>
             <td><input name="open_orders_{{ i }}" value="{{ r.open_orders }}"></td>
             <td><input name="stock_movements_{{ i }}" value="{{ r.stock_movements }}"></td>
             <td><input name="main_supplier_{{ i }}" value="{{ r.main_supplier }}"></td>
@@ -190,7 +190,7 @@
         <tbody>
         {% for r in count_rows %}{% with i=forloop.counter0 %}
           <tr><td>{{ r.sku }}</td><td>{{ r.name }}</td><td>{{ r.system }}</td>
-          <td><input name="counted_{{ i }}" value="{{ r.system }}" inputmode="decimal"></td></tr>
+          <td><span class="qty-wrap"><input name="counted_{{ i }}" value="{{ r.system }}" inputmode="decimal"><span class="qty-unit">{% if r.item_type == "RAW" or r.item_type == "BULK" %}{{ w_label }}{% else %}{{ u_label }}{% endif %}</span></span></td></tr>
         {% endwith %}{% endfor %}
         </tbody>
       </table></div>

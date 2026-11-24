@@ -15,6 +15,7 @@ from django.shortcuts import redirect
 from cosmetics_erp.formatting import format_date
 from cosmetics_erp.services.change_review import summarize_editor_changes
 from cosmetics_erp.services.erp_import import build_po_rows, build_stock_rows, guess_column, read_table
+from cosmetics_erp.text_language import localize_text
 
 from .page import Page
 
@@ -152,11 +153,15 @@ def _parse_catalog_post(page: Page, post) -> tuple[list[dict], list[str]]:
     L = page.L
     count = int(post.get("row_count", "0") or 0)
     rows, errors = [], []
+    stored_names = dict(page.conn.execute("SELECT sku, name FROM Catalog").fetchall())
     for i in range(count):
         if post.get(f"delete_{i}"):
             continue
         sku = post.get(f"sku_{i}", "").strip()
         name = post.get(f"name_{i}", "").strip()
+        # The form showed the name in one language. If it was not changed, keep the stored two-language name.
+        if sku in stored_names and name == localize_text(stored_names[sku] or "", page.lang):
+            name = stored_names[sku]
         item_type = post.get(f"item_type_{i}", "RAW")
         if not sku and not name and not post.get(f"stock_val_{i}", "").strip():
             continue  # a blank row
@@ -202,7 +207,8 @@ def _count_rows(page: Page, df_wh: pd.DataFrame, is_w: bool) -> list[dict]:
     for _, r in df_wh.iterrows():
         system = (r["weight_grams"] / page.w_factor if is_w else r["qty_units"])
         system = round(float(system), 3)
-        rows.append({"sku": str(r["sku"]), "name": _clean(r["name"]), "system": system})
+        rows.append({"sku": str(r["sku"]), "name": _clean(r["name"]), "system": system,
+                     "item_type": str(r.get("item_type", "")) if hasattr(r, "get") else ""})
     return rows
 
 

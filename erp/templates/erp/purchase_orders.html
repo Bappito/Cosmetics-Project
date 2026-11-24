@@ -77,8 +77,8 @@
             <td><input type="hidden" name="po_id_{{ i }}" value="{{ r.po_id }}"><input name="po_number_{{ i }}" value="{{ r.po_number }}"></td>
             <td><input name="sku_{{ i }}" value="{{ r.sku }}"></td>
             <td><input name="supplier_{{ i }}" value="{{ r.supplier }}"></td>
-            <td><input name="order_qty_units_{{ i }}" value="{{ r.order_qty_units }}" inputmode="decimal"></td>
-            <td><input name="order_weight_grams_{{ i }}" value="{{ r.order_weight_grams }}" inputmode="decimal"></td>
+            <td><span class="qty-wrap"><input name="order_qty_units_{{ i }}" value="{{ r.order_qty_units }}" inputmode="decimal"><span class="qty-unit">{{ u_label }}</span></span></td>
+            <td><span class="qty-wrap"><input name="order_weight_grams_{{ i }}" value="{{ r.order_weight_grams }}" inputmode="decimal"><span class="qty-unit">{% if is_he %}גרם{% else %}g{% endif %}</span></span></td>
             <td><input name="unit_price_{{ i }}" value="{{ r.unit_price }}" inputmode="decimal"></td>
             <td><input type="date" name="order_date_{{ i }}" value="{{ r.order_date }}"></td>
             <td><input type="date" name="eta_date_{{ i }}" value="{{ r.eta_date }}"></td>

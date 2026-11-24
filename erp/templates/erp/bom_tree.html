@@ -1,0 +1,85 @@
+{% extends "erp/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ title }}</h1>
+    <p class="muted">{{ subtitle }}</p>
+  </div>
+  <div class="segmented">
+    <a href="{% url 'bom' %}" class="seg">{% if is_he %}חזרה לרשימה{% else %}Back to list{% endif %}</a>
+    <a href="{{ edit_url }}" class="seg active">{% if is_he %}ערוך עץ{% else %}Edit tree{% endif %}</a>
+  </div>
+</div>
+
+<section class="metrics">
+  <div class="metric">
+    <div class="metric-label">{% if is_he %}סוג המוצר{% else %}Product type{% endif %}</div>
+    <div class="metric-value"><span class="type-badge type-{{ parent_type|lower }}">{{ parent_type }}</span></div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">{% if is_he %}מלאי המוצר האב{% else %}Parent stock{% endif %}</div>
+    <div class="metric-value">{{ parent_stock|safe }}</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">{% if is_he %}רכיבים בעץ{% else %}Components{% endif %}</div>
+    <div class="metric-value">{{ components_count }}</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">{% if is_he %}מגביל: אפשר לייצר עד{% else %}Limiting: can make up to{% endif %}</div>
+    <div class="metric-value">{{ bottleneck }}</div>
+  </div>
+</section>
+
+<section class="block">
+  <h2>{% if is_he %}רכיבים ויחס לאב{% else %}Components and ratio to parent{% endif %}</h2>
+  {% if rows %}
+  <div class="table-wrap"><table>
+    <thead><tr>{% for h in headers %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td><span class="code">{{ r.sku }}</span></td>
+        <td>
+          {{ r.name }}
+          {% if r.children is not None %}
+          <details class="bom-sub">
+            <summary>{% if is_he %}חומרי הגלם של הבלק ({{ r.children|length }}){% else %}Raw materials of this bulk ({{ r.children|length }}){% endif %}</summary>
+            <div class="bom-nested">
+              <table class="bom-nested-table">
+                <thead><tr><th>{% if is_he %}מק"ט{% else %}SKU{% endif %}</th><th>{% if is_he %}שם חומר{% else %}Material{% endif %}</th><th>{% if is_he %}סוג{% else %}Type{% endif %}</th><th>{% if is_he %}מלאי נוכחי{% else %}Stock on hand{% endif %}</th><th>{% if is_he %}יחס לבלק{% else %}Ratio to bulk{% endif %}</th><th>{% if is_he %}מספיק ל{% else %}Enough for{% endif %}</th></tr></thead>
+                <tbody>
+                {% for c in r.children %}
+                  <tr>
+                    <td><span class="code">{{ c.sku }}</span></td>
+                    <td>{{ c.name }}</td>
+                    <td><span class="type-badge type-{{ c.type|lower }}">{{ c.type }}</span></td>
+                    <td class="num">{{ c.stock|safe }}</td>
+                    <td class="num">{{ c.ratio|safe }}</td>
+                    <td class="num">{{ c.covers }}</td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="6" class="muted">{% if is_he %}לבלק הזה אין רכיבים עדיין.{% else %}This bulk has no components yet.{% endif %}</td></tr>
+                {% endfor %}
+                </tbody>
+              </table>
+              <a class="open-btn" href="{{ r.url }}">{% if is_he %}פתח עץ בלק{% else %}Open bulk tree{% endif %}</a>
+            </div>
+          </details>
+          {% endif %}
+        </td>
+        <td><span class="type-badge type-{{ r.type|lower }}">{{ r.type }}</span></td>
+        <td class="num">{{ r.stock|safe }}</td>
+        <td class="num">{{ r.ratio|safe }}</td>
+        <td class="num">{{ r.covers }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <p class="muted">{% if is_he %}לעץ הזה אין רכיבים עדיין.{% else %}This tree has no components yet.{% endif %}</p>
+  {% endif %}
+</section>
+{% endblock %}

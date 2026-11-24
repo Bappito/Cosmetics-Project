@@ -1,8 +1,10 @@
 {% extends "erp/base.html" %}
+{% load erp_icons %}
 
 {% block title %}{{ title }}{% endblock %}
 
 {% block content %}
+{% include "erp/_planning_tabs.html" %}
 <div class="page-header">
   <h1>{{ title }}</h1>
   <p class="muted">{{ subtitle }}</p>
@@ -18,8 +20,8 @@
       <select name="plan_sku">{% for o in planner.options %}<option value="{{ o.sku }}">{{ o.label }}</option>{% endfor %}</select></label>
     <label>{% if is_he %}למתי (בחר חודש ושבוע):{% else %}Target month and week:{% endif %}
       <select name="plan_week">{% for w in planner.weeks %}<option value="{{ w.code }}">{{ w.label }}</option>{% endfor %}</select></label>
-    <label>{% if is_he %}כמות מתוכננת{% else %}Planned quantity{% endif %} ({{ planner.unit_label }})
-      <input name="plan_qty" value="0" inputmode="decimal"></label>
+    <label>{% if is_he %}כמות מתוכננת{% else %}Planned quantity{% endif %}
+      <span class="qty-wrap"><input name="plan_qty" value="0" inputmode="decimal"><span class="qty-unit">{{ planner.unit_label }}</span></span></label>
     <div class="actions"><button type="submit" class="btn-primary">{% if is_he %}עדכן תכנון{% else %}Update plan{% endif %}</button></div>
   </form>
   {% if undo_info %}
@@ -33,7 +35,7 @@
 {# Weekly plan by parent SKU #}
 <section class="block">
   <h2>{% if is_he %}מק"ט אב ותוכנית ייצור מתוכננת{% else %}Parent SKU planned schedule{% endif %}</h2>
-  <div class="table-wrap"><table class="matrix-table">
+  <div class="table-wrap"><table class="matrix-table prr-table">
     <thead>
       <tr><th rowspan="2">{% if is_he %}מק"ט אב ותוכנית ייצור מתוכננת{% else %}Parent SKU planned schedule{% endif %}</th>
         <th colspan="4">{{ periods.0.1 }}</th><th colspan="4">{{ periods.4.1 }}</th><th rowspan="2">{% if is_he %}סה"כ מתוכנן{% else %}Total planned{% endif %}</th></tr>
@@ -41,7 +43,7 @@
     </thead>
     <tbody>
     {% for r in weekly_table %}
-      <tr><td class="parent-col">{{ r.label }}</td>{% for w in r.weeks %}<td><b>{{ w.value }}</b> {{ parent_unit }}</td>{% endfor %}<td><b>{{ r.total }} {{ parent_unit }}</b></td></tr>
+      <tr><td class="parent-col">{{ r.label|sku_only }}</td>{% for w in r.weeks %}<td><b>{{ w.value }}</b> {{ parent_unit }}</td>{% endfor %}<td><b>{{ r.total }} {{ parent_unit }}</b></td></tr>
     {% endfor %}
     </tbody>
   </table></div>
@@ -55,7 +57,7 @@
         <tbody>
         {% for r in weekly_table %}{% with i=r.index %}
           <tr><td class="parent-col">{{ r.label }}</td>
-          {% for w in r.weeks %}<td><input name="{{ w.code }}_{{ i }}" value="{{ w.value }}" inputmode="decimal"></td>{% endfor %}</tr>
+          {% for w in r.weeks %}<td><span class="qty-wrap"><input name="{{ w.code }}_{{ i }}" value="{{ w.value }}" inputmode="decimal"><span class="qty-unit">{{ parent_unit }}</span></span></td>{% endfor %}</tr>
         {% endwith %}{% endfor %}
         </tbody>
       </table></div>
@@ -83,7 +85,7 @@
   <h2>{% if is_he %}שימוש ברכיבים לפי מק"ט ומוצר{% else %}Component use by SKU and parent product{% endif %}</h2>
   <p class="muted small">{% if is_he %}לחץ על כל תא בטבלה כדי לראות את פירוט המלאי והשימוש באותו שבוע.{% else %}Open any cell to see the weekly breakdown.{% endif %}</p>
 
-  <form method="get" class="filter-row">
+  <form method="get" class="prr-toolbar">
     {% if kind == "packaging" %}
     <label>{% if is_he %}תצוגת רכיבים:{% else %}Show components:{% endif %}
       <select name="view" onchange="this.form.submit()">
@@ -96,47 +98,61 @@
     <select name="child"><option value="">{% if is_he %}הכל{% else %}All{% endif %}</option>{% for c in filter_children %}<option value="{{ c.sku }}"{% if c.sku == child %} selected{% endif %}>{{ c.label }}</option>{% endfor %}</select>
     <select name="parent"><option value="">{% if is_he %}הכל{% else %}All{% endif %}</option>{% for p in filter_parents %}<option value="{{ p.sku }}"{% if p.sku == parent %} selected{% endif %}>{{ p.label }}</option>{% endfor %}</select>
     <button type="submit" class="btn-primary inline">{% if is_he %}סנן{% else %}Filter{% endif %}</button>
+    <div class="prr-actions"><a class="btn-export" href="{{ here }}{% if '?' in here %}&{% else %}?{% endif %}export=csv">{% if is_he %}ייצוא לאקסל{% else %}Export to Excel{% endif %}</a></div>
   </form>
 
   {% if where_used.lines %}
-  <div class="table-wrap"><table class="matrix-table">
+  <div class="legend">
+    <span class="legend-dot legend-green">{% if is_he %}מלאי מספיק{% else %}Stock enough{% endif %}</span>
+    <span class="legend-dot legend-yellow">{% if is_he %}ממתין להגעה{% else %}Waiting for arrival{% endif %}</span>
+    <span class="legend-dot legend-red">{% if is_he %}חסר{% else %}Short{% endif %}</span>
+  </div>
+  <div class="table-wrap"><table class="matrix-table prr-table">
     <thead>
       <tr>
-        <th rowspan="2">{% if is_he %}מק"ט בן ומחסן מקור{% else %}Child SKU & source WH{% endif %}</th>
-        <th rowspan="2">{% if is_he %}מק"ט אב משויך{% else %}Linked parent{% endif %}</th>
-        <th rowspan="2">{% if is_he %}ליחידת אב{% else %}Per 1{% endif %}</th>
-        <th rowspan="2">{% if is_he %}מלאי קיים במחסן{% else %}Current stock{% endif %}</th>
-        <th colspan="4">{{ periods.0.1 }}</th><th colspan="4">{{ periods.4.1 }}</th>
-        <th rowspan="2">{% if is_he %}סה"כ מאזן / חוסר מצטבר{% else %}Cum. balance{% endif %}</th>
+        <th rowspan="2">{% if is_he %}מקט{% else %}SKU{% endif %}</th>
+        <th rowspan="2">{% if is_he %}מוצרים{% else %}Products{% endif %}</th>
+        <th rowspan="2">{% if is_he %}ספק{% else %}Supplier{% endif %}</th>
+        <th rowspan="2">{% if is_he %}מלאי{% else %}Stock{% endif %}</th>
+        {% for g in month_groups %}<th colspan="{{ g.span }}" class="month-head">{{ g.label }}</th>{% endfor %}
+        <th rowspan="2">{% if is_he %}סה"כ מאזן{% else %}Cum. balance{% endif %}</th>
+        <th rowspan="2">{% if is_he %}סטטוס{% else %}Status{% endif %}</th>
+        <th rowspan="2">{% if is_he %}חלופיים{% else %}Alternatives{% endif %}</th>
       </tr>
       <tr>{% for w in weeks %}<th>{{ w.label }}</th>{% endfor %}</tr>
     </thead>
     <tbody>
     {% for line in where_used.lines %}
-      <tr{% if line.first %} class="group-start"{% endif %}>
-        {% if line.first %}
-        <td rowspan="{{ line.span }}" class="merged-child"><div>{{ line.component_sku }}</div><div class="small"><b>{{ line.component_name }}</b></div><span class="wh-tag">{{ line.source }}</span>{% if line.shared %}<br><span class="shared-badge">{% if is_he %}משותף ל-{{ line.shared_count }} מק"טי אב{% else %}Shared by {{ line.shared_count }}{% endif %}</span>{% endif %}</td>
-        {% endif %}
-        <td class="align-start"><b>{{ line.parent_sku }}</b> - {{ line.parent_name }}</td>
-        <td><b>{{ line.per_unit }}</b></td>
-        {% if line.first %}<td rowspan="{{ line.span }}" class="merged-stock">{{ line.stock|safe }}</td>{% endif %}
+      <tr>
+        <td class="prr-item">
+          <div class="prr-sku">{{ line.component_sku }}</div>
+          <div class="prr-name">{{ line.component_name }}</div>
+          <span class="wh-tag">{{ line.source }}</span>
+        </td>
+        <td class="prr-products">
+          {% for p in line.parents %}<div><span class="chip">{{ p.per|safe }}</span> {{ p.sku }}</div>{% endfor %}
+          <div class="muted small">{% if is_he %}סה"כ 8 שבועות:{% else %}8-week total:{% endif %} <b>{{ line.products_total|safe }}</b></div>
+        </td>
+        <td class="prr-note">{{ line.supplier|default:"—" }}</td>
+        <td><b>{{ line.stock|safe }}</b></td>
         {% for c in line.weeks %}
-          <td class="{% if c.is_ok %}stock-ok{% else %}stock-short{% endif %}">
+          <td class="{% if c.incoming %}prr-yellow{% elif c.is_ok %}prr-green{% else %}prr-red{% endif %}">
             <details class="cell-details">
               <summary><span class="cell-main">{{ c.value|safe }}</span>{% if c.incoming %}<span class="cell-sub">{{ c.incoming.amount|safe }}</span>{% endif %}</summary>
               <div class="cell-breakdown">
-                <div class="cell-title">{{ c.component }} ⬅ {{ c.parent }} ({{ c.week_title }})</div>
-                <div>{% if is_he %}תכנון ל-{{ c.parent }}{% else %}Planned ({{ c.parent }}){% endif %}: <b>{{ c.planned }} {{ parent_unit }}</b></div>
+                <div class="cell-title">{{ line.component_sku }} ({{ c.week_title }})</div>
+                {% for b in c.breakdown %}<div>{{ b.parent }}: <b>{{ b.used|safe }}</b></div>{% endfor %}
+                <div>{% if is_he %}סה"כ נדרש השבוע{% else %}Total needed this week{% endif %}: <b>{{ c.used_total|safe }}</b></div>
                 {% if c.incoming %}<div class="incoming">{% if is_he %}הגעת PO{% else %}PO arrives{% endif %} ({{ c.incoming.pos }}): <b>{{ c.incoming.amount|safe }}</b></div>{% endif %}
                 <div>{% if is_he %}לפני השימוש{% else %}Before usage{% endif %}: <b>{{ c.before|safe }}</b></div>
-                <div>{% if is_he %}נדרש השבוע{% else %}Used this week{% endif %}: <b>{{ c.used|safe }}</b></div>
-                {% if c.shared %}<div>{% if is_he %}סה"כ כל האבות{% else %}All parents{% endif %}: <b>{{ c.total_used|safe }}</b></div>{% endif %}
                 <div>{% if c.is_ok %}{% if is_he %}נשאר במלאי{% else %}Stock left{% endif %}{% else %}{% if is_he %}חוסר מצטבר{% else %}Cumulative shortage{% endif %}{% endif %}: <b>{{ c.after|safe }}</b></div>
               </div>
             </details>
           </td>
         {% endfor %}
-        {% if line.first %}<td rowspan="{{ line.span }}" class="{% if line.final_ok %}summary-ok{% else %}summary-short{% endif %}">{{ line.final|safe }}</td>{% endif %}
+        <td class="{% if line.final_ok %}summary-ok{% else %}summary-short{% endif %}">{{ line.final|safe }}</td>
+        <td><span class="status-pill {{ line.status_css }}">{{ line.status_label }}</span></td>
+        <td class="prr-alt">{{ line.alt|default:"—" }}</td>
       </tr>
     {% endfor %}
     </tbody>
@@ -156,7 +172,7 @@
       <label>{% if is_he %}בלק לייצור{% else %}Bulk to produce{% endif %}
         <select name="bulk_sku">{% for p in runs.products %}<option value="{{ p.sku }}">{{ p.sku }} - {{ p.name }}</option>{% endfor %}</select></label>
       <label>{% if is_he %}כמות לייצור (ק"ג){% else %}Production quantity (kg){% endif %}
-        <input name="kg" value="10" inputmode="decimal"></label>
+        <span class="qty-wrap"><input name="kg" value="10" inputmode="decimal"><span class="qty-unit">{% if is_he %}ק"ג{% else %}kg{% endif %}</span></span></label>
       <label>{% if is_he %}מספר אצווה (Batch #){% else %}Batch number{% endif %}
         <input name="batch" placeholder="{% if is_he %}ריק = מספור אוטומטי{% else %}blank = automatic{% endif %}"></label>
       <label>{% if is_he %}תאריך תפוגה{% else %}Expiry date{% endif %}
@@ -172,7 +188,7 @@
       <label>{% if is_he %}מוצר סופי לאריזה{% else %}Finished product to pack{% endif %}
         <select name="fg_sku">{% for p in runs.products %}<option value="{{ p.sku }}">{{ p.sku }} - {{ p.name }}</option>{% endfor %}</select></label>
       <label>{% if is_he %}כמות לאריזה (יחידות){% else %}Packing quantity (units){% endif %}
-        <input name="units" value="100" inputmode="numeric"></label>
+        <span class="qty-wrap"><input name="units" value="100" inputmode="numeric"><span class="qty-unit">{% if is_he %}יח'{% else %}units{% endif %}</span></span></label>
       <label>{% if is_he %}מספר אצווה (Batch #){% else %}Batch number{% endif %}
         <input name="batch" placeholder="{% if is_he %}ריק = מספור אוטומטי{% else %}blank = automatic{% endif %}"></label>
       <label>{% if is_he %}תאריך תפוגה{% else %}Expiry date{% endif %}

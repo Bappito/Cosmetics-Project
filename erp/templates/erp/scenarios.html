@@ -1,0 +1,122 @@
+{% extends "erp/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ title }}</h1>
+    <p class="muted">{{ subtitle }}</p>
+  </div>
+</div>
+
+<section class="table-card scenario-picker">
+  <div class="table-toolbar">
+    <h2>{% if is_he %}התרחישים שלי{% else %}My scenarios{% endif %}</h2>
+    <form method="post" action="{% url 'scenarios' %}" class="filter-row">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="create">
+      <input name="name" placeholder="{% if is_he %}שם תרחיש חדש{% else %}New scenario name{% endif %}" required>
+      <button type="submit" class="btn-primary inline">{% if is_he %}צור תרחיש{% else %}Create{% endif %}</button>
+    </form>
+  </div>
+  <div class="scenario-list">
+    {% for s in mine %}
+      <a href="?id={{ s.pk }}" class="scenario-chip{% if selected and selected.pk == s.pk %} active{% endif %}">
+        {{ s.name }} {% if s.shared %}<span class="status-pill pill-open">{% if is_he %}משותף{% else %}shared{% endif %}</span>{% else %}<span class="status-pill">{% if is_he %}פרטי{% else %}private{% endif %}</span>{% endif %}
+      </a>
+    {% empty %}
+      <p class="muted">{% if is_he %}עוד אין לך תרחישים.{% else %}You have no scenarios yet.{% endif %}</p>
+    {% endfor %}
+  </div>
+  {% if others %}
+  <div class="scenario-list">
+    <span class="muted small">{% if is_he %}שותפו איתי:{% else %}Shared with me:{% endif %}</span>
+    {% for s in others %}
+      <a href="?id={{ s.pk }}" class="scenario-chip{% if selected and selected.pk == s.pk %} active{% endif %}">{{ s.name }} <span class="muted small">({{ s.owner.get_username }})</span></a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+
+{% if selected %}
+<section class="table-card">
+  <div class="table-toolbar">
+    <h2>{{ selected.name }} {% if not is_owner %}<span class="muted small">({% if is_he %}לצפייה בלבד{% else %}view only{% endif %})</span>{% endif %}</h2>
+    {% if is_owner %}
+    <div class="scenario-actions">
+      <form method="post" action="{% url 'scenarios' %}">
+        {% csrf_token %}<input type="hidden" name="action" value="toggle_share"><input type="hidden" name="scenario_id" value="{{ selected.pk }}">
+        <button type="submit" class="btn-ghost">{% if selected.shared %}{% if is_he %}הפוך לפרטי{% else %}Make private{% endif %}{% else %}{% if is_he %}שתף לצפייה{% else %}Share for viewing{% endif %}{% endif %}</button>
+      </form>
+      <form method="post" action="{% url 'scenarios' %}" onsubmit="return confirm('{% if is_he %}למחוק את התרחיש?{% else %}Delete this scenario?{% endif %}')">
+        {% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="scenario_id" value="{{ selected.pk }}">
+        <button type="submit" class="btn-ghost danger">{% if is_he %}מחק{% else %}Delete{% endif %}</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if is_owner %}
+  <form method="post" action="{% url 'scenarios' %}" class="scenario-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="save">
+    <input type="hidden" name="scenario_id" value="{{ selected.pk }}">
+    <input type="hidden" name="row_count" value="{{ line_rows|length }}">
+    <div class="table-wrap table-flat"><table class="editor">
+      <thead><tr><th>{% if is_he %}מוצר אב{% else %}Parent product{% endif %}</th><th>{% if is_he %}שבוע{% else %}Week{% endif %}</th><th>{% if is_he %}כמות{% else %}Quantity{% endif %}</th></tr></thead>
+      <tbody>
+      {% for l in line_rows %}{% with i=forloop.counter0 %}
+        <tr>
+          <td><select name="line_sku_{{ i }}">
+            <option value="">—</option>
+            {% for p in products %}<option value="{{ p.sku }}"{% if p.sku == l.sku %} selected{% endif %}>{{ p.label }}</option>{% endfor %}
+          </select></td>
+          <td><select name="line_week_{{ i }}">
+            {% for w in weeks %}<option value="{{ w.value }}"{% if w.value == l.week %} selected{% endif %}>{{ w.label }}</option>{% endfor %}
+          </select></td>
+          <td><input name="line_qty_{{ i }}" value="{{ l.qty|default_if_none:'' }}" inputmode="decimal"></td>
+        </tr>
+      {% endwith %}{% endfor %}
+      </tbody>
+    </table></div>
+    <div class="save-bar">
+      <span class="muted small">{% if is_he %}שורה ריקה = לא בשימוש. הכמות ביחידות של המוצר האב (ק"ג לבלק, יחידה למוצר סופי).{% else %}Empty row = not used. Quantity in the parent's unit (kg for bulk, units for finished goods).{% endif %}</span>
+      <button type="submit" class="btn-primary">{% if is_he %}שמור תרחיש{% else %}Save scenario{% endif %}</button>
+    </div>
+  </form>
+  {% else %}
+  <div class="table-wrap table-flat"><table>
+    <thead><tr><th>{% if is_he %}מוצר אב{% else %}Parent product{% endif %}</th><th>{% if is_he %}שבוע{% else %}Week{% endif %}</th><th>{% if is_he %}כמות{% else %}Quantity{% endif %}</th></tr></thead>
+    <tbody>{% for l in line_rows %}<tr><td><span class="code">{{ l.sku }}</span></td><td>{{ l.week }}</td><td class="num">{{ l.qty }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+</section>
+
+<section class="table-card">
+  <div class="table-toolbar">
+    <h2>{% if is_he %}חוסרים שהתרחיש גורם להם ({{ shortage_count }}){% else %}Shortages caused by this scenario ({{ shortage_count }}){% endif %}</h2>
+  </div>
+  {% if result_rows %}
+  <div class="table-wrap table-flat"><table>
+    <thead><tr><th>{% if is_he %}מק"ט{% else %}SKU{% endif %}</th><th>{% if is_he %}שם{% else %}Item{% endif %}</th><th>{% if is_he %}סוג{% else %}Type{% endif %}</th><th>{% if is_he %}נדרש בשבוע{% else %}Needed in{% endif %}</th><th>{% if is_he %}חוסר{% else %}Shortage{% endif %}</th><th>{% if is_he %}להזמין{% else %}To order{% endif %}</th><th>{% if is_he %}ספק{% else %}Supplier{% endif %}</th></tr></thead>
+    <tbody>
+    {% for r in result_rows %}
+      <tr>
+        <td><span class="code">{{ r.sku }}</span></td>
+        <td>{{ r.name }}</td>
+        <td><span class="type-badge type-{{ r.type|lower }}">{{ r.type }}</span></td>
+        <td>{{ r.week }}{% if r.now %} <span class="status-pill pill-bad">{% if is_he %}עכשיו{% else %}now{% endif %}</span>{% endif %}</td>
+        <td class="num">{{ r.short|safe }}</td>
+        <td class="num">{{ r.order|safe }}</td>
+        <td>{{ r.supplier }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <p class="muted">{% if is_he %}אין חוסרים בתרחיש הזה מול המלאי וההזמנות הפתוחות.{% else %}No shortages in this scenario against stock and open orders.{% endif %}</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}
