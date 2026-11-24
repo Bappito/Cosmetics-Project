@@ -58,7 +58,7 @@ class _DashboardTestSetup:
         self.make_user("admin", group="Admin")
         self.client.login(username="admin", password="pw-test-123")
         response = self.client.get("/")
-        self.assertEqual(len(response.context["nav"]), 12)
+        self.assertEqual(len(response.context["nav"]), 16)
 
     def test_default_groups_exist_after_migration(self):
         self.assertTrue(Group.objects.filter(name="Admin").exists())
@@ -150,8 +150,8 @@ class ScreensRenderTests(ScreenTestBase):
     PAGES = [
         "/", "/inventory/", "/inventory/?tab=po", "/inventory/?tab=sup", "/inventory/?tab=edit",
         "/inventory/?tab=count", "/inventory/?tab=import&wh=BULK", "/inventory/?wh=PKG", "/inventory/?wh=COL",
-        "/purchase-orders/", "/mrp/", "/mrp/export/", "/batches/", "/batches/?tab=receipt",
-        "/batches/?tab=trace", "/bom/", "/bom/?mode=new", "/production/", "/packaging/?view=bulk",
+        "/po-list/", "/stock-summary/", "/projects/", "/alt-skus/", "/prr/?kind=packaging", "/prr/export/?kind=packaging&only=short", "/shipments/", "/scenarios/", "/production-planning/?view=packaging", "/purchase-orders/", "/mrp/", "/mrp/export/", "/batches/", "/batches/?tab=receipt",
+        "/batches/?tab=trace", "/bom/", "/bom/tree/2001/", "/bom/?mode=new", "/production/", "/packaging/?view=bulk",
         "/packaging/?view=pkg", "/master-work/", "/quick-command/", "/audit/",
     ]
 
@@ -206,6 +206,25 @@ class PermissionTests(ScreenTestBase):
         response = self.client.get("/inventory/")
         self.assertEqual(response.status_code, 302)
         self.assertIn("/login/", response["Location"])
+
+
+class PurchaseOrderListTests(ScreenTestBase):
+    def test_list_shows_every_order_and_filters_by_search(self):
+        response = self.client.get("/po-list/")
+        self.assertEqual(response.status_code, 200)
+        total = self.query("SELECT COUNT(*) FROM PurchaseOrders")[0][0]
+        self.assertContains(response, f"Order list ({total})".replace("Order list", "רשימת הזמנות"))
+        po = self.query("SELECT po_number FROM PurchaseOrders ORDER BY po_id LIMIT 1")[0][0]
+        response = self.client.get("/po-list/", {"q": po})
+        self.assertContains(response, po)
+
+    def test_viewer_with_list_permission_can_open_list_but_not_management(self):
+        from django.contrib.auth.models import Permission
+        Reader = User.objects.create_user(username="reader", password="pw-test-123")
+        Reader.user_permissions.add(Permission.objects.get(codename="view_po_list"))
+        self.client.login(username="reader", password="pw-test-123")
+        self.assertEqual(self.client.get("/po-list/").status_code, 200)
+        self.assertEqual(self.client.get("/purchase-orders/").status_code, 403)
 
 
 class QuickCommandTests(ScreenTestBase):
@@ -404,8 +423,7 @@ class PrrAndSummaryTests(ScreenTestBase):
         self.assertContains(response, "prr-")
 
     def test_prr_export_is_csv_with_one_line_per_week(self):
-        project = self.client.get("/prr/").context["selected"]
-        response = self.client.get(f"/prr/export/?project={project}")
+        response = self.client.get("/prr/export/?kind=production")
         self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
         lines = response.content.decode("utf-8").strip().splitlines()
         self.assertEqual(lines[0].split(",")[0], "SKU")
@@ -422,3 +440,47 @@ class PrrAndSummaryTests(ScreenTestBase):
         viewer.groups.add(Group.objects.get(name="Viewer"))
         self.client.login(username="v2", password="pw-test-123")
         self.assertEqual(self.client.get("/prr/").status_code, 403)
+
+
+class ScenarioPrivacyTests(ScreenTestBase):
+    def setUp(self):
+        super().setUp()
+        from django.contrib.auth.models import User as AuthUser
+        from erp.models import Scenario
+        self.Scenario = Scenario
+        self.other = AuthUser.objects.create_user(username="other", password="pw-test-123")
+        self.other.groups.add(Group.objects.get(name="Warehouse"))
+
+    def test_owner_creates_and_saves_a_scenario(self):
+        self.client.post("/scenarios/", {"action": "create", "name": "Plan A"})
+        scenario = self.Scenario.objects.get(name="Plan A")
+        self.client.post("/scenarios/", {
+            "action": "save", "scenario_id": scenario.pk, "row_count": "1",
+            "line_sku_0": "5001", "line_week_0": "2", "line_qty_0": "100",
+        })
+        scenario.refresh_from_db()
+        self.assertEqual(scenario.lines, [{"sku": "5001", "week": 2, "qty": 100.0}])
+
+    def test_private_scenario_is_hidden_from_other_users(self):
+        scenario = self.Scenario.objects.create(owner=self.user, name="Secret", lines=[])
+        self.client.login(username="other", password="pw-test-123")
+        self.assertEqual(self.client.get(f"/scenarios/?id={scenario.pk}").status_code, 404)
+
+    def test_shared_scenario_is_visible_but_not_editable_by_others(self):
+        scenario = self.Scenario.objects.create(owner=self.user, name="Shared", lines=[], shared=True)
+        self.client.login(username="other", password="pw-test-123")
+        self.assertEqual(self.client.get(f"/scenarios/?id={scenario.pk}").status_code, 200)
+        self.client.post("/scenarios/", {"action": "delete", "scenario_id": scenario.pk})
+        self.assertTrue(self.Scenario.objects.filter(pk=scenario.pk).exists())
+
+
+class OneLanguageNameTests(ScreenTestBase):
+    def test_bom_tree_shows_only_the_page_language(self):
+        self.client.post("/settings/language/en/")
+        english = self.client.get("/bom/tree/5001/").content.decode("utf-8")
+        self.assertIn("Cream Base", english)
+        self.assertNotIn("בסיס אמולסיה לקרם", english)
+        self.client.post("/settings/language/he/")
+        hebrew = self.client.get("/bom/tree/5001/").content.decode("utf-8")
+        self.assertIn("בסיס אמולסיה לקרם", hebrew)
+        self.assertNotIn("Cream Base", hebrew)

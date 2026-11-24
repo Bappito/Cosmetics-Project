@@ -3,6 +3,7 @@
 {% block title %}{{ title }}{% endblock %}
 
 {% block content %}
+{% include "erp/_planning_tabs.html" %}
 <div class="page-header">
   <h1>{{ title }}</h1>
   <p class="muted">{{ subtitle }}</p>
@@ -16,8 +17,8 @@
       <select name="plan_sku">{% for o in planner.options %}<option value="{{ o.sku }}">{{ o.label }}</option>{% endfor %}</select></label>
     <label>{% if is_he %}למתי (בחר חודש ושבוע):{% else %}Target month and week:{% endif %}
       <select name="plan_week">{% for w in planner.weeks %}<option value="{{ w.code }}">{{ w.label }}</option>{% endfor %}</select></label>
-    <label>{% if is_he %}כמות מתוכננת{% else %}Planned quantity{% endif %} ({{ u_label }})
-      <input name="plan_qty" value="0" inputmode="decimal"></label>
+    <label>{% if is_he %}כמות מתוכננת{% else %}Planned quantity{% endif %}
+      <span class="qty-wrap"><input name="plan_qty" value="0" inputmode="decimal"><span class="qty-unit">{{ u_label }}</span></span></label>
     <div class="actions"><button type="submit" class="btn-primary">{% if is_he %}עדכן תכנון{% else %}Update plan{% endif %}</button></div>
   </form>
 </section>

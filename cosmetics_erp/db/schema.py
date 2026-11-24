@@ -3,6 +3,12 @@ from datetime import datetime, timedelta
 
 
 
+def _demo_reset_done(c) -> bool:
+    """True once the owner has replaced the demo data, so the demo rows are never loaded again."""
+    c.execute("SELECT 1 FROM Settings WHERE key = 'demo_reset_done'")
+    return c.fetchone() is not None
+
+
 def init_db(conn: sqlite3.Connection):
     """Create the tables and the demo data if they are missing. Safe to run on every start."""
     c = conn.cursor()
@@ -114,7 +120,7 @@ def init_db(conn: sqlite3.Connection):
     conn.commit()  # release the write lock right away; other connections need it
 
     c.execute("SELECT COUNT(*) FROM Catalog")
-    if c.fetchone()[0] == 0:
+    if c.fetchone()[0] == 0 and not _demo_reset_done(c):
         seed_items = [
             ("1001", "חמאת שיאה אורגנית / Shea Butter", "RAW", 0.0, 15000.0, "5 ק\"ג (PO-105)", "-1.2 ק\"ג לייצור", "נטורל אוילס", "בוטניקה סחר", "2026-11-10 (+10 ק\"ג)", 85.0, 5.0, 82.0, "WH_RAW", "SAP-1001"),
             ("1002", "שמן חוחובה טהור / Jojoba Oil", "RAW", 0.0, 9000.0, "0", "-0.8 ק\"ג לייצור", "נטורל אוילס", "גליל אוילס", "2026-11-08 (+5 ק\"ג)", 140.0, 3.0, 138.0, "WH_RAW", "SAP-1002"),
@@ -186,7 +192,7 @@ def init_db(conn: sqlite3.Connection):
     # so they are bought, planned and consumed like other raw materials. Added on
     # existing databases too, but only when no colour items exist yet.
     c.execute("SELECT COUNT(*) FROM Catalog WHERE primary_warehouse = 'WH_COLOR'")
-    if c.fetchone()[0] == 0:
+    if c.fetchone()[0] == 0 and not _demo_reset_done(c):
         color_items = [
             ("6001", "צבע שיער 4.0 חום (דוגמה)", "RAW", 0.0, 5000.0, "0", "-", "ספק צבעים (דוגמה)", "-", "2026-11-10 (+5 ק\"ג)", 60.0, 1.0, 58.0, "WH_COLOR", "SAP-6001"),
             ("6002", "צבע שיער 6.0 חום כהה (דוגמה)", "RAW", 0.0, 9000.0, "0", "-", "ספק צבעים (דוגמה)", "-", "2026-11-10 (+9 ק\"ג)", 62.0, 1.0, 60.0, "WH_COLOR", "SAP-6002"),
@@ -204,4 +210,7 @@ def init_db(conn: sqlite3.Connection):
             """, (b_sku, f"OPEN-{b_sku}", b_wg,
                   (today_dt + timedelta(days=730)).strftime("%Y-%m-%d"), today_dt.strftime("%Y-%m-%d")))
         conn.commit()
+    from cosmetics_erp.db.records import create_record_tables, seed_record_demo
+    create_record_tables(c)
+    seed_record_demo(conn)
     # The connection is shared across reruns (see db/connection.py), so it must not be closed here.

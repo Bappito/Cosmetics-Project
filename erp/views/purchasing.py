@@ -301,6 +301,59 @@ def purchase_orders(request):
         )
 
 
+@login_required
+def po_list(request):
+    """Read-only list of every purchase order (all statuses), with search and a status filter.
+
+    Editing and receiving stay on the separate management screen (purchase_orders).
+    """
+    with Page(request, "po_list") as page:
+        L = page.L
+        df = pd.read_sql(
+            "SELECT po.*, c.name, c.item_type FROM PurchaseOrders po LEFT JOIN Catalog c ON po.sku = c.sku "
+            "ORDER BY po.eta_date ASC, po.po_number",
+            page.conn,
+        )
+        query = request.GET.get("q", "").strip()
+        status = request.GET.get("status", "")
+
+        filtered = df
+        if status:
+            filtered = filtered[filtered["status"] == status]
+        if query:
+            cols = filtered[["po_number", "sku", "name", "supplier", "status"]].fillna("").astype(str)
+            filtered = filtered[cols.apply(lambda c: c.str.contains(query, case=False, regex=False)).any(axis=1)]
+
+        rows = []
+        for r in filtered.itertuples():
+            is_w = r.item_type in WEIGHT_TYPES
+            amount = float(r.order_weight_grams if is_w else (r.order_qty_units or 0))
+            rows.append({
+                "po_number": r.po_number, "sku": r.sku, "name": _blank(r.name) or "?",
+                "supplier": _blank(r.supplier), "amount": page.fmt(amount, is_w),
+                "eta": format_date(r.eta_date, is_he=page.is_he),
+                "week": page.planning.eta_week_label(r.eta_date),
+                "status": r.status, "is_open": r.status not in CLOSED,
+            })
+
+        open_count = int((~df["status"].isin(list(CLOSED))).sum())
+        return page.render(
+            "erp/po_list.html",
+            title=L("הזמנות רכש", "Purchase orders"),
+            subtitle=L("כל ההזמנות לפי תאריך הגעה. לעריכה וקבלה עבור ל\"ניהול הזמנות רכש\".",
+                       "Every order by arrival date. To edit or receive, go to Purchase orders management."),
+            total=len(df),
+            open_count=open_count,
+            suppliers=int(df["supplier"].dropna().nunique()),
+            skus=int(df["sku"].nunique()),
+            rows=rows,
+            shown=len(rows),
+            q=query,
+            status=status,
+            statuses=sorted(df["status"].dropna().unique()),
+        )
+
+
 # MRP
 
 def _mrp_inputs(page: Page):

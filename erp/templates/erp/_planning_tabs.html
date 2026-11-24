@@ -1,0 +1,5 @@
+<nav class="segmented planning-tabs" aria-label="{% if is_he %}תכנון ייצור{% else %}Production planning{% endif %}">
+  <a href="{% url 'production_planning' %}?view=production" class="seg{% if screen == 'production' %} active{% endif %}">{% if is_he %}1. קו ייצור{% else %}1. Production line{% endif %}</a>
+  <a href="{% url 'production_planning' %}?view=packaging" class="seg{% if screen == 'packaging' %} active{% endif %}">{% if is_he %}2. אריזה{% else %}2. Packaging{% endif %}</a>
+  <a href="{% url 'production_planning' %}?view=master_work" class="seg{% if screen == 'master_work' %} active{% endif %}">{% if is_he %}3. עבודה מסכמת{% else %}3. Master work{% endif %}</a>
+</nav>

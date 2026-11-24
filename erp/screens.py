@@ -11,16 +11,24 @@ Admins assign these to groups in the Django admin (Authentication and authorizat
 SCREENS = {
     "dashboard": ("לוח בקרה", "Dashboard"),
     "inventory": ("מחסנים (מלאי, תפוגה ורכש)", "Warehouses (stock, expiry & PO)"),
-    "purchase_orders": ("ניהול הזמנות רכש (PO)", "Purchase orders (PO)"),
+    "po_list": ("הזמנות רכש", "Purchase orders"),
+    "stock_summary": ("סיכום מלאי", "Stock summary"),
+    "projects": ("פרויקטים", "Projects"),
+    "alt_skus": ("מקטים חלופיים", "Alternative SKUs"),
+    "shipments": ("משלוחים", "Shipments"),
+    "scenarios": ("סימולטור אישי", "My simulator"),
+    "purchase_orders": ("ניהול הזמנות רכש (PO)", "Purchase orders management (PO)"),
     "mrp": ("תכנון רכש (MRP)", "Purchase planning (MRP)"),
     "batches": ("מרשם אצוות ועקיבות (FEFO)", "Batches & traceability (FEFO)"),
     "bom": ("עצי מוצר (BOM)", "Product trees (BOM)"),
+    "production_planning": ("תכנון ייצור", "Production planning"),
     "production": ("1. סימולטור קו ייצור", "1. Production line simulator"),
     "packaging": ("2. סימולטור אריזה", "2. Packaging simulator"),
     "master_work": ("3. סימולטור עבודה מסכם", "3. Master work simulator"),
     "quick_command": ("סוכן פקודות מהיר", "Quick command agent"),
     "audit": ("יומן שינויים", "Change log"),
-    "prr": ("PRR — מוכנות פרויקט", "PRR — project readiness"),
+    "prr": ("PRR — ייצור", "PRR — production"),
+    "prr_packaging": ("PRR — אריזות", "PRR — packaging"),
 }
 
 # Permissions that are not a whole screen: the profit section of the dashboard.
@@ -39,6 +47,7 @@ VIEWER_PERMISSIONS = ["view_dashboard"]
 WAREHOUSE_PERMISSIONS = [
     "view_dashboard",
     "view_inventory", "edit_inventory",
+    "view_po_list", "view_stock_summary", "view_shipments", "view_scenarios", "edit_scenarios",
     "view_purchase_orders", "edit_purchase_orders",
 ]
 
@@ -63,11 +72,24 @@ NAV_LAYOUT = {
     "bom": ("product", "tree"),
     "inventory": ("logistics", "warehouse"),
     "batches": ("logistics", "qr"),
-    "purchase_orders": ("logistics", "cart"),
+    "po_list": ("logistics", "cart"),
+    "stock_summary": ("logistics", "chart"),
+    "projects": ("product", "clipboard"),
+    "alt_skus": ("product", "box"),
+    "shipments": ("logistics", "truck"),
+    "scenarios": ("planning", "play"),
+    "purchase_orders": ("logistics", "clipboard"),
     "mrp": ("logistics", "calendar"),
     "master_work": ("planning", "clipboard"),
+    "production_planning": ("planning", "factory"),
     "production": ("planning", "factory"),
     "packaging": ("planning", "package"),
     "audit": ("ops", "history"),
     "prr": ("planning", "chart"),
+    "prr_packaging": ("planning", "chart"),
 }
+
+
+# The three simulators are shown as tabs on the one production-planning page, not as menu items.
+PLANNING_SUBSCREENS = ("production", "packaging", "master_work")
+HIDDEN_FROM_NAV = set(PLANNING_SUBSCREENS) | {"prr_packaging"}  # PRR packaging is a tab on the PRR screen

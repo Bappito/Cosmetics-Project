@@ -6,11 +6,15 @@ The simulators show the week-by-week stock picture. The numbers come from
 """
 from __future__ import annotations
 
+import csv
 from datetime import date, datetime, timedelta
 
 import pandas as pd
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
+from django.http import Http404, HttpResponse
 from django.shortcuts import redirect
+from django.urls import reverse
 
 from cosmetics_erp.services.bom import PARENT_TYPES, allowed_component_types, to_bom_rows, validate_bom
 from cosmetics_erp.services.manufacturing import plan_components, post_run
@@ -152,9 +156,25 @@ def _weekly_table(sched: pd.DataFrame, unit_label: str):
     return rows
 
 
+def _month_groups(periods) -> list[dict]:
+    """Consecutive weeks that share a month, for the two-level header."""
+    groups: list[dict] = []
+    for p in periods:
+        if groups and groups[-1]["label"] == p[1]:
+            groups[-1]["span"] += 1
+        else:
+            groups.append({"label": p[1], "span": 1})
+    return groups
+
+
 def _where_used(page: Page, sched: pd.DataFrame, bom: pd.DataFrame, parent_unit: str, search: str, child: str, parent: str):
     """Component table: balances week by week, with the incoming POs in each week."""
     incoming = page.inventory.get_incoming_map()
+    supplier_of = dict(page.conn.execute("SELECT sku, main_supplier FROM Catalog").fetchall())
+    alt_of: dict[str, list[str]] = {}
+    for sku, alt_sku in page.conn.execute("SELECT sku, alt_sku FROM AltSkus ORDER BY sku, priority").fetchall():
+        alt_of.setdefault(sku, []).append(alt_sku)
+    alt_of = {k: ", ".join(v) for k, v in alt_of.items()}
     bom_records = bom.to_dict("records")
     result = compute_where_used(bom_records, incoming)
     cells = result["cells"]
@@ -179,6 +199,8 @@ def _where_used(page: Page, sched: pd.DataFrame, bom: pd.DataFrame, parent_unit:
 
     lines = []
     seen_child: set[str] = set()
+    comp_used: dict[str, list[float]] = {}
+    comp_is_w: dict[str, bool] = {}
     for idx in keep:
         r = bom_records[idx]
         comp = r["component_sku"]
@@ -189,8 +211,11 @@ def _where_used(page: Page, sched: pd.DataFrame, bom: pd.DataFrame, parent_unit:
         seen_child.add(comp)
         stock0 = float(r["avail_grams"] if is_w else r["avail_units"])
         final_cell = final[comp]
+        comp_is_w[comp] = is_w
+        comp_used.setdefault(comp, [0.0] * len(cells[idx]))
         week_cells = []
         for w_idx, cell in enumerate(cells[idx]):
+            comp_used[comp][w_idx] += float(cell["used"] or 0.0)
             week_cells.append({
                 "value": page.fmt(cell["after"], is_w),
                 "is_ok": cell["is_ok"],
@@ -200,6 +225,7 @@ def _where_used(page: Page, sched: pd.DataFrame, bom: pd.DataFrame, parent_unit:
                 "planned": int(float(r[WEEK_COLS[w_idx]] or 0)),
                 "before": page.fmt(cell["before"], is_w),
                 "used": page.fmt(cell["used"], is_w),
+                "used_raw": float(cell["used"] or 0.0),
                 "total_used": page.fmt(cell["tot_used_all"], is_w),
                 "after": page.fmt(cell["after"], is_w),
                 "incoming": None if not cell["incoming"] else {
@@ -228,7 +254,54 @@ def _where_used(page: Page, sched: pd.DataFrame, bom: pd.DataFrame, parent_unit:
             "final": page.fmt(final_cell["after"], is_w),
             "final_ok": final_cell["is_ok"],
             "weeks": week_cells,
+            "supplier": supplier_of.get(comp) or "",
+            "alt": alt_of.get(comp, ""),
+            "status_label": page.L("מוכן", "Ready") if final_cell["is_ok"] else page.L("חסר", "Short"),
+            "status_css": "pill-closed" if final_cell["is_ok"] else "pill-bad",
         })
+    # One row per component. Its balance is the balance after every product that uses it;
+    # the open cell lists what each product takes that week.
+    by_comp: dict[str, list[dict]] = {}
+    for line in lines:
+        by_comp.setdefault(line["component_sku"], []).append(line)
+    merged: list[dict] = []
+    for comp, members in by_comp.items():
+        is_w = comp_is_w[comp]
+        last = members[-1]
+        weeks_out = []
+        for w_idx, last_cell in enumerate(last["weeks"]):
+            first_cell = members[0]["weeks"][w_idx]
+            used_total = sum(m["weeks"][w_idx]["used_raw"] for m in members)
+            incoming = next((m["weeks"][w_idx]["incoming"] for m in members if m["weeks"][w_idx]["incoming"]), None)
+            weeks_out.append({
+                "value": last_cell["value"],
+                "is_ok": last_cell["is_ok"],
+                "incoming": incoming,
+                "week_title": last_cell["week_title"],
+                "before": first_cell["before"],
+                "after": last_cell["after"],
+                "used_total": page.fmt(used_total, is_w),
+                "breakdown": [{"parent": m["parent_sku"], "used": m["weeks"][w_idx]["used"]} for m in members],
+            })
+        eight_week_total = sum(m["weeks"][w]["used_raw"] for m in members for w in range(len(last["weeks"])))
+        merged.append({
+            "first": True,
+            "span": 1,
+            "component_sku": comp,
+            "component_name": members[0]["component_name"],
+            "source": members[0]["source"],
+            "parents": [{"sku": m["parent_sku"], "per": m["per_unit"]} for m in members],
+            "products_total": page.fmt(eight_week_total, is_w),
+            "supplier": members[0]["supplier"],
+            "stock": members[0]["stock"],
+            "final": last["final"],
+            "final_ok": last["final_ok"],
+            "status_label": last["status_label"],
+            "status_css": last["status_css"],
+            "alt": members[0]["alt"],
+            "weeks": weeks_out,
+        })
+    lines = merged
     return {"lines": lines, "parent_unit": parent_unit, "shown": len(keep), "total": len(bom_records)}
 
 
@@ -404,6 +477,18 @@ def _simulator(request, screen: str, kind: str):
         return _simulator_get(page, request, screen, kind)
 
 
+def _where_used_csv(where_used: dict, screen: str):
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="{screen}-components.csv"'
+    writer = csv.writer(response)
+    writer.writerow(["Component", "Parent", "Supplier", "Per 1", "Stock", "Cum. balance", "Status"])
+    for line in where_used["lines"]:
+        writer.writerow([line["component_sku"], ", ".join(p["sku"] for p in line["parents"]), line["supplier"],
+                         "; ".join(f'{p["sku"]} {p["per"]}' for p in line["parents"]),
+                         line["stock"], line["final"], line["status_label"]])
+    return response
+
+
 def _simulator_get(page: Page, request, screen: str, kind: str):
     L = page.L
     if kind == "production":
@@ -439,6 +524,9 @@ def _simulator_get(page: Page, request, screen: str, kind: str):
 
     sched_for_planner = sched.copy()
     schedule_review = page.pending(f"{PENDING_SCHEDULE}_{screen}")
+    wu = _where_used(page, sched, bom, page.u_label if kind == "packaging" else parent_unit, search, child, parent)
+    if request.GET.get("export") == "csv":
+        return _where_used_csv(wu, screen)
     return page.render(
         "erp/simulator.html",
         title=title,
@@ -448,7 +536,8 @@ def _simulator_get(page: Page, request, screen: str, kind: str):
         planner=_planner_context(page, sched_for_planner, parent_unit),
         weekly_table=_weekly_table(sched, parent_unit),
         schedule_review=_review_rows(schedule_review),
-        where_used=_where_used(page, sched, bom, page.u_label if kind == "packaging" else parent_unit, search, child, parent),
+        where_used=wu,
+        month_groups=_month_groups(page.periods),
         weeks=[{"code": p[0], "month": p[1], "label": p[2]} for p in page.periods],
         filter_children=[{"sku": s, "label": f"{s} - {n}"} for s, n in bom.drop_duplicates("component_sku")[["component_sku", "comp_name"]].values],
         filter_parents=[{"sku": s, "label": f"{s} - {n}"} for s, n in sched[["sku", "parent_name"]].drop_duplicates().values],
@@ -463,6 +552,16 @@ def _simulator_get(page: Page, request, screen: str, kind: str):
         screen_name=screen,
         here=request.get_full_path(),
     )
+
+
+@login_required
+def production_planning(request):
+    """One page for all production planning. ?view= picks the tab: production, packaging or master_work."""
+    if not request.user.has_perm("erp.view_production_planning"):
+        raise PermissionDenied
+    handlers = {"production": production, "packaging": packaging, "master_work": master_work}
+    view = request.GET.get("view", "production")
+    return handlers.get(view, production)(request)
 
 
 @login_required
@@ -562,10 +661,105 @@ def bom(request):
     if request.method == "POST":
         with Page(request, "bom", edit=True) as page:
             return _bom_save(page, request)
+    mode = request.GET.get("mode", "list")
+    if mode == "list":
+        with Page(request, "bom") as page:
+            return _bom_list(page)
     with Page(request, "bom") as page:
-        return _bom_render(page, request, request.GET.get("mode", "existing"), request.GET.get("parent", ""),
+        return _bom_render(page, request, mode, request.GET.get("parent", ""),
                            request.GET.get("new_sku", ""), request.GET.get("new_name", ""),
                            request.GET.get("new_type", "BULK"), None)
+
+
+def _bom_list(page: Page):
+    """Every parent product (BULK and FG) with its stock and tree size. Each row opens its tree page."""
+    L = page.L
+    catalog = pd.read_sql("SELECT sku, name, item_type, qty_units, weight_grams FROM Catalog", page.conn)
+    counts = dict(page.conn.execute("SELECT parent_sku, COUNT(*) FROM BOM GROUP BY parent_sku").fetchall())
+    parents = catalog[catalog["item_type"].isin(PARENT_TYPES)].sort_values(["item_type", "sku"])
+    rows = []
+    for r in parents.itertuples():
+        is_w = r.item_type == "BULK"
+        stock = float((r.weight_grams if is_w else r.qty_units) or 0)
+        rows.append({
+            "sku": r.sku, "name": r.name or "", "type": r.item_type,
+            "stock": page.fmt(stock, is_w),
+            "components": int(counts.get(r.sku, 0)),
+            "url": reverse("bom_tree", args=[r.sku]),
+        })
+    return page.render(
+        "erp/bom_list.html",
+        title=L("עצי מוצר (BOM)", "Product trees (BOM)"),
+        subtitle=L("כל מוצרי האב. לחץ על \"פתח\" כדי לראות את המלאי והיחס של כל רכיב לאב.",
+                   "All parent products. Click Open to see each component's stock and its ratio to the parent."),
+        rows=rows,
+    )
+
+
+def _tree_lines(page: Page, parent_sku: str):
+    return page.conn.execute(
+        "SELECT b.component_sku, c.name, c.item_type, b.req_qty_units, b.req_weight_grams, c.qty_units, c.weight_grams "
+        "FROM BOM b LEFT JOIN Catalog c ON b.component_sku = c.sku WHERE b.parent_sku = ? ORDER BY b.rowid",
+        (parent_sku,),
+    ).fetchall()
+
+
+def _tree_rows(page: Page, parent_sku: str, parent_type: str, depth: int, seen: frozenset) -> list[dict]:
+    """Components of one parent. A BULK component also carries its own components (its raw materials),
+    one level down, so the FG tree can show the bulk and open it."""
+    L = page.L
+    parent_unit = L("ק\"ג", "kg") if parent_type == "BULK" else L("יח'", "units")
+    per = L(" לכל ק\"ג", " per kg") if parent_type == "BULK" else L(" ליחידה", " per unit")
+    rows = []
+    for comp_sku, comp_name, comp_type, req_u, req_g, stock_u, stock_g in _tree_lines(page, parent_sku):
+        is_w = comp_type in ("RAW", "BULK")
+        need = float((req_g if is_w else req_u) or 0)
+        stock = float((stock_g if is_w else stock_u) or 0)
+        covers = stock / need if need > 0 else None
+        children = None
+        if comp_type == "BULK" and depth < 2 and comp_sku not in seen:
+            children = _tree_rows(page, comp_sku, "BULK", depth + 1, seen | {comp_sku})
+        rows.append({
+            "sku": comp_sku, "name": comp_name or "?", "type": comp_type or "—",
+            "stock": page.fmt(stock, is_w),
+            "ratio": page.fmt(need, is_w) + per,
+            "covers": f"{covers:,.1f} {parent_unit}" if covers is not None else "—",
+            "covers_value": covers,
+            "children": children,
+            "url": reverse("bom_tree", args=[comp_sku]) if comp_type == "BULK" else "",
+        })
+    return rows
+
+
+@login_required
+def bom_tree(request, sku: str):
+    """One parent product: its components, with each bulk opening to its raw materials."""
+    with Page(request, "bom") as page:
+        L = page.L
+        catalog = pd.read_sql("SELECT sku, name, item_type, qty_units, weight_grams FROM Catalog", page.conn).set_index("sku")
+        if sku not in catalog.index or catalog.loc[sku, "item_type"] not in PARENT_TYPES:
+            raise Http404("not a parent product")
+        parent = catalog.loc[sku]
+        ptype = parent["item_type"]
+        parent_unit = L("ק\"ג", "kg") if ptype == "BULK" else L("יח'", "units")
+        rows = _tree_rows(page, sku, ptype, 0, frozenset({sku}))
+        values = [r["covers_value"] for r in rows if r["covers_value"] is not None]
+        bottleneck = min(values) if values else None
+        return page.render(
+            "erp/bom_tree.html",
+            title=f"{sku} · {parent['name'] or ''}",
+            subtitle=L("מלאי הרכיבים והיחס שלהם למוצר האב. בלק פתוח מציג את חומרי הגלם שלו.",
+                       "Component stock and each component's ratio to the parent. Open a bulk to see its raw materials."),
+            parent_sku=sku,
+            parent_type=ptype,
+            parent_stock=page.fmt(float((parent["weight_grams"] if ptype == "BULK" else parent["qty_units"]) or 0), ptype == "BULK"),
+            headers=[L('מק"ט', "SKU"), L("שם רכיב", "Component"), L("סוג", "Type"), L("מלאי נוכחי", "Stock on hand"),
+                     L("יחס לאב", "Ratio to parent"), L("מספיק ל", "Enough for")],
+            rows=rows,
+            components_count=len(rows),
+            bottleneck=f"{bottleneck:,.1f} {parent_unit}" if bottleneck is not None else "—",
+            edit_url=reverse("bom") + f"?mode=existing&parent={sku}",
+        )
 
 
 def _bom_save(page: Page, request):
@@ -653,6 +847,12 @@ def _bom_render(page: Page, request, mode: str, parent_sku: str, new_sku: str, n
     allowed = allowed_component_types(parent_type)
     options = [{"sku": r.sku, "label": f"{r.sku} - {r.name}"} for r in catalog[catalog["item_type"].isin(allowed)].itertuples()]
     rows = current + [{"component_sku": "", "quantity": None} for _ in range(BOM_NEW_ROWS)]
+    for r in rows:
+        r["comp_type"] = types.get(r.get("component_sku") or "", "")
+    filled_count = sum(1 for r in rows if r.get("component_sku"))
+    raw_count = sum(1 for r in rows if r.get("comp_type") == "RAW")
+    bulk_count = sum(1 for r in rows if r.get("comp_type") == "BULK")
+    pkg_count = sum(1 for r in rows if r.get("comp_type") == "PKG")
     return page.render(
         "erp/bom.html",
         title=L("עצי מוצר (BOM)", "Product trees (BOM)"),
@@ -662,10 +862,16 @@ def _bom_render(page: Page, request, mode: str, parent_sku: str, new_sku: str, n
         ),
         mode=mode,
         parents=[{"sku": r.sku, "label": f"{r.sku} - {r.name}"} for r in parents.itertuples()],
+        has_parents=not parents.empty,
         parent_sku=parent_sku,
         parent_name=parent_name,
         parent_type=parent_type,
         rows=rows,
+        filled_count=filled_count,
+        raw_count=raw_count,
+        bulk_count=bulk_count,
+        pkg_count=pkg_count,
+        parent_count=len(parents),
         row_count=len(rows),
         options=options,
         new_sku=new_sku,
