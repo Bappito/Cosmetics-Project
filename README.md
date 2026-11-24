@@ -4,10 +4,6 @@ A web app for a cosmetics manufacturing company. It brings stock, purchasing, pr
 
 The interface supports Hebrew (right-to-left) and English (left-to-right). Users sign in, and what they can see and change depends on their role.
 
-## Online access
-
-The app is not hosted yet. It currently runs only on the computer where it is started, at http://127.0.0.1:8000/.
-
 When it is deployed, the address will be added here:
 
 **Online address:** _not deployed yet_
