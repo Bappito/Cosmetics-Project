@@ -8,7 +8,7 @@ The interface supports Hebrew (right-to-left) and English (left-to-right). Users
 
 The app runs on PythonAnywhere (free plan). Address: **https://YOUR_USERNAME.pythonanywhere.com/** (replace `YOUR_USERNAME` with the PythonAnywhere account name).
 
-The setup steps are in [Hosting on PythonAnywhere](#hosting-on-pythonanywhere). Locally the app still runs at http://127.0.0.1:8000/.
+The setup steps are in [Hosting on PythonAnywhere](#hosting-on-pythonanywhere). Locally the app still runs at http://localhost:8000/.
 
 ## Features
 
@@ -43,7 +43,7 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-Then open http://127.0.0.1:8000/ and sign in with the superuser account.
+Then open http://localhost:8000/ and sign in with the superuser account.
 
 The app uses two SQLite files:
 
@@ -61,7 +61,7 @@ Settings are read from environment variables:
 
 ## Users and roles
 
-Assign roles in the admin at http://127.0.0.1:8000/admin/ under **Groups**. Every screen has a view and an edit permission. Three default groups are created:
+Assign roles in the admin at http://localhost:8000/admin/ under **Groups**. Every screen has a view and an edit permission. Three default groups are created:
 
 - **Admin:** every screen, including profit.
 - **Warehouse:** the dashboard, warehouses, the purchase order list, stock summary, shipments, purchase orders, and their own scenarios.
