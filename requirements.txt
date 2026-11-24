@@ -1,3 +1,5 @@
 pandas
 openpyxl
 django>=5.2,<6
+gunicorn
+whitenoise
