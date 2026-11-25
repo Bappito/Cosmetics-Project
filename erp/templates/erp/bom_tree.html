@@ -33,53 +33,63 @@
   </div>
 </section>
 
-<section class="block">
-  <h2>{% if is_he %}רכיבים ויחס לאב{% else %}Components and ratio to parent{% endif %}</h2>
-  {% if rows %}
-  <div class="table-wrap"><table>
-    <thead><tr>{% for h in headers %}<th>{{ h }}</th>{% endfor %}</tr></thead>
-    <tbody>
-    {% for r in rows %}
-      <tr>
-        <td><span class="code">{{ r.sku }}</span></td>
-        <td>
-          {{ r.name }}
-          {% if r.children is not None %}
-          <details class="bom-sub">
-            <summary>{% if is_he %}חומרי הגלם של הבלק ({{ r.children|length }}){% else %}Raw materials of this bulk ({{ r.children|length }}){% endif %}</summary>
-            <div class="bom-nested">
-              <table class="bom-nested-table">
-                <thead><tr><th>{% if is_he %}מק"ט{% else %}SKU{% endif %}</th><th>{% if is_he %}שם חומר{% else %}Material{% endif %}</th><th>{% if is_he %}סוג{% else %}Type{% endif %}</th><th>{% if is_he %}מלאי נוכחי{% else %}Stock on hand{% endif %}</th><th>{% if is_he %}יחס לבלק{% else %}Ratio to bulk{% endif %}</th><th>{% if is_he %}מספיק ל{% else %}Enough for{% endif %}</th></tr></thead>
-                <tbody>
-                {% for c in r.children %}
-                  <tr>
-                    <td><span class="code">{{ c.sku }}</span></td>
-                    <td>{{ c.name }}</td>
-                    <td><span class="type-badge type-{{ c.type|lower }}">{{ c.type }}</span></td>
-                    <td class="num">{{ c.stock|safe }}</td>
-                    <td class="num">{{ c.ratio|safe }}</td>
-                    <td class="num">{{ c.covers }}</td>
-                  </tr>
-                {% empty %}
-                  <tr><td colspan="6" class="muted">{% if is_he %}לבלק הזה אין רכיבים עדיין.{% else %}This bulk has no components yet.{% endif %}</td></tr>
-                {% endfor %}
-                </tbody>
-              </table>
-              <a class="open-btn" href="{{ r.url }}">{% if is_he %}פתח עץ בלק{% else %}Open bulk tree{% endif %}</a>
+<section class="tree-card">
+  <header class="tree-root">
+    <span class="code">{{ parent_sku }}</span>
+    <strong>{{ parent_name }}</strong>
+  </header>
+
+  {% for branch in branches %}
+  <div class="tree-branch">
+    <div class="tree-branch-title">
+      <span>{{ branch.label }}</span>
+      <span class="tree-count">{{ branch.rows|length }}</span>
+    </div>
+
+    <div class="tree-head" aria-hidden="true">
+      <span>{% if is_he %}מק"ט{% else %}SKU{% endif %}</span>
+      <span>{% if is_he %}שם{% else %}Name{% endif %}</span>
+      <span>{% if is_he %}סוג{% else %}Type{% endif %}</span>
+      <span>{% if is_he %}יחס לאב{% else %}Ratio{% endif %}</span>
+      <span>{% if is_he %}מלאי{% else %}Stock{% endif %}</span>
+      <span>{% if is_he %}מספיק ל{% else %}Enough for{% endif %}</span>
+    </div>
+
+    <ul class="tree">
+      {% for r in branch.rows %}
+      <li class="tree-node">
+        <div class="tree-row">
+          <span class="code">{{ r.sku }}</span>
+          <span class="tree-name">{{ r.name }}</span>
+          <span><span class="type-badge type-{{ r.type|lower }}">{{ r.type }}</span></span>
+          <span class="tree-num">{{ r.ratio|safe }}</span>
+          <span class="tree-num">{{ r.stock|safe }}</span>
+          <span class="tree-num">{{ r.covers }}</span>
+        </div>
+        {% if r.children is not None %}
+        <ul class="tree tree-children">
+          {% for c in r.children %}
+          <li class="tree-node tree-leaf">
+            <div class="tree-row">
+              <span class="code">{{ c.sku }}</span>
+              <span class="tree-name">{{ c.name }}</span>
+              <span><span class="type-badge type-{{ c.type|lower }}">{{ c.type }}</span></span>
+              <span class="tree-num">{{ c.ratio|safe }}</span>
+              <span class="tree-num">{{ c.stock|safe }}</span>
+              <span class="tree-num">{{ c.covers }}</span>
             </div>
-          </details>
-          {% endif %}
-        </td>
-        <td><span class="type-badge type-{{ r.type|lower }}">{{ r.type }}</span></td>
-        <td class="num">{{ r.stock|safe }}</td>
-        <td class="num">{{ r.ratio|safe }}</td>
-        <td class="num">{{ r.covers }}</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table></div>
-  {% else %}
+          </li>
+          {% empty %}
+          <li class="tree-node tree-leaf tree-empty">{% if is_he %}לבלק הזה אין רכיבים עדיין.{% else %}This bulk has no components yet.{% endif %}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% empty %}
   <p class="muted">{% if is_he %}לעץ הזה אין רכיבים עדיין.{% else %}This tree has no components yet.{% endif %}</p>
-  {% endif %}
+  {% endfor %}
 </section>
 {% endblock %}

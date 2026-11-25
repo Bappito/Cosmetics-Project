@@ -38,7 +38,7 @@ def _warehouses(page: Page):
         ("RAW", page.L("1. מחסן חומר גלם (RAW)", "1. Raw materials WH")),
         ("BULK", page.L("2. מחסן בלקים - חומר שהוכן (BULK)", "2. Bulks WH")),
         ("PKG", page.L("3. מחסן אריזות (PKG)", "3. Packaging WH")),
-        ("COL", page.L("4. מחסן צבעים (שיער)", "4. Colours WH (hair)")),
+        ("FG", page.L("4. מחסן חומר מוכן (מוצר סופי)", "4. Ready material WH (finished goods)")),
     ]
 
 
@@ -53,10 +53,8 @@ TABS = [
 
 
 def _subset(df_cat: pd.DataFrame, wh: str) -> pd.DataFrame:
-    if wh == "COL":
-        return df_cat[(df_cat["item_type"] == "RAW") & (df_cat["primary_warehouse"] == "WH_COLOR")]
     if wh == "RAW":
-        return df_cat[(df_cat["item_type"] == "RAW") & (df_cat["primary_warehouse"] != "WH_COLOR")]
+        return df_cat[df_cat["item_type"] == "RAW"]
     return df_cat[df_cat["item_type"] == wh]
 
 
@@ -269,7 +267,7 @@ def inventory(request):
 
 def _params(request):
     wh = request.GET.get("wh", "RAW")
-    if wh not in ("RAW", "BULK", "PKG", "COL"):
+    if wh not in ("RAW", "BULK", "PKG", "FG"):
         wh = "RAW"
     tab = request.GET.get("tab", "stock")
     if tab not in [t[0] for t in TABS]:
@@ -347,7 +345,7 @@ def _catalog_action(page: Page, action: str, cat: pd.DataFrame) -> None:
 def _count_action(page: Page, action: str, cat: pd.DataFrame, wh: str, types: dict) -> None:
     if action == "review":
         df_wh = _subset(cat, wh)
-        is_w = wh in ("RAW", "BULK", "COL")
+        is_w = wh in ("RAW", "BULK")
         rows = _count_rows(page, df_wh, is_w)
         changed, invalid = _parse_count_post(page, page.request.POST, rows, is_w)
         if invalid:
@@ -465,7 +463,7 @@ def _render(page: Page, request, wh: str, tab: str, query: str):
     if wh == "BULK":
         # Bulk names start with "בלק" in the data; drop that prefix on this screen only.
         df_wh = df_wh.assign(name=df_wh["name"].astype(str).str.replace(r"^בלק\s+", "", regex=True))
-    is_w = wh in ("RAW", "BULK", "COL")
+    is_w = wh in ("RAW", "BULK")
     po_open = pd.read_sql(
         "SELECT * FROM PurchaseOrders WHERE status NOT IN ('Received','Cancelled') ORDER BY eta_date ASC", page.conn
     )

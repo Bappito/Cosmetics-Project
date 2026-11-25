@@ -575,3 +575,124 @@ th.sortable[data-sort="desc"]::after { content: " ▼"; opacity: .8; }
 .prr-table td.prr-red .prr-value, .prr-table td.prr-yellow .prr-value { color: var(--danger); }
 .prr-table td.prr-yellow .prr-value { color: var(--warning); }
 .prr-table td.prr-green .prr-value { color: var(--success); }
+
+/* Product tree: root product, then a packaging branch and a material branch */
+.tree-root { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px; }
+.tree-root-name { font-size: 16px; padding-bottom: 12px; border-bottom: 2px solid var(--primary-soft); margin-bottom: 8px; }
+.tree-branch { margin-top: 10px; }
+.tree-branch-title { font-weight: 700; color: var(--primary-text); margin: 6px 0; }
+.tree { list-style: none; margin: 0; padding: 0; }
+.tree-node { border-inline-start: 2px solid var(--border); padding: 6px 0 6px 12px; margin-inline-start: 6px; }
+.tree-children { margin-top: 6px; margin-inline-start: 22px; }
+.tree-children > .tree-node { border-inline-start-color: var(--primary-soft); }
+.tree-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.tree-meta { color: var(--muted); font-size: 13px; }
+.tree-leaf .tree-row span:nth-child(2) { font-weight: 600; }
+
+/* ---------- Refinement layer (design pass) ----------
+   Tabular numbers for data, theme for browser defaults (selection, focus, scrollbars),
+   press feedback on buttons, one restrained entrance, and reduced-motion support.
+   Colours come from the existing tokens, so light and dark themes both follow. */
+
+:root { --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1); }
+
+html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+h1, h2, h3 { letter-spacing: -0.02em; text-wrap: balance; }
+p { text-wrap: pretty; }
+
+td.num, th.num, .metric-value, .grid-count, .cell-main, .prr-value, .bom-count {
+  font-variant-numeric: tabular-nums;
+}
+table td, table th { font-variant-numeric: tabular-nums; }
+
+::selection { background: var(--primary-soft); color: var(--primary-text); }
+
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 6px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--primary); outline-offset: 0; border-color: var(--primary);
+}
+
+* { scrollbar-color: var(--border) transparent; scrollbar-width: thin; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; border: 3px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: padding-box; }
+::-webkit-scrollbar-track { background: transparent; }
+
+button, .btn-primary, .btn-ghost, .seg, .open-btn, .grid-export, .btn-export, .pill-btn {
+  transition: transform 160ms var(--ease-out-strong), background-color 180ms ease, color 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+button:active:not(:disabled), .btn-primary:active, .btn-ghost:active, .open-btn:active, .btn-export:active, .grid-export:active {
+  transform: scale(0.97);
+}
+.btn-primary:hover { box-shadow: 0 4px 14px rgba(37, 99, 235, .25); }
+.btn-ghost:hover, .seg:hover, .grid-export:hover, .btn-export:hover { border-color: var(--muted); }
+button:disabled, .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+tbody tr { transition: background-color 140ms ease; }
+tbody tr:hover td { background: var(--surface-2); }
+
+.metric { transition: box-shadow 200ms ease, border-color 200ms ease; }
+.metric:hover { border-color: var(--border); box-shadow: 0 6px 20px rgba(15, 23, 42, .06); }
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.metrics > .metric, .dash-grid > .block, .table-card {
+  animation: rise-in 260ms var(--ease-out-strong) both;
+}
+.dash-grid > .block:nth-child(2) { animation-delay: 40ms; }
+.dash-grid > .block:nth-child(3) { animation-delay: 80ms; }
+.dash-grid > .block:nth-child(4) { animation-delay: 120ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-delay: 0ms !important; transition-duration: 1ms !important; scroll-behavior: auto !important; }
+}
+
+/* ---------- Stat cards and dashboard tables (second pass) ----------
+   Label and value share one left-aligned column; the coloured icon chip sits at the
+   reading end, aligned with the label. Dashboard tables are denser, so more rows fit. */
+.metric { padding: 18px 20px 16px; display: flex; flex-direction: column; gap: 6px; }
+.metric::after { inset-inline-start: auto; inset-inline-end: 18px; top: 16px; width: 34px; height: 34px; border-radius: 10px; }
+.metric-label { padding-inline-start: 0; padding-inline-end: 52px; font-size: 13px; line-height: 1.35; }
+.metric-value { margin-top: 0; font-size: 28px; line-height: 1.1; }
+
+.dash-grid .table-wrap { max-height: 320px; }
+.dash-grid th, .dash-grid td { padding: 8px 10px; font-size: 13px; }
+.dash-grid .table-toolbar, .dash-grid .grid-bar { margin-bottom: 8px; }
+.dash-grid .grid-title { font-size: 15px; }
+.dash-grid .grid-tools .grid-searchbox .grid-search { width: 180px; }
+
+/* ---------- Product tree page: aligned columns ---------- */
+.tree-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 0 0 8px; overflow: hidden; }
+.tree-root { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--surface-2); font-size: 16px; }
+.tree-branch { padding: 12px 20px 4px; }
+.tree-branch + .tree-branch { border-top: 1px solid var(--border); margin-top: 8px; }
+.tree-branch-title { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; color: var(--text); margin-bottom: 6px; }
+.tree-count { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--primary-soft); color: var(--primary-text); font-size: 12px; font-weight: 700; }
+
+.tree-head, .tree-row {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1.6fr) 84px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  column-gap: 14px;
+}
+.tree-head { padding: 6px 0; color: var(--muted); font-size: 12px; font-weight: 600; border-bottom: 1px solid var(--border); }
+.tree { list-style: none; margin: 0; padding: 0; }
+.tree-node { border-bottom: 1px solid var(--border); }
+.tree-node:last-child { border-bottom: none; }
+.tree-row { padding: 10px 0; font-size: 13.5px; }
+.tree-name { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree-num { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text); }
+.tree-children { margin: 0 0 8px; padding-inline-start: 26px; border-inline-start: 2px solid var(--primary-soft); margin-inline-start: 12px; }
+.tree-children .tree-node { border-bottom: 1px dashed var(--border); }
+.tree-children .tree-row { font-size: 13px; padding: 7px 0; }
+.tree-children .tree-name { font-weight: 500; color: var(--text); }
+.tree-empty { padding: 8px 0; color: var(--muted); font-size: 13px; }
+
+@media (max-width: 900px) {
+  .tree-head { display: none; }
+  .tree-row { grid-template-columns: auto 1fr auto; row-gap: 4px; }
+  .tree-row .tree-num { justify-self: start; }
+  .tree-row .tree-num:nth-of-type(1) { grid-column: 2; }
+}

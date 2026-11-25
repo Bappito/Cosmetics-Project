@@ -38,6 +38,12 @@
   </nav>
 
   <div class="sidebar-foot">
+    {% if perms.erp.edit_dashboard %}
+    <a href="{% url 'menu_order' %}" class="nav-item">
+      <span class="nav-icon">{{ "chevron-right"|icon }}</span>
+      <span class="nav-label">{% if lang == 'he' %}סדר התפריט{% else %}Menu order{% endif %}</span>
+    </a>
+    {% endif %}
     <div class="settings-row">
       <form method="post" action="{% url 'set_language' other_lang %}">
         {% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">

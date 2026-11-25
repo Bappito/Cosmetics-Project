@@ -62,8 +62,21 @@
         </td>
         <td>{{ r.supplier }}</td>
         {% for c in r.weeks %}
-          <td class="{{ c.css }}" title="{{ c.title }}">
-            {% if c.status == "none" %}<span class="muted">—</span>{% else %}<span class="prr-value">{{ c.value|safe }}</span>{% endif %}
+          <td class="{{ c.css }}">
+            {% if c.status == "none" %}<span class="muted">—</span>{% else %}
+            <details class="cell-details">
+              <summary><span class="prr-value">{{ c.value|safe }}</span>{% if c.incoming %}<span class="cell-sub">+{{ c.incoming_text|safe }}</span>{% endif %}</summary>
+              <div class="cell-breakdown">
+                <div class="cell-title">{{ r.sku }} · {{ c.week_label }}</div>
+                {% for b in c.breakdown %}<div>{{ b.parent }}: <b>{{ b.used|safe }}</b></div>{% endfor %}
+                <div>{% if is_he %}סה"כ נדרש השבוע{% else %}Total needed this week{% endif %}: <b>{{ c.used_text|safe }}</b></div>
+                <div>{% if is_he %}לפני השימוש{% else %}Before usage{% endif %}: <b>{{ c.before_text|safe }}</b></div>
+                <div>{% if is_he %}אחרי השימוש{% else %}After usage{% endif %}: <b>{{ c.value|safe }}</b></div>
+                {% if c.incoming %}<div class="incoming">{% if is_he %}הגעה צפויה{% else %}Expected arrival{% endif %}: <b>+{{ c.incoming_text|safe }}</b> ({{ c.incoming_pos }})</div>
+                {% else %}<div class="muted">{% if is_he %}אין הגעה צפויה{% else %}No arrival expected{% endif %}</div>{% endif %}
+              </div>
+            </details>
+            {% endif %}
           </td>
         {% endfor %}
         <td><span class="status-pill {{ r.status_css }}">{{ r.status_label }}</span></td>

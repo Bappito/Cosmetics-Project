@@ -4,11 +4,11 @@ A web app for a cosmetics manufacturing company. It brings stock, purchasing, pr
 
 The interface supports Hebrew (right-to-left) and English (left-to-right). Users sign in, and what they can see and change depends on their role.
 
-When it is deployed, the address will be added here:
+## Online access
 
-**Online address:** _not deployed yet_
+The app runs on PythonAnywhere (free plan). Address: **https://YOUR_USERNAME.pythonanywhere.com/** (replace `YOUR_USERNAME` with the PythonAnywhere account name).
 
-To deploy, set `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=0` and `DJANGO_ALLOWED_HOSTS` (see [Settings](#settings)), serve the app with gunicorn behind HTTPS, and change the admin password first. Do not expose the local server to the internet as it is.
+The setup steps are in [Hosting on PythonAnywhere](#hosting-on-pythonanywhere). Locally the app still runs at http://localhost:8000/.
 
 ## Features
 
@@ -43,7 +43,7 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-Then open http://127.0.0.1:8000/ and sign in with the superuser account.
+Then open http://localhost:8000/ and sign in with the superuser account.
 
 The app uses two SQLite files:
 
@@ -61,7 +61,7 @@ Settings are read from environment variables:
 
 ## Users and roles
 
-Assign roles in the admin at http://127.0.0.1:8000/admin/ under **Groups**. Every screen has a view and an edit permission. Three default groups are created:
+Assign roles in the admin at http://localhost:8000/admin/ under **Groups**. Every screen has a view and an edit permission. Three default groups are created:
 
 - **Admin:** every screen, including profit.
 - **Warehouse:** the dashboard, warehouses, the purchase order list, stock summary, shipments, purchase orders, and their own scenarios.
@@ -196,13 +196,42 @@ The tests use temporary databases and do not touch `cosmetics_3sim_erp.db`.
 - The quick command is rule-based and does not call any external AI service.
 - Treat the seeded data as demonstration data and take database backups before using real operational records.
 
-## Settings for hosting
+## Hosting on PythonAnywhere
 
-```bash
-DJANGO_SECRET_KEY=... DJANGO_DEBUG=0 DJANGO_ALLOWED_HOSTS=erp.example.com python manage.py runserver 0.0.0.0:8000
-```
+Replace `YOUR_USERNAME` everywhere below with your PythonAnywhere username.
 
-Use a production WSGI server (for example gunicorn behind a reverse proxy with HTTPS) for real use.
+1. **Open a Bash console** (Consoles tab) and get the code from the `main` branch:
+   ```bash
+   git clone -b main https://github.com/Bappito/Cosmetics-Project.git
+   mkdir -p ~/erp-data
+   mkvirtualenv --python=python3.12 erp
+   pip install -r Cosmetics-Project/requirements.txt
+   cd Cosmetics-Project
+   python manage.py migrate
+   python manage.py collectstatic --noinput
+   python manage.py createsuperuser
+   ```
+2. **Create the secrets file** `~/erp_secrets.env` (the console has `nano`). Generate the key with `python -c "import secrets; print(secrets.token_urlsafe(50))"` and put it in:
+   ```text
+   DJANGO_SECRET_KEY=paste-the-generated-key
+   DJANGO_DEBUG=0
+   DJANGO_ALLOWED_HOSTS=YOUR_USERNAME.pythonanywhere.com
+   CSRF_TRUSTED_ORIGINS=https://YOUR_USERNAME.pythonanywhere.com
+   ERP_DB_PATH=/home/YOUR_USERNAME/erp-data/cosmetics_3sim_erp.db
+   ```
+3. **Create the web app** (Web tab > Add a new web app > Manual configuration > Python 3.12):
+   - **Source code:** `/home/YOUR_USERNAME/Cosmetics-Project`
+   - **Working directory:** `/home/YOUR_USERNAME/Cosmetics-Project`
+   - **Virtualenv:** `/home/YOUR_USERNAME/.virtualenvs/erp`
+   - **WSGI configuration file:** replace its contents with [`pythonanywhere/wsgi.py`](./pythonanywhere/wsgi.py) and set `USERNAME`.
+   - **Static files:** URL `/static/`, directory `/home/YOUR_USERNAME/Cosmetics-Project/staticfiles`.
+4. Press **Reload** on the Web tab and open `https://YOUR_USERNAME.pythonanywhere.com/`.
+
+Notes:
+- The business data is in `~/erp-data/cosmetics_3sim_erp.db`, and users are in `django.sqlite3` inside the project folder. Both stay when you reload or update the code.
+- To update the app: in the console run `cd Cosmetics-Project && git pull && python manage.py migrate && python manage.py collectstatic --noinput`, then press **Reload**.
+- The free plan needs a manual **Reload** about every three months, and it has CPU limits. Check the current limits on pythonanywhere.com.
+- Create your own admin password with `createsuperuser`. Do not use a simple password on a public address.
 
 ## Database notes
 
