@@ -96,23 +96,42 @@ def _kind_view(page: Page, kind: str):
         if row["parent_type"] == parent_type:
             last_index[row["component_sku"]] = idx
 
+    # Who needs each component each week, across all products (for the cell details).
+    usage: dict[str, list[list[dict]]] = defaultdict(lambda: [[] for _ in WEEKS])
+    total_used: dict[str, list[float]] = defaultdict(lambda: [0.0] * len(WEEKS))
+    for idx, row in enumerate(all_rows):
+        if row["parent_type"] != parent_type:
+            continue
+        is_w_row = row["comp_type"] in ("RAW", "BULK")
+        for w_i, cell in enumerate(result["cells"][idx]):
+            total_used[row["component_sku"]][w_i] += cell["used"]
+            if cell["used"] > 1e-9:
+                usage[row["component_sku"]][w_i].append({"parent": row["parent_sku"], "used": page.fmt(cell["used"], is_w_row)})
     counts = {READY: 0, COVERED: 0, SHORT: 0}
     out = []
     for sku, idx in last_index.items():
         row = all_rows[idx]
         is_w = row["comp_type"] in ("RAW", "BULK")
         weeks = []
-        for cell in result["cells"][idx]:
+        for w_i, cell in enumerate(result["cells"][idx]):
             if cell["status"] in counts:
                 counts[cell["status"]] += 1
+            inc = cell.get("incoming")
+            arriving = float(inc["amt"]) if inc else 0.0
+            # The last row's balance is after every product's use, so the week's need is the sum over all products.
+            need = total_used[sku][w_i]
+            before = cell["after"] + need - arriving
             weeks.append({
                 **cell,
                 "css": CELL_CLASS[cell["status"]],
                 "value": page.fmt(cell["after"], is_w),
-                "title": page.L(
-                    f"מלאי בלבד: {page.fmt(cell['stock_only'], is_w)} · נדרש: {page.fmt(cell['used'], is_w)}",
-                    f"Stock only: {page.fmt(cell['stock_only'], is_w)} · needed: {page.fmt(cell['used'], is_w)}",
-                ),
+                "week_label": page.periods[w_i][2],
+                "before_text": page.fmt(before, is_w),
+                "used_text": page.fmt(need, is_w),
+                "incoming_text": page.fmt(arriving, is_w) if inc else "",
+                "incoming_pos": ", ".join(inc["pos"]) if inc and isinstance(inc.get("pos"), list) else (inc or {}).get("pos", "") if inc else "",
+                "breakdown": usage[sku][w_i],
+                "title": "",
             })
         worst = min((w["status"] for w in weeks), key=SEVERITY.index)
         info = supply.get(sku, {"supplier": "", "alt_suppliers": "", "alt_skus": []})
