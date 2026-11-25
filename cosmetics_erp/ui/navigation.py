@@ -10,9 +10,8 @@ def initialize_session_state() -> None:
     if "lang" not in st.session_state:
         st.session_state.lang = "he"
     if "nav_collapsed" not in st.session_state:
-        st.session_state.nav_collapsed = True
+        st.session_state.nav_collapsed = False
     if "hover_sidebar_initialized" not in st.session_state:
-        st.session_state.nav_collapsed = True
         st.session_state.hover_sidebar_initialized = True
     if "active_page" not in st.session_state:
         st.session_state.active_page = "dash"
@@ -103,12 +102,37 @@ def render_sidebar(
             on_change=save_weight_unit,
             horizontal=True,
         )
+    _render_user_footer(ui, is_collapsed)
     use_kg = st.session_state.selected_weight_unit == "kg"
     return st.session_state.active_page, use_kg
 
 
+def _sign_out() -> None:
+    for key in ("authenticated", "user_name"):
+        st.session_state.pop(key, None)
+
+
+def _render_user_footer(ui: Mapping[str, str], is_collapsed: bool) -> None:
+    """Who is signed in, and a sign-out button, at the foot of the sidebar."""
+    name = st.session_state.get("user_name", "")
+    if name:
+        st.sidebar.markdown(
+            f"<div class='sign-out-name small muted'>{escape(name)}</div>",
+            unsafe_allow_html=True,
+        )
+    label = "Sign out" if ui["dir"] == "ltr" else "התנתק"
+    st.sidebar.button(
+        label,
+        icon=":material/logout:",
+        on_click=_sign_out,
+        key="sign_out_btn",
+        help=label,
+        width="stretch",
+    )
+
+
 def render_language_toggle(ui: Mapping[str, str]) -> None:
-    st.button(
+    st.sidebar.button(
         f":material/language: {ui['lang_btn']}",
         on_click=toggle_language,
         key="floating_lang_btn",
@@ -117,7 +141,7 @@ def render_language_toggle(ui: Mapping[str, str]) -> None:
 
 def render_theme_toggle(ui: Mapping[str, str]) -> None:
     is_dark = st.session_state.app_theme == "dark"
-    st.button(
+    st.sidebar.button(
         "",
         icon=":material/light_mode:" if is_dark else ":material/dark_mode:",
         help=(
