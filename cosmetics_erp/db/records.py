@@ -38,6 +38,13 @@ def create_record_tables(c: sqlite3.Cursor) -> None:
         ship_date TEXT DEFAULT '',
         status TEXT DEFAULT 'Planned'
     )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS Scenarios (
+        scenario_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        owner TEXT NOT NULL,
+        name TEXT NOT NULL,
+        shared INTEGER DEFAULT 0,
+        lines TEXT DEFAULT '[]'
+    )""")
 
 
 def seed_record_demo(conn: sqlite3.Connection) -> None:

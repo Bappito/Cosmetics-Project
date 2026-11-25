@@ -62,6 +62,9 @@ UI_TEXTS = {
         "m_wh": "ניהול הזמנות רכש (PO) ו-SAP",
         "m_batch": "מרשם אצוות ועקיבות (FEFO)",
         "m_ai": "סוכן פקודות מהיר",
+        "m_prr": "PRR: מוכנות פרויקט",
+        "m_records": "פרויקטים, מקטים חלופיים ומשלוחים",
+        "m_scen": "סימולטור אישי",
         "lang_btn": "EN | English",
         "unit_lbl": "יחידת משקל:",
         "kg": "ק\"ג (kg)", "g": "גרם (g)"
@@ -84,6 +87,9 @@ UI_TEXTS = {
         "m_wh": "Purchase Orders (PO) & SAP",
         "m_batch": "Batches & Traceability (FEFO)",
         "m_ai": "Quick Command Agent",
+        "m_prr": "PRR: project readiness",
+        "m_records": "Projects, alternative SKUs & shipments",
+        "m_scen": "My simulator",
         "lang_btn": "עב | עברית",
         "unit_lbl": "Weight Unit:",
         "kg": "kg", "g": "g"
@@ -101,6 +107,9 @@ def build_nav_items(ui: dict[str, str]) -> list[tuple[str, str, str, str]]:
         (ui["nav_planning"], "sim_prod", ":material/precision_manufacturing:", ui["m_sim_prod"]),
         (ui["nav_planning"], "sim_pack", ":material/inventory_2:", ui["m_sim_pack"]),
         (ui["nav_planning"], "sim_work", ":material/analytics:", ui["m_sim_work"]),
+        (ui["nav_planning"], "prr", ":material/checklist:", ui["m_prr"]),
+        (ui["nav_planning"], "scen", ":material/science:", ui["m_scen"]),
+        (ui["nav_inventory"], "records", ":material/folder_open:", ui["m_records"]),
         (ui["nav_operations"], "ai", ":material/terminal:", ui["m_ai"]),
         (ui["nav_operations"], "audit", ":material/history:", ui["m_audit"]),
     ]
