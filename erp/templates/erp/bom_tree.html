@@ -2,7 +2,6 @@
 
 {% block title %}{{ title }}{% endblock %}
 
-
 {% block content %}
 <div class="page-header">
   <div>
@@ -34,22 +33,38 @@
   </div>
 </section>
 
-<section class="tree-root">
-  <div class="tree-root-name"><span class="code">{{ parent_sku }}</span> <b>{{ parent_name }}</b></div>
+<section class="tree-card">
+  <header class="tree-root">
+    <span class="code">{{ parent_sku }}</span>
+    <strong>{{ parent_name }}</strong>
+  </header>
 
   {% for branch in branches %}
   <div class="tree-branch">
-    <div class="tree-branch-title">{{ branch.label }} <span class="muted small">({{ branch.rows|length }})</span></div>
+    <div class="tree-branch-title">
+      <span>{{ branch.label }}</span>
+      <span class="tree-count">{{ branch.rows|length }}</span>
+    </div>
+
+    <div class="tree-head" aria-hidden="true">
+      <span>{% if is_he %}מק"ט{% else %}SKU{% endif %}</span>
+      <span>{% if is_he %}שם{% else %}Name{% endif %}</span>
+      <span>{% if is_he %}סוג{% else %}Type{% endif %}</span>
+      <span>{% if is_he %}יחס לאב{% else %}Ratio{% endif %}</span>
+      <span>{% if is_he %}מלאי{% else %}Stock{% endif %}</span>
+      <span>{% if is_he %}מספיק ל{% else %}Enough for{% endif %}</span>
+    </div>
+
     <ul class="tree">
       {% for r in branch.rows %}
       <li class="tree-node">
         <div class="tree-row">
           <span class="code">{{ r.sku }}</span>
-          <b>{{ r.name }}</b>
-          <span class="type-badge type-{{ r.type|lower }}">{{ r.type }}</span>
-          <span class="tree-meta">{% if is_he %}יחס לאב:{% else %}Ratio:{% endif %} <b>{{ r.ratio|safe }}</b></span>
-          <span class="tree-meta">{% if is_he %}מלאי:{% else %}Stock:{% endif %} <b>{{ r.stock|safe }}</b></span>
-          <span class="tree-meta">{% if is_he %}מספיק ל:{% else %}Enough for:{% endif %} <b>{{ r.covers }}</b></span>
+          <span class="tree-name">{{ r.name }}</span>
+          <span><span class="type-badge type-{{ r.type|lower }}">{{ r.type }}</span></span>
+          <span class="tree-num">{{ r.ratio|safe }}</span>
+          <span class="tree-num">{{ r.stock|safe }}</span>
+          <span class="tree-num">{{ r.covers }}</span>
         </div>
         {% if r.children is not None %}
         <ul class="tree tree-children">
@@ -57,15 +72,15 @@
           <li class="tree-node tree-leaf">
             <div class="tree-row">
               <span class="code">{{ c.sku }}</span>
-              <span>{{ c.name }}</span>
-              <span class="type-badge type-{{ c.type|lower }}">{{ c.type }}</span>
-              <span class="tree-meta">{% if is_he %}יחס לבלק:{% else %}Ratio to bulk:{% endif %} <b>{{ c.ratio|safe }}</b></span>
-              <span class="tree-meta">{% if is_he %}מלאי:{% else %}Stock:{% endif %} <b>{{ c.stock|safe }}</b></span>
-              <span class="tree-meta">{% if is_he %}מספיק ל:{% else %}Enough for:{% endif %} <b>{{ c.covers }}</b></span>
+              <span class="tree-name">{{ c.name }}</span>
+              <span><span class="type-badge type-{{ c.type|lower }}">{{ c.type }}</span></span>
+              <span class="tree-num">{{ c.ratio|safe }}</span>
+              <span class="tree-num">{{ c.stock|safe }}</span>
+              <span class="tree-num">{{ c.covers }}</span>
             </div>
           </li>
           {% empty %}
-          <li class="tree-node tree-leaf muted small">{% if is_he %}לבלק הזה אין רכיבים עדיין.{% else %}This bulk has no components yet.{% endif %}</li>
+          <li class="tree-node tree-leaf tree-empty">{% if is_he %}לבלק הזה אין רכיבים עדיין.{% else %}This bulk has no components yet.{% endif %}</li>
           {% endfor %}
         </ul>
         {% endif %}

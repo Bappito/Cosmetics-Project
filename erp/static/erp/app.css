@@ -662,3 +662,37 @@ tbody tr:hover td { background: var(--surface-2); }
 .dash-grid .table-toolbar, .dash-grid .grid-bar { margin-bottom: 8px; }
 .dash-grid .grid-title { font-size: 15px; }
 .dash-grid .grid-tools .grid-searchbox .grid-search { width: 180px; }
+
+/* ---------- Product tree page: aligned columns ---------- */
+.tree-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 0 0 8px; overflow: hidden; }
+.tree-root { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--surface-2); font-size: 16px; }
+.tree-branch { padding: 12px 20px 4px; }
+.tree-branch + .tree-branch { border-top: 1px solid var(--border); margin-top: 8px; }
+.tree-branch-title { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; color: var(--text); margin-bottom: 6px; }
+.tree-count { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--primary-soft); color: var(--primary-text); font-size: 12px; font-weight: 700; }
+
+.tree-head, .tree-row {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1.6fr) 84px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  column-gap: 14px;
+}
+.tree-head { padding: 6px 0; color: var(--muted); font-size: 12px; font-weight: 600; border-bottom: 1px solid var(--border); }
+.tree { list-style: none; margin: 0; padding: 0; }
+.tree-node { border-bottom: 1px solid var(--border); }
+.tree-node:last-child { border-bottom: none; }
+.tree-row { padding: 10px 0; font-size: 13.5px; }
+.tree-name { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree-num { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text); }
+.tree-children { margin: 0 0 8px; padding-inline-start: 26px; border-inline-start: 2px solid var(--primary-soft); margin-inline-start: 12px; }
+.tree-children .tree-node { border-bottom: 1px dashed var(--border); }
+.tree-children .tree-row { font-size: 13px; padding: 7px 0; }
+.tree-children .tree-name { font-weight: 500; color: var(--text); }
+.tree-empty { padding: 8px 0; color: var(--muted); font-size: 13px; }
+
+@media (max-width: 900px) {
+  .tree-head { display: none; }
+  .tree-row { grid-template-columns: auto 1fr auto; row-gap: 4px; }
+  .tree-row .tree-num { justify-self: start; }
+  .tree-row .tree-num:nth-of-type(1) { grid-column: 2; }
+}
