@@ -648,3 +648,17 @@ tbody tr:hover td { background: var(--surface-2); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; animation-delay: 0ms !important; transition-duration: 1ms !important; scroll-behavior: auto !important; }
 }
+
+/* ---------- Stat cards and dashboard tables (second pass) ----------
+   Label and value share one left-aligned column; the coloured icon chip sits at the
+   reading end, aligned with the label. Dashboard tables are denser, so more rows fit. */
+.metric { padding: 18px 20px 16px; display: flex; flex-direction: column; gap: 6px; }
+.metric::after { inset-inline-start: auto; inset-inline-end: 18px; top: 16px; width: 34px; height: 34px; border-radius: 10px; }
+.metric-label { padding-inline-start: 0; padding-inline-end: 52px; font-size: 13px; line-height: 1.35; }
+.metric-value { margin-top: 0; font-size: 28px; line-height: 1.1; }
+
+.dash-grid .table-wrap { max-height: 320px; }
+.dash-grid th, .dash-grid td { padding: 8px 10px; font-size: 13px; }
+.dash-grid .table-toolbar, .dash-grid .grid-bar { margin-bottom: 8px; }
+.dash-grid .grid-title { font-size: 15px; }
+.dash-grid .grid-tools .grid-searchbox .grid-search { width: 180px; }
