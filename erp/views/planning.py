@@ -745,8 +745,16 @@ def bom_tree(request, sku: str):
         rows = _tree_rows(page, sku, ptype, 0, frozenset({sku}))
         values = [r["covers_value"] for r in rows if r["covers_value"] is not None]
         bottleneck = min(values) if values else None
+        # Two branches under the product: packaging, and the material (the bulk formula and its raw materials).
+        branches = [
+            {"label": L("אריזה", "Packaging"), "rows": [r for r in rows if r["type"] == "PKG"]},
+            {"label": L("חומר", "Material"), "rows": [r for r in rows if r["type"] != "PKG"]},
+        ]
+        branches = [b for b in branches if b["rows"]]
         return page.render(
             "erp/bom_tree.html",
+            branches=branches,
+            parent_name=parent["name"] or "",
             title=f"{sku} · {parent['name'] or ''}",
             subtitle=L("מלאי הרכיבים והיחס שלהם למוצר האב. בלק פתוח מציג את חומרי הגלם שלו.",
                        "Component stock and each component's ratio to the parent. Open a bulk to see its raw materials."),

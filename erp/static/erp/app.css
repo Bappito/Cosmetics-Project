@@ -575,3 +575,16 @@ th.sortable[data-sort="desc"]::after { content: " ▼"; opacity: .8; }
 .prr-table td.prr-red .prr-value, .prr-table td.prr-yellow .prr-value { color: var(--danger); }
 .prr-table td.prr-yellow .prr-value { color: var(--warning); }
 .prr-table td.prr-green .prr-value { color: var(--success); }
+
+/* Product tree: root product, then a packaging branch and a material branch */
+.tree-root { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px; }
+.tree-root-name { font-size: 16px; padding-bottom: 12px; border-bottom: 2px solid var(--primary-soft); margin-bottom: 8px; }
+.tree-branch { margin-top: 10px; }
+.tree-branch-title { font-weight: 700; color: var(--primary-text); margin: 6px 0; }
+.tree { list-style: none; margin: 0; padding: 0; }
+.tree-node { border-inline-start: 2px solid var(--border); padding: 6px 0 6px 12px; margin-inline-start: 6px; }
+.tree-children { margin-top: 6px; margin-inline-start: 22px; }
+.tree-children > .tree-node { border-inline-start-color: var(--primary-soft); }
+.tree-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.tree-meta { color: var(--muted); font-size: 13px; }
+.tree-leaf .tree-row span:nth-child(2) { font-weight: 600; }
