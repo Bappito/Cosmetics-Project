@@ -474,6 +474,32 @@ class ScenarioPrivacyTests(ScreenTestBase):
         self.assertTrue(self.Scenario.objects.filter(pk=scenario.pk).exists())
 
 
+class MenuOrderTests(ScreenTestBase):
+    def test_admin_moves_a_menu_item_up(self):
+        from erp.layout import saved_menu_order
+        before = [i['key'] for i in self.client.get('/').context['nav']]
+        target = before[2]
+        expected = list(before)
+        idx = expected.index(target)
+        expected[idx - 1], expected[idx] = expected[idx], expected[idx - 1]
+        self.client.post('/menu-order/', {'action': 'up', 'key': target})
+        after = [i['key'] for i in self.client.get('/').context['nav']]
+        self.assertEqual(after, expected)
+        self.assertEqual(saved_menu_order(), expected)
+
+    def test_reset_returns_default_order(self):
+        self.client.post('/menu-order/', {'action': 'up', 'key': 'purchase_orders'})
+        self.client.post('/menu-order/', {'action': 'reset'})
+        from erp.layout import saved_menu_order
+        self.assertEqual(saved_menu_order(), [])
+
+    def test_non_admin_cannot_change_the_menu(self):
+        Viewer = User.objects.create_user(username='viewer2', password='pw-test-123')
+        Viewer.groups.add(Group.objects.get(name='Viewer'))
+        self.client.login(username='viewer2', password='pw-test-123')
+        self.assertEqual(self.client.get('/menu-order/').status_code, 403)
+
+
 class OneLanguageNameTests(ScreenTestBase):
     def test_bom_tree_shows_only_the_page_language(self):
         self.client.post("/settings/language/en/")

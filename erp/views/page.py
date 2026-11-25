@@ -49,7 +49,8 @@ def nav_items(user, active: str, lang: str) -> list[dict]:
             "group": group,
             "icon": icon_name,
         })
-    return items
+    from erp.layout import saved_menu_order, sort_by_saved_order
+    return sort_by_saved_order(items, saved_menu_order())
 
 
 def nav_groups(items: list[dict], lang: str) -> list[dict]:

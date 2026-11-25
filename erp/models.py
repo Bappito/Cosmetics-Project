@@ -37,3 +37,13 @@ class Scenario(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+
+class LayoutSetting(models.Model):
+    """Small layout settings the admin can change, such as the order of the sidebar menu."""
+
+    key = models.CharField(max_length=60, unique=True)
+    value = models.JSONField(default=list, blank=True)
+
+    def __str__(self) -> str:
+        return self.key

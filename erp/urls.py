@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import batches, dashboard, inventory, operations, planning, purchasing, readiness, records, scenarios, stock
+from .views import batches, dashboard, inventory, layout, operations, planning, purchasing, readiness, records, scenarios, stock
 
 urlpatterns = [
     path("", dashboard.dashboard, name="dashboard"),
@@ -22,6 +22,7 @@ urlpatterns = [
     path("packaging/", planning.packaging, name="packaging"),
     path("master-work/", planning.master_work, name="master_work"),
     path("quick-command/", operations.quick_command, name="quick_command"),
+    path("menu-order/", layout.menu_order, name="menu_order"),
     path("audit/", operations.audit, name="audit"),
     path("prr/", readiness.prr, name="prr"),
     path("prr/export/", readiness.prr_export, name="prr_export"),
