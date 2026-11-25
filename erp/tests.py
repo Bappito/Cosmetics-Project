@@ -149,7 +149,7 @@ class ScreenTestBase(TestCase):
 class ScreensRenderTests(ScreenTestBase):
     PAGES = [
         "/", "/inventory/", "/inventory/?tab=po", "/inventory/?tab=sup", "/inventory/?tab=edit",
-        "/inventory/?tab=count", "/inventory/?tab=import&wh=BULK", "/inventory/?wh=PKG", "/inventory/?wh=COL",
+        "/inventory/?tab=count", "/inventory/?tab=import&wh=BULK", "/inventory/?wh=PKG", "/inventory/?wh=FG",
         "/po-list/", "/stock-summary/", "/projects/", "/alt-skus/", "/prr/?kind=packaging", "/prr/export/?kind=packaging&only=short", "/shipments/", "/scenarios/", "/production-planning/?view=packaging", "/purchase-orders/", "/mrp/", "/mrp/export/", "/batches/", "/batches/?tab=receipt",
         "/batches/?tab=trace", "/bom/", "/bom/tree/2001/", "/bom/?mode=new", "/production/", "/packaging/?view=bulk",
         "/packaging/?view=pkg", "/master-work/", "/quick-command/", "/audit/",
