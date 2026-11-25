@@ -1,0 +1,139 @@
+{% extends "erp/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ title }}</h1>
+  <p class="muted">{{ subtitle }}</p>
+</div>
+
+<section class="block">
+  <h2>{% if is_he %}הזמנות רכש פתוחות ושבוע ההגעה שלהן בסימולטורים{% else %}Open POs & arrival week in the simulators{% endif %}</h2>
+  {% if open_count %}
+  <form method="get" class="filter-row">
+    <input type="search" name="q" value="{{ q }}" placeholder="{% if is_he %}חיפוש הזמנה, מק\"ט או ספק{% else %}Search PO, SKU, or supplier{% endif %}">
+    <select name="status">
+      <option value="">{% if is_he %}כל הסטטוסים{% else %}All statuses{% endif %}</option>
+      {% for s in statuses %}<option value="{{ s }}"{% if s == status %} selected{% endif %}>{{ s }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="btn-primary inline">{% if is_he %}סנן{% else %}Filter{% endif %}</button>
+  </form>
+  <p class="muted small">{% if is_he %}מוצגות {{ open_rows|length }} מתוך {{ open_count }} הזמנות פתוחות{% else %}Showing {{ open_rows|length }} of {{ open_count }} open orders{% endif %}</p>
+  {% if open_rows %}
+  <div class="table-wrap"><table>
+    <thead><tr>
+      <th>{% if is_he %}מק"ט{% else %}SKU{% endif %}</th><th>{% if is_he %}פריט{% else %}Item{% endif %}</th>
+      <th>{% if is_he %}הזמנה{% else %}PO{% endif %}</th><th>{% if is_he %}ספק{% else %}Supplier{% endif %}</th>
+      <th>{% if is_he %}כמות{% else %}Qty{% endif %}</th><th>ETA</th>
+      <th>{% if is_he %}נכנס למאזן בשבוע{% else %}Counted in week{% endif %}</th><th>{% if is_he %}סטטוס{% else %}Status{% endif %}</th>
+    </tr></thead>
+    <tbody>
+    {% for r in open_rows %}
+      <tr><td>{{ r.sku }}</td><td>{{ r.name }}</td><td>{{ r.po_number }}</td><td>{{ r.supplier }}</td><td>{{ r.amount|safe }}</td><td>{{ r.eta }}</td><td>{{ r.week }}</td><td>{{ r.status }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <p class="muted">{% if is_he %}לא נמצאו הזמנות התואמות לסינון.{% else %}No orders match these filters.{% endif %}</p>
+  {% endif %}
+  {% else %}
+  <p class="muted">{% if is_he %}אין הזמנות רכש פתוחות.{% else %}No open purchase orders.{% endif %}</p>
+  {% endif %}
+</section>
+
+<section class="block">
+  <h2>{% if is_he %}עריכת הזמנות רכש{% else %}Edit purchase orders{% endif %}</h2>
+  {% if po_review %}
+    <div class="notice warning">
+      {% if is_he %}סקירת שינויים: {{ po_review.added|length }} נוספו, {{ po_review.changed|length }} עודכנו, {{ po_review.removed|length }} יימחקו.{% else %}Change review: {{ po_review.added|length }} added, {{ po_review.changed|length }} changed, {{ po_review.removed|length }} will be removed.{% endif %}
+      {% if po_review.removed %}<br>{% if is_he %}ההזמנות הבאות יימחקו:{% else %}The following POs will be deleted:{% endif %} {{ po_review.removed|join:", " }}{% endif %}
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>{% if is_he %}הזמנה{% else %}PO{% endif %}</th><th>{% if is_he %}מק"ט{% else %}SKU{% endif %}</th><th>{% if is_he %}ספק{% else %}Supplier{% endif %}</th><th>{% if is_he %}סטטוס{% else %}Status{% endif %}</th><th>ETA</th></tr></thead>
+      <tbody>{% for r in po_review.rows %}<tr><td>{{ r.po_number }}</td><td>{{ r.sku }}</td><td>{{ r.supplier }}</td><td>{{ r.status }}</td><td>{{ r.eta_date }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <form method="post" action="?" class="stack">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="po_confirm">
+      <label class="check"><input type="checkbox" name="confirmed" required> {% if is_he %}בדקתי את התצוגה המקדימה ואני מאשר/ת לשמור את השינויים.{% else %}I reviewed the preview and confirm these changes.{% endif %}</label>
+      <div class="actions"><button type="submit" class="btn-primary">{% if is_he %}אשר ושמור{% else %}Confirm and save{% endif %}</button></div>
+    </form>
+    <form method="post" action="?">{% csrf_token %}<input type="hidden" name="action" value="po_cancel"><button type="submit" class="btn-ghost">{% if is_he %}בטל{% else %}Cancel{% endif %}</button></form>
+  {% else %}
+    <form method="post" action="?">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="po_review">
+      <div class="table-wrap"><table class="editor">
+        <thead><tr>
+          <th>{% if is_he %}הזמנה{% else %}PO{% endif %}</th><th>{% if is_he %}מק"ט{% else %}SKU{% endif %}</th><th>{% if is_he %}ספק{% else %}Supplier{% endif %}</th>
+          <th>{% if is_he %}כמות יח'{% else %}Qty units{% endif %}</th><th>{% if is_he %}כמות משקל (גרם){% else %}Weight qty (g){% endif %}</th><th>{% if is_he %}מחיר{% else %}Unit price{% endif %}</th>
+          <th>{% if is_he %}תאריך הזמנה{% else %}Order date{% endif %}</th><th>ETA</th><th>{% if is_he %}מחסן יעד{% else %}Target WH{% endif %}</th>
+          <th>{% if is_he %}סטטוס{% else %}Status{% endif %}</th><th>{% if is_he %}מחק{% else %}Delete{% endif %}</th>
+        </tr></thead>
+        <tbody>
+        {% for r in editable %}{% with i=forloop.counter0 %}
+          <tr>
+            <td><input type="hidden" name="po_id_{{ i }}" value="{{ r.po_id }}"><input name="po_number_{{ i }}" value="{{ r.po_number }}"></td>
+            <td><input name="sku_{{ i }}" value="{{ r.sku }}"></td>
+            <td><input name="supplier_{{ i }}" value="{{ r.supplier }}"></td>
+            <td><span class="qty-wrap"><input name="order_qty_units_{{ i }}" value="{{ r.order_qty_units }}" inputmode="decimal"><span class="qty-unit">{{ u_label }}</span></span></td>
+            <td><span class="qty-wrap"><input name="order_weight_grams_{{ i }}" value="{{ r.order_weight_grams }}" inputmode="decimal"><span class="qty-unit">{% if is_he %}גרם{% else %}g{% endif %}</span></span></td>
+            <td><input name="unit_price_{{ i }}" value="{{ r.unit_price }}" inputmode="decimal"></td>
+            <td><input type="date" name="order_date_{{ i }}" value="{{ r.order_date }}"></td>
+            <td><input type="date" name="eta_date_{{ i }}" value="{{ r.eta_date }}"></td>
+            <td><input name="target_wh_{{ i }}" value="{{ r.target_wh }}"></td>
+            <td><select name="status_{{ i }}">{% for s in po_statuses %}<option value="{{ s }}"{% if s == r.status %} selected{% endif %}>{{ s }}</option>{% endfor %}</select></td>
+            <td><input type="checkbox" name="delete_{{ i }}" value="1"></td>
+          </tr>
+        {% endwith %}{% endfor %}
+        </tbody>
+      </table></div>
+      <input type="hidden" name="row_count" value="{{ editable|length }}">
+      <div class="actions"><button type="submit" class="btn-primary">{% if is_he %}בדוק שינויים בהזמנות{% else %}Review PO changes{% endif %}</button></div>
+    </form>
+  {% endif %}
+</section>
+
+<section class="block">
+  <h2>{% if is_he %}קבלת הזמנה למחסן (יוצר אצווה + תפוגה){% else %}Receive PO into warehouse (creates batch + expiry){% endif %}</h2>
+  {% if receipt_view %}
+    {% if receipt %}
+      <div class="notice warning">
+        {% if is_he %}קבלה לסקירה: {{ receipt.po_number }} · {{ receipt.sku }} · אצווה {{ receipt.batch }} · תפוגה {{ receipt.expiry|default:"ללא" }}{% else %}Receipt preview: {{ receipt.po_number }} · {{ receipt.sku }} · batch {{ receipt.batch }} · expiry {{ receipt.expiry|default:"none" }}{% endif %}
+      </div>
+      <form method="post" action="?" class="stack">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="receipt_confirm">
+        <label class="check"><input type="checkbox" name="confirmed" required> {% if is_he %}בדקתי את פרטי הקבלה ואני מאשר/ת לעדכן את המלאי.{% else %}I reviewed the receipt and confirm the stock update.{% endif %}</label>
+        <div class="actions"><button type="submit" class="btn-primary">{% if is_he %}אשר קבלה{% else %}Confirm receipt{% endif %}</button></div>
+      </form>
+      <form method="post" action="?">{% csrf_token %}<input type="hidden" name="action" value="receipt_cancel"><button type="submit" class="btn-ghost">{% if is_he %}בטל{% else %}Cancel{% endif %}</button></form>
+    {% else %}
+      <form method="get" class="filter-row">
+        <select name="po" onchange="this.form.submit()">{% for n in receipt_orders %}<option value="{{ n }}"{% if n == receipt_view.po_number %} selected{% endif %}>{{ n }}</option>{% endfor %}</select>
+        <noscript><button type="submit" class="btn-ghost">{% if is_he %}בחר{% else %}Select{% endif %}</button></noscript>
+      </form>
+      <div class="card stack">
+        <p class="muted small">{% if is_he %}כמות להזמנה: {{ receipt_view.amount_text|safe }} · יעד: {{ receipt_view.target_wh }}{% else %}Order quantity: {{ receipt_view.amount_text|safe }} · destination: {{ receipt_view.target_wh }}{% endif %}</p>
+        {% if not receipt_view.valid %}<div class="notice error">{% if is_he %}כמות ההזמנה חייבת להיות גדולה מאפס.{% else %}The order quantity must be greater than zero.{% endif %}</div>{% endif %}
+        <form method="post" action="?" class="stack">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="receipt_review">
+          <input type="hidden" name="po_number" value="{{ receipt_view.po_number }}">
+          <div class="grid-3">
+            <label>{% if is_he %}מספר אצווה (Batch #) מהספק{% else %}Supplier batch number{% endif %}
+              <input name="batch" value="{{ receipt_view.default_batch }}"></label>
+            <label>{% if is_he %}תאריך תפוגה{% else %}Expiry date{% endif %}
+              <input type="date" name="expiry" value="{{ receipt_view.default_expiry }}"></label>
+            <label class="check"><input type="checkbox" name="no_expiry" value="1"{% if receipt_view.no_expiry_default %} checked{% endif %}> {% if is_he %}ללא תפוגה{% else %}No expiry{% endif %}</label>
+          </div>
+          <div class="actions"><button type="submit" class="btn-primary"{% if not receipt_view.valid %} disabled{% endif %}>{% if is_he %}בדוק קבלה{% else %}Review receipt{% endif %}</button></div>
+        </form>
+      </div>
+    {% endif %}
+  {% else %}
+    <p class="muted">{% if is_he %}אין הזמנות רכש פתוחות לקבלה.{% else %}No open purchase orders to receive.{% endif %}</p>
+  {% endif %}
+</section>
+{% endblock %}

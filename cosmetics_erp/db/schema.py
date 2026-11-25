@@ -1,6 +1,4 @@
 import sqlite3
-
-from .connection import get_connection
 from datetime import datetime, timedelta
 
 
@@ -11,9 +9,8 @@ def _demo_reset_done(c) -> bool:
     return c.fetchone() is not None
 
 
-def init_db(conn: sqlite3.Connection | None = None):
+def init_db(conn: sqlite3.Connection):
     """Create the tables and the demo data if they are missing. Safe to run on every start."""
-    conn = conn or get_connection()
     c = conn.cursor()
 
     c.execute("""CREATE TABLE IF NOT EXISTS Catalog (

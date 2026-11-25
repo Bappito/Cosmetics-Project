@@ -1,0 +1,74 @@
+{% extends "erp/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ title }}</h1>
+  <p class="muted">{{ subtitle }}</p>
+</div>
+
+<section class="metrics">
+  <div class="metric">
+    <div class="metric-label">{% if is_he %}סה"כ הזמנות{% else %}Total orders{% endif %}</div>
+    <div class="metric-value">{{ total }}</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">{% if is_he %}הזמנות פתוחות{% else %}Open orders{% endif %}</div>
+    <div class="metric-value">{{ open_count }}</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">{% if is_he %}ספקים{% else %}Suppliers{% endif %}</div>
+    <div class="metric-value">{{ suppliers }}</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">{% if is_he %}מקטים ייחודיים{% else %}Unique SKUs{% endif %}</div>
+    <div class="metric-value">{{ skus }}</div>
+  </div>
+</section>
+
+<section class="table-card">
+  <div class="table-toolbar">
+    <h2>{% if is_he %}רשימת הזמנות ({{ shown }}){% else %}Order list ({{ shown }}){% endif %}</h2>
+    <form method="get" class="filter-row">
+      <input type="search" name="q" value="{{ q }}" placeholder="{% if is_he %}חיפוש הזמנה, מק\"ט, שם או ספק{% else %}Search PO, SKU, name or supplier{% endif %}">
+      <select name="status" onchange="this.form.submit()">
+        <option value="">{% if is_he %}כל הסטטוסים{% else %}All statuses{% endif %}</option>
+        {% for s in statuses %}<option value="{{ s }}"{% if s == status %} selected{% endif %}>{{ s }}</option>{% endfor %}
+      </select>
+      <noscript><button type="submit" class="btn-primary inline">{% if is_he %}סנן{% else %}Filter{% endif %}</button></noscript>
+    </form>
+  </div>
+
+  {% if rows %}
+  <div class="table-wrap table-flat"><table>
+    <thead><tr>
+      <th>{% if is_he %}מק"ט{% else %}SKU{% endif %}</th>
+      <th>{% if is_he %}שם פריט{% else %}Item{% endif %}</th>
+      <th>{% if is_he %}הזמנה{% else %}PO{% endif %}</th>
+      <th>{% if is_he %}ספק{% else %}Supplier{% endif %}</th>
+      <th>{% if is_he %}כמות{% else %}Qty{% endif %}</th>
+      <th>ETA</th>
+      <th>{% if is_he %}שבוע{% else %}Week{% endif %}</th>
+      <th>{% if is_he %}סטטוס{% else %}Status{% endif %}</th>
+    </tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td><span class="code">{{ r.sku }}</span></td>
+        <td>{{ r.name }}</td>
+        <td><span class="code">{{ r.po_number }}</span></td>
+        <td>{{ r.supplier }}</td>
+        <td class="num">{{ r.amount|safe }}</td>
+        <td>{{ r.eta }}</td>
+        <td>{{ r.week }}</td>
+        <td><span class="status-pill {% if r.is_open %}pill-open{% else %}pill-closed{% endif %}">{{ r.status }}</span></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <p class="muted">{% if is_he %}לא נמצאו הזמנות התואמות לסינון.{% else %}No orders match these filters.{% endif %}</p>
+  {% endif %}
+</section>
+{% endblock %}

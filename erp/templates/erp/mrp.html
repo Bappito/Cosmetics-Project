@@ -1,0 +1,34 @@
+{% extends "erp/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ title }}</h1>
+  <p class="muted">{{ subtitle }}</p>
+</div>
+
+{% if not has_suggestions %}
+  <div class="notice success">{% if is_he %}אין צורך ברכש נוסף לתוכנית הנוכחית.{% else %}No purchases needed for the current plan.{% endif %}</div>
+{% else %}
+<section class="block">
+  <h2>{% if is_he %}סיכום לפי חודש{% else %}Summary by month{% endif %}</h2>
+  <p class="muted small">{% if is_he %}להורדה לאקסל יש פירוט שבועי.{% else %}The Excel download has the weekly detail.{% endif %}</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>{% if is_he %}מק"ט{% else %}SKU{% endif %}</th><th>{% if is_he %}פריט{% else %}Item{% endif %}</th><th>{% if is_he %}חודש{% else %}Month{% endif %}</th><th>{% if is_he %}חסר בחודש{% else %}Short in month{% endif %}</th><th>{% if is_he %}להזמין בחודש{% else %}To order in month{% endif %}</th><th>{% if is_he %}ספק{% else %}Supplier{% endif %}</th></tr></thead>
+    <tbody>{% for r in table %}<tr><td>{{ r.sku }}</td><td>{{ r.name }}</td><td>{{ r.month }}</td><td>{{ r.short|safe }}</td><td>{{ r.order|safe }}</td><td>{{ r.supplier }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  <p><a class="btn-ghost" href="{% url 'mrp_export' %}">{% if is_he %}הורד לאקסל (שבועי){% else %}Download Excel (weekly){% endif %}</a></p>
+</section>
+
+<section class="block">
+  <p class="muted small">{% if is_he %}ההזמנות נוצרות כטיוטה עם תאריך הגעה בתחילת השבוע הנדרש. טיוטות נחשבות כהזמנות פתוחות, ולכן לא ייווצרו שוב בהרצה הבאה.{% else %}Drafts are created with an arrival date at the start of the needed week. Drafts count as open orders, so running this again will not duplicate them.{% endif %}</p>
+  <form method="post" action="{% url 'mrp' %}" class="stack">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="create">
+    <label class="check"><input type="checkbox" name="confirmed" required> {% if is_he %}בדקתי את ההצעות ואני מאשר/ת ליצור הזמנות טיוטה.{% else %}I reviewed the suggestions and confirm creating draft orders.{% endif %}</label>
+    <div class="actions"><button type="submit" class="btn-primary">{% if is_he %}צור הזמנות טיוטה{% else %}Create draft POs{% endif %}</button></div>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

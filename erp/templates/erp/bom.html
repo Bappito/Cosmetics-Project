@@ -1,0 +1,128 @@
+{% extends "erp/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ title }}</h1>
+    <p class="muted">{{ subtitle }}</p>
+  </div>
+  <div class="segmented" role="tablist" aria-label="{% if is_he %}מצב עריכה{% else %}Mode{% endif %}">
+    <a href="{% url 'bom' %}" class="seg">{% if is_he %}חזרה לרשימה{% else %}Back to list{% endif %}</a>
+    <a href="?mode=existing" class="seg{% if mode == 'existing' %} active{% endif %}" role="tab">{% if is_he %}עריכת עץ קיים{% else %}Edit existing{% endif %}</a>
+    <a href="?mode=new" class="seg{% if mode == 'new' %} active{% endif %}" role="tab">{% if is_he %}עץ חדש{% else %}New tree{% endif %}</a>
+  </div>
+</div>
+
+<section class="metrics bom-metrics">
+  <div class="metric">
+    <span class="metric-ico ico-blue">{% include "erp/_icon_tree.html" %}</span>
+    <div class="metric-label">{% if is_he %}מוצרים שיכולים להיות עם עץ{% else %}Products that can have a tree{% endif %}</div>
+    <div class="metric-value">{{ parent_count }}</div>
+  </div>
+  <div class="metric">
+    <span class="metric-ico ico-violet">{% include "erp/_icon_list.html" %}</span>
+    <div class="metric-label">{% if is_he %}רכיבים בעץ הנוכחי{% else %}Components in this tree{% endif %}</div>
+    <div class="metric-value">{{ filled_count }}</div>
+  </div>
+  <div class="metric">
+    <span class="metric-ico ico-teal">{% include "erp/_icon_box.html" %}</span>
+    <div class="metric-label">RAW / BULK / PKG</div>
+    <div class="metric-value bom-split">{{ raw_count }} <small>/</small> {{ bulk_count }} <small>/</small> {{ pkg_count }}</div>
+  </div>
+  <div class="metric">
+    <span class="metric-ico ico-green">{% include "erp/_icon_cart.html" %}</span>
+    <div class="metric-label">{% if is_he %}סוג המוצר הנבחר{% else %}Selected product type{% endif %}</div>
+    <div class="metric-value"><span class="type-badge type-{{ parent_type|lower }}">{{ parent_type }}</span></div>
+  </div>
+</section>
+
+<form method="post" action="{% url 'bom' %}" class="bom-form">
+  {% csrf_token %}
+  <input type="hidden" name="mode" value="{{ mode }}">
+
+  <section class="table-card">
+    <div class="grid-bar">
+      <div class="grid-head">
+        <h3 class="grid-title">{% if mode == "existing" %}{% if is_he %}בחירת מוצר{% else %}Choose a product{% endif %}{% else %}{% if is_he %}פרטי המוצר החדש{% else %}New product details{% endif %}{% endif %}</h3>
+      </div>
+    </div>
+    <div class="bom-head-body">
+      {% if mode == "existing" %}
+        {% if has_parents %}
+        <div class="grid-3">
+          <label>{% if is_he %}מוצר{% else %}Product{% endif %}
+            <select name="parent" onchange="location.href='?mode=existing&parent=' + encodeURIComponent(this.value)">
+              {% for p in parents %}<option value="{{ p.sku }}"{% if p.sku == parent_sku %} selected{% endif %}>{{ p.label }}</option>{% endfor %}
+            </select>
+          </label>
+          <div class="bom-meta">
+            <span class="muted small">{% if is_he %}סוג{% else %}Type{% endif %}</span>
+            <span class="type-badge type-{{ parent_type|lower }}">{{ parent_type }}</span>
+          </div>
+        </div>
+        <noscript><button type="submit" class="btn-ghost">{% if is_he %}בחר{% else %}Select{% endif %}</button></noscript>
+        {% else %}
+        <p class="muted">{% if is_he %}אין מוצרים עם עץ אפשרי בקטלוג.{% else %}No products that can have a tree yet.{% endif %}</p>
+        {% endif %}
+      {% else %}
+        <div class="grid-3">
+          <label>{% if is_he %}מק"ט המוצר החדש{% else %}New product SKU{% endif %}
+            <input name="new_sku" value="{{ new_sku }}" required></label>
+          <label>{% if is_he %}שם המוצר{% else %}Product name{% endif %}
+            <input name="new_name" value="{{ new_name }}" required></label>
+          <label>{% if is_he %}סוג המוצר{% else %}Product type{% endif %}
+            <select name="new_type">
+              {% for t in product_types %}<option value="{{ t }}"{% if t == new_type %} selected{% endif %}>{% if t == "BULK" %}BULK - {% if is_he %}בלק (חומר מוכן){% else %}bulk{% endif %}{% else %}FG - {% if is_he %}מוצר סופי{% else %}finished product{% endif %}{% endif %}</option>{% endfor %}
+            </select></label>
+        </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="table-card">
+    <div class="grid-bar">
+      <div class="grid-head">
+        <h3 class="grid-title">{% if is_he %}רכיבי העץ ({{ filled_count }}){% else %}Components ({{ filled_count }}){% endif %}</h3>
+        <span class="muted small">{% if is_he %}שורה ריקה = לא בשימוש{% else %}Empty row = not used{% endif %}</span>
+      </div>
+    </div>
+    <div class="table-wrap table-flat"><table class="editor bom-table">
+      <thead><tr>
+        <th class="rownum">#</th>
+        <th>{% if is_he %}רכיב{% else %}Component{% endif %}</th>
+        <th>{% if is_he %}סוג{% else %}Type{% endif %}</th>
+        <th>{% if is_he %}כמות{% else %}Quantity{% endif %}</th>
+      </tr></thead>
+      <tbody>
+      {% for r in rows %}{% with i=forloop.counter0 %}
+        <tr>
+          <td class="rownum">{{ forloop.counter }}</td>
+          <td><select name="comp_{{ i }}">
+            <option value="">—</option>
+            {% for o in options %}<option value="{{ o.sku }}"{% if o.sku == r.component_sku %} selected{% endif %}>{{ o.label }}</option>{% endfor %}
+          </select></td>
+          <td><span class="type-badge type-{{ r.comp_type|default:'none'|lower }}">{{ r.comp_type|default:"—" }}</span></td>
+          <td><div class="qty-wrap"><input name="qty_{{ i }}" value="{{ r.quantity|default_if_none:'' }}" inputmode="decimal"><span class="qty-unit muted small">{% if parent_type == "BULK" %}{% if is_he %}גרם/ק"ג{% else %}g/kg{% endif %}{% else %}{% if is_he %}גרם/יח'{% else %}g/unit{% endif %}{% endif %}</span></div></td>
+        </tr>
+      {% endwith %}{% endfor %}
+      </tbody>
+    </table></div>
+    <input type="hidden" name="row_count" value="{{ row_count }}">
+  </section>
+
+  <div class="notice info bom-hint">
+    {% if mode == "existing" and parent_type == "BULK" %}
+      {% if is_he %}כמויות הבלק נמדדות בגרם לכל ק"ג של בלק.{% else %}Bulk quantities are grams per kg of bulk.{% endif %}
+    {% else %}
+      {% if is_he %}רכיבי משקל: גרם ליחידה. אריזות: יחידות.{% else %}Weight parts: grams per unit. Packaging: units.{% endif %}
+    {% endif %}
+  </div>
+
+  <div class="save-bar">
+    <label class="check"><input type="checkbox" name="confirmed" value="1"> {% if is_he %}בדקתי את העץ ואני מאשר/ת לשמור אותו.{% else %}I reviewed the tree and confirm saving it.{% endif %}</label>
+    <button type="submit" class="btn-primary">{% if is_he %}שמור עץ מוצר{% else %}Save product tree{% endif %}</button>
+  </div>
+</form>
+{% endblock %}

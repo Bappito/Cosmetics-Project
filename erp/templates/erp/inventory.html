@@ -1,0 +1,273 @@
+{% extends "erp/base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ page_title }}</h1>
+  <p class="muted">{{ page_subtitle }}</p>
+</div>
+
+<section class="metrics">
+  {% for m in summary %}
+  <div class="metric"><div class="metric-label">{{ m.label }}</div><div class="metric-value">{{ m.value|safe }}</div></div>
+  {% endfor %}
+</section>
+
+<nav class="segmented" aria-label="{% if is_he %}בחירת מחסן{% else %}Warehouse{% endif %}">
+  {% for w in wh_options %}
+    <a href="?wh={{ w.key }}&tab={{ tab }}" class="seg{% if w.active %} active{% endif %}">{{ w.label }}</a>
+  {% endfor %}
+</nav>
+
+<nav class="tabs" aria-label="{% if is_he %}לשוניות{% else %}Sections{% endif %}">
+  {% for t in tabs %}
+    <a href="{{ t.url }}" class="tab{% if t.active %} active{% endif %}">{{ t.label }}</a>
+  {% endfor %}
+</nav>
+
+{% if tab == "stock" %}
+<section class="block">
+  <h2>{% if is_he %}יתרת מלאי נוכחית ותאריכי תפוגה (FEFO){% else %}Current stock & expiry dates (FEFO){% endif %}</h2>
+  <form method="get" class="filter-row">
+    <input type="hidden" name="wh" value="{{ wh }}">
+    <input type="hidden" name="tab" value="stock">
+    <input type="search" name="q" value="{{ stock.query }}" placeholder="{% if is_he %}הקלד/י מק\"ט או שם{% else %}Type an SKU or name{% endif %}">
+    <button type="submit" class="btn-primary inline">{% if is_he %}חפש{% else %}Search{% endif %}</button>
+  </form>
+  <p class="muted small">{% if is_he %}מוצגים {{ stock.shown }} מתוך {{ stock.total }} פריטים{% else %}Showing {{ stock.shown }} of {{ stock.total }} items{% endif %}</p>
+  {% if stock.rows %}
+  <div class="table-wrap"><table>
+    <thead><tr>
+      <th>{% if is_he %}מק"ט{% else %}SKU{% endif %}</th>
+      <th>{% if is_he %}שם פריט{% else %}Item name{% endif %}</th>
+      <th>{% if is_he %}כמות מלאי נוכחית{% else %}Current stock{% endif %} ({{ unit_label }})</th>
+      <th>{% if is_he %}אצווה פעילה (Batch #){% else %}Active batch #{% endif %}</th>
+      <th>{% if is_he %}תאריך תפוגה קרוב (FEFO){% else %}Nearest expiry (FEFO){% endif %}</th>
+    </tr></thead>
+    <tbody>
+    {% for r in stock.rows %}
+      <tr><th scope="row"><span class="chip">{{ r.sku }}</span></th><td><b>{{ r.name }}</b></td><td><b>{{ r.stock|safe }}</b></td><td>{{ r.batch_no }}</td><td>{{ r.expiry_html|safe }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <p class="muted">{% if is_he %}לא נמצאו פריטים התואמים לחיפוש.{% else %}No items match this search.{% endif %}</p>
+  {% endif %}
+</section>
+
+{% elif tab == "po" %}
+<section class="block">
+  <h2>{% if is_he %}הזמנות רכש פתוחות למחסן זה{% else %}Open purchase orders for this warehouse{% endif %}</h2>
+  {% if po_rows %}
+  <div class="table-wrap"><table>
+    <thead><tr>
+      <th>{% if is_he %}מק"ט{% else %}SKU{% endif %}</th><th>{% if is_he %}פריט{% else %}Item{% endif %}</th>
+      <th>{% if is_he %}מספר הזמנה (PO){% else %}PO #{% endif %}</th><th>{% if is_he %}ספק{% else %}Supplier{% endif %}</th>
+      <th>{% if is_he %}כמות מוזמנת{% else %}Ordered qty{% endif %}</th><th>ETA</th>
+      <th>{% if is_he %}שבוע כניסה לסימולטור{% else %}Simulator arrival week{% endif %}</th><th>{% if is_he %}סטטוס{% else %}Status{% endif %}</th>
+    </tr></thead>
+    <tbody>
+    {% for r in po_rows %}
+      <tr><th scope="row"><span class="chip">{{ r.sku }}</span></th><td>{{ r.name }}</td><td><b>{{ r.po_number }}</b></td><td>{{ r.supplier }}</td>
+      <td><b>{{ r.amount|safe }}</b></td><td>{{ r.eta }}</td><td><b>{{ r.week }}</b></td><td><span class="status-badge">{{ r.status }}</span></td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <p class="muted">{% if is_he %}אין הזמנות רכש פתוחות למחסן זה כרגע.{% else %}No open purchase orders for this warehouse.{% endif %}</p>
+  {% endif %}
+</section>
+
+{% elif tab == "sup" %}
+<section class="block">
+  <h2>{% if is_he %}ספקים ותנועות מלאי אחרונות{% else %}Suppliers & recent stock movements{% endif %}</h2>
+  <div class="table-wrap"><table>
+    <thead><tr>
+      <th>{% if is_he %}מק"ט{% else %}SKU{% endif %}</th><th>{% if is_he %}שם פריט{% else %}Item name{% endif %}</th>
+      <th>{% if is_he %}ספק ראשי{% else %}Main supplier{% endif %}</th><th>{% if is_he %}ספק חלופי{% else %}Alt supplier{% endif %}</th>
+      <th>{% if is_he %}כניסת מלאי אחרונה{% else %}Last stock entry{% endif %}</th><th>{% if is_he %}תנועות מלאי אחרונות{% else %}Recent movements{% endif %}</th>
+    </tr></thead>
+    <tbody>
+    {% for r in sup_rows %}
+      <tr><th scope="row"><span class="chip">{{ r.sku }}</span></th><td><b>{{ r.name }}</b></td><td>{{ r.main }}</td><td>{{ r.alt }}</td><td>{{ r.last_entry }}</td><td>{{ r.movements }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+
+{% elif tab == "edit" %}
+<section class="block">
+  <h2>{% if is_he %}עריכה והוספת פריטים{% else %}Edit & add items{% endif %}</h2>
+  <p class="muted small">{% if is_he %}הוסף/י שורה חדשה בשורות הריקות בתחתית. סמן/י "מחק" כדי להסיר פריט.{% else %}Add a new item in the blank rows at the bottom. Tick "Delete" to remove an item.{% endif %}</p>
+
+  {% if catalog_review %}
+    <div class="notice warning">
+      {% if is_he %}סקירת שינויים: {{ catalog_review.changes.added|length }} פריטים חדשים, {{ catalog_review.changes.changed|length }} עודכנו, {{ catalog_review.changes.removed|length }} יימחקו.{% else %}Change review: {{ catalog_review.changes.added|length }} added, {{ catalog_review.changes.changed|length }} changed, {{ catalog_review.changes.removed|length }} will be removed.{% endif %}
+      {% if catalog_review.changes.removed %}<br>{% if is_he %}הפריטים הבאים יימחקו:{% else %}The following SKUs will be deleted:{% endif %} {{ catalog_review.changes.removed|join:", " }}{% endif %}
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>{% if is_he %}מק"ט{% else %}SKU{% endif %}</th><th>{% if is_he %}שם פריט{% else %}Item{% endif %}</th><th>{% if is_he %}סוג{% else %}Type{% endif %}</th><th>{% if is_he %}מלאי{% else %}Stock{% endif %}</th></tr></thead>
+      <tbody>
+      {% for r in catalog_review.rows %}
+        <tr><td>{{ r.sku }}</td><td>{{ r.name }}</td><td>{{ r.item_type }}</td><td>{{ r.stock_val }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    <form method="post" action="{{ here }}" class="stack">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="confirm">
+      <label class="check"><input type="checkbox" name="confirmed" required> {% if is_he %}בדקתי את התצוגה המקדימה ואני מאשר/ת לשמור את השינויים.{% else %}I reviewed the preview and confirm these changes.{% endif %}</label>
+      <div class="actions">
+        <button type="submit" class="btn-primary">{% if is_he %}אשר ושמור{% else %}Confirm and save{% endif %}</button>
+      </div>
+    </form>
+    <form method="post" action="{{ here }}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="cancel">
+      <button type="submit" class="btn-ghost">{% if is_he %}בטל{% else %}Cancel{% endif %}</button>
+    </form>
+  {% else %}
+    <form method="post" action="{{ here }}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="review">
+      <div class="table-wrap"><table class="editor">
+        <thead><tr>
+          <th>{% if is_he %}מק"ט{% else %}SKU{% endif %}</th><th>{% if is_he %}שם פריט{% else %}Item name{% endif %}</th>
+          <th>{% if is_he %}סוג פריט{% else %}Item type{% endif %}</th>
+          <th>{% if is_he %}מלאי (לחומר/בלק ק"ג או גרם, לאריזה יחידות){% else %}Stock (kg/g for material & bulk, units for packaging){% endif %}</th>
+          <th>{% if is_he %}הזמנות פתוחות{% else %}Open orders{% endif %}</th><th>{% if is_he %}תנועות מלאי{% else %}Stock movements{% endif %}</th>
+          <th>{% if is_he %}ספק ראשי{% else %}Main supplier{% endif %}</th><th>{% if is_he %}ספקים חלופיים{% else %}Alternate suppliers{% endif %}</th>
+          <th>{% if is_he %}כניסת מלאי אחרונה{% else %}Last stock receipt{% endif %}</th><th>{% if is_he %}מחק{% else %}Delete{% endif %}</th>
+        </tr></thead>
+        <tbody>
+        {% for r in catalog_editable %}{% with i=forloop.counter0 %}
+          <tr>
+            <td><input name="sku_{{ i }}" value="{{ r.sku }}"></td>
+            <td><input name="name_{{ i }}" value="{{ r.name }}"></td>
+            <td><select name="item_type_{{ i }}">{% for t in item_types %}<option value="{{ t }}"{% if t == r.item_type %} selected{% endif %}>{{ t }}</option>{% endfor %}</select></td>
+            <td><span class="qty-wrap"><input name="stock_val_{{ i }}" value="{{ r.stock_val }}" inputmode="decimal"><span class="qty-unit">{% if r.item_type == "RAW" or r.item_type == "BULK" %}{{ w_label }}{% else %}{{ u_label }}{% endif %}</span></span></td>
+            <td><input name="open_orders_{{ i }}" value="{{ r.open_orders }}"></td>
+            <td><input name="stock_movements_{{ i }}" value="{{ r.stock_movements }}"></td>
+            <td><input name="main_supplier_{{ i }}" value="{{ r.main_supplier }}"></td>
+            <td><input name="alt_suppliers_{{ i }}" value="{{ r.alt_suppliers }}"></td>
+            <td><input name="last_stock_entry_{{ i }}" value="{{ r.last_stock_entry }}"></td>
+            <td><input type="checkbox" name="delete_{{ i }}" value="1"></td>
+          </tr>
+        {% endwith %}{% endfor %}
+        </tbody>
+      </table></div>
+      <input type="hidden" name="row_count" value="{{ catalog_editable|length }}">
+      <div class="actions">
+        <button type="submit" class="btn-primary">{% if is_he %}בדוק שינויים{% else %}Review changes{% endif %}</button>
+      </div>
+    </form>
+  {% endif %}
+</section>
+
+{% elif tab == "count" %}
+<section class="block">
+  <h2>{% if is_he %}עדכון מלאי לפי ספירה{% else %}Update stock by physical count{% endif %}</h2>
+  <p class="muted small">{% if is_he %}הזן/י את הכמות שנספרה בפועל לכל מק"ט. רק שורות שהשתנו יעודכנו, ויירשם תיעוד תנועה.{% else %}Enter the physically counted quantity for each SKU. Only changed rows are updated, and each change is logged as a movement.{% endif %}</p>
+  {% if count_review %}
+    <div class="table-wrap"><table>
+      <thead><tr><th>{% if is_he %}מק"ט{% else %}SKU{% endif %}</th><th>{% if is_he %}שם פריט{% else %}Item{% endif %}</th><th>{% if is_he %}במערכת{% else %}In system{% endif %}</th><th>{% if is_he %}נספר{% else %}Counted{% endif %}</th><th>{% if is_he %}הפרש{% else %}Difference{% endif %}</th></tr></thead>
+      <tbody>{% for r in count_review.rows %}<tr><td>{{ r.sku }}</td><td>{{ r.name }}</td><td>{{ r.system }}</td><td>{{ r.counted }}</td><td>{{ r.difference }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <form method="post" action="{{ here }}" class="stack">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="confirm">
+      <label class="check"><input type="checkbox" name="confirmed" required> {% if is_he %}בדקתי את ההפרשים ואני מאשר/ת את העדכון.{% else %}I reviewed the differences and confirm the update.{% endif %}</label>
+      <div class="actions"><button type="submit" class="btn-primary">{% if is_he %}עדכן מלאי לפי הספירה{% else %}Apply count{% endif %}</button></div>
+    </form>
+    <form method="post" action="{{ here }}"><input type="hidden" name="action" value="cancel">{% csrf_token %}<button type="submit" class="btn-ghost">{% if is_he %}בטל{% else %}Cancel{% endif %}</button></form>
+  {% elif count_rows %}
+    <form method="post" action="{{ here }}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="review">
+      <div class="table-wrap"><table>
+        <thead><tr><th>{% if is_he %}מק"ט{% else %}SKU{% endif %}</th><th>{% if is_he %}שם פריט{% else %}Item{% endif %}</th><th>{% if is_he %}במערכת ({{ unit_label }}){% else %}In system ({{ unit_label }}){% endif %}</th><th>{% if is_he %}נספר ({{ unit_label }}){% else %}Counted ({{ unit_label }}){% endif %}</th></tr></thead>
+        <tbody>
+        {% for r in count_rows %}{% with i=forloop.counter0 %}
+          <tr><td>{{ r.sku }}</td><td>{{ r.name }}</td><td>{{ r.system }}</td>
+          <td><span class="qty-wrap"><input name="counted_{{ i }}" value="{{ r.system }}" inputmode="decimal"><span class="qty-unit">{% if r.item_type == "RAW" or r.item_type == "BULK" %}{{ w_label }}{% else %}{{ u_label }}{% endif %}</span></span></td></tr>
+        {% endwith %}{% endfor %}
+        </tbody>
+      </table></div>
+      <div class="actions"><button type="submit" class="btn-primary">{% if is_he %}בדוק הפרשים{% else %}Review differences{% endif %}</button></div>
+    </form>
+  {% else %}
+    <p class="muted">{% if is_he %}אין פריטים במחסן זה.{% else %}No items in this warehouse.{% endif %}</p>
+  {% endif %}
+</section>
+
+{% elif tab == "import" %}
+<section class="block">
+  <h2>{% if is_he %}ייבוא מערכת ERP (SAP / Priority){% else %}Import from ERP (SAP / Priority){% endif %}</h2>
+  <p class="muted small">{% if is_he %}העלה/י קובץ CSV או Excel שיוצא מהמערכת. בחר/י איזו עמודה מתאימה לכל שדה, בדוק/י את התצוגה המקדימה ואשר/י. לפני העדכון נשמר גיבוי.{% else %}Upload a CSV or Excel export from your system. Map each field to a column, review the preview, and confirm. A backup is saved before any change.{% endif %}</p>
+
+  {% if import_review %}
+    {% for e in import_review.errors %}<div class="notice error">{{ e }}</div>{% endfor %}
+    <p class="muted small">{% if is_he %}תצוגה מקדימה{% else %}Preview{% endif %} — {{ import_review.rows|length }} {% if is_he %}שורות{% else %}rows{% endif %}</p>
+    <div class="table-wrap"><table>
+      <thead><tr>{% for k in import_review.rows.0.keys %}<th>{{ k }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for r in import_review.rows %}<tr>{% for v in r.values %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+    </table></div>
+    {% if not import_review.errors %}
+    <form method="post" action="{{ here }}" class="stack">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="confirm">
+      <label class="check"><input type="checkbox" name="confirmed" required> {% if is_he %}בדקתי את התצוגה המקדימה ואני מאשר/ת את הייבוא.{% else %}I reviewed the preview and confirm the import.{% endif %}</label>
+      <div class="actions"><button type="submit" class="btn-primary">{% if is_he %}ייבא לנתוני המערכת{% else %}Import into the system{% endif %}</button></div>
+    </form>
+    {% endif %}
+    <form method="post" action="{{ here }}"> {% csrf_token %}<input type="hidden" name="action" value="cancel"><button type="submit" class="btn-ghost">{% if is_he %}בטל{% else %}Cancel{% endif %}</button></form>
+
+  {% elif import_file %}
+    <p class="muted small">{{ import_file.filename }} — {% if is_he %}נקראו {{ import_file.rows_read }} שורות.{% else %}Read {{ import_file.rows_read }} rows.{% endif %}</p>
+    <form method="post" action="{{ here }}" class="stack">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="map">
+      <fieldset class="stack">
+        <legend>{% if is_he %}סוג הייבוא{% else %}Import type{% endif %}</legend>
+        <label class="check"><input type="radio" name="kind" value="stock" checked> {% if is_he %}יתרות מלאי (ספירה / מערכת){% else %}Stock balances{% endif %}</label>
+        <label class="check"><input type="radio" name="kind" value="po"> {% if is_he %}הזמנות רכש (PO){% else %}Purchase orders{% endif %}</label>
+      </fieldset>
+      <div class="grid-3">
+        <label>{% if is_he %}עמודת מק"ט{% else %}SKU column{% endif %}
+          <select name="map_sku">{% for c in import_columns %}<option value="{{ c }}"{% if c == import_guess.sku %} selected{% endif %}>{{ c }}</option>{% endfor %}</select></label>
+        <label>{% if is_he %}עמודת כמות{% else %}Quantity column{% endif %}
+          <select name="map_qty">{% for c in import_columns %}<option value="{{ c }}"{% if c == import_guess.qty %} selected{% endif %}>{{ c }}</option>{% endfor %}</select></label>
+        <fieldset>
+          <legend>{% if is_he %}יחידת כמות לפריטי משקל{% else %}Quantity unit for weight items{% endif %}</legend>
+          <label class="check"><input type="radio" name="unit" value="kg" checked> {% if is_he %}ק"ג{% else %}kg{% endif %}</label>
+          <label class="check"><input type="radio" name="unit" value="g"> {% if is_he %}גרם{% else %}g{% endif %}</label>
+        </fieldset>
+      </div>
+      <details>
+        <summary>{% if is_he %}שדות לייבוא הזמנות רכש (PO){% else %}Fields for purchase order import{% endif %}</summary>
+        <div class="grid-3">
+          <label>{% if is_he %}עמודת מספר PO{% else %}PO number column{% endif %}
+            <select name="map_po_number"><option value="">—</option>{% for c in import_columns %}<option value="{{ c }}"{% if c == import_guess.po_number %} selected{% endif %}>{{ c }}</option>{% endfor %}</select></label>
+          <label>{% if is_he %}עמודת ספק (לא חובה){% else %}Supplier column (optional){% endif %}
+            <select name="map_supplier"><option value="">—</option>{% for c in import_columns %}<option value="{{ c }}"{% if c == import_guess.supplier %} selected{% endif %}>{{ c }}</option>{% endfor %}</select></label>
+          <label>{% if is_he %}עמודת תאריך הגעה (לא חובה){% else %}ETA column (optional){% endif %}
+            <select name="map_eta"><option value="">—</option>{% for c in import_columns %}<option value="{{ c }}"{% if c == import_guess.eta %} selected{% endif %}>{{ c }}</option>{% endfor %}</select></label>
+        </div>
+      </details>
+      <div class="actions"><button type="submit" class="btn-primary">{% if is_he %}הצג תצוגה מקדימה{% else %}Show preview{% endif %}</button></div>
+    </form>
+    <form method="post" action="{{ here }}">{% csrf_token %}<input type="hidden" name="action" value="cancel"><button type="submit" class="btn-ghost">{% if is_he %}בטל{% else %}Cancel{% endif %}</button></form>
+
+  {% else %}
+    <form method="post" action="{{ here }}" enctype="multipart/form-data" class="stack">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="upload">
+      <label>{% if is_he %}קובץ ייצוא (CSV, XLSX, XLS){% else %}Export file (CSV, XLSX, XLS){% endif %}
+        <input type="file" name="file" accept=".csv,.xlsx,.xls" required></label>
+      <div class="actions"><button type="submit" class="btn-primary">{% if is_he %}העלה קובץ{% else %}Upload file{% endif %}</button></div>
+    </form>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

@@ -1,5 +1,5 @@
-streamlit
 pandas
-plotly
 openpyxl
 django>=5.2,<6
+gunicorn
+whitenoise

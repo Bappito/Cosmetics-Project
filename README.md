@@ -1,31 +1,14 @@
 # Cosmetics ERP
 
-A web app for a cosmetics manufacturing company. It brings stock, purchasing, production planning, packaging, batches, traceability, projects, shipments, readiness checks and personal what-if scenarios together in one place. The business data lives in a local SQLite database. The app is built with Streamlit.
+A web app for a cosmetics manufacturing company. It brings stock, purchasing, production planning, packaging, batches, traceability and personal what-if scenarios together in one place. The business data lives in a local SQLite database. The app is built with Django.
 
-The interface supports Hebrew (right-to-left) and English (left-to-right).
+The interface supports Hebrew (right-to-left) and English (left-to-right). Users sign in, and what they can see and change depends on their role.
 
-## Requirements
+When it is deployed, the address will be added here:
 
-- Python 3.10 or newer
-- Packages listed in [`requirements.txt`](./requirements.txt)
+**Online address:** _not deployed yet_
 
-## Run locally
-
-```bash
-python -m venv .venv
-source .venv/bin/activate          # Windows PowerShell: .venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-streamlit run app.py
-```
-
-Streamlit prints the local URL when the server starts (usually http://localhost:8501). Run the command from the repository root. The app creates or opens `cosmetics_3sim_erp.db` in that folder and fills it with demo data the first time.
-
-## Sign-in and personal scenarios
-
-At the first screen, enter a name and, when one is set, the password.
-
-- Set a password before hosting: add `APP_PASSWORD = "..."` in the app's secrets on Streamlit Community Cloud, or set the environment variable `COSMETICS_APP_PASSWORD` when running locally. Without it, the app opens without a password.
-- The name keeps each person's scenarios apart. It is not a secure account: anyone who knows the password can type another name.
+To deploy, set `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=0` and `DJANGO_ALLOWED_HOSTS` (see [Settings](#settings)), serve the app with gunicorn behind HTTPS, and change the admin password first. Do not expose the local server to the internet as it is.
 
 ## Features
 
@@ -44,32 +27,114 @@ At the first screen, enter a name and, when one is set, the password.
 - **Tables** — every table has a search box, a row count, click-to-sort headers, paging, and an export to Excel (CSV, which Excel opens with Hebrew text intact).
 - **Language and units** — Hebrew/English. Item names that are written in two languages show only the current language. Weight can be shown in grams or kilograms.
 
+## Requirements
+
+- Python 3.11 or newer
+- Packages listed in [`requirements.txt`](./requirements.txt)
+
+## Run locally
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1        # macOS / Linux: source .venv/bin/activate
+python -m pip install -r requirements.txt
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
+```
+
+Then open http://127.0.0.1:8000/ and sign in with the superuser account.
+
+The app uses two SQLite files:
+
+- `cosmetics_3sim_erp.db` — the business data (catalog, batches, purchase orders, planning, scenarios' shared data). On first use it is filled with demo data.
+- `django.sqlite3` — users, groups, sessions and personal scenarios.
+
+## Settings
+
+Settings are read from environment variables:
+
+- `DJANGO_SECRET_KEY` — required before hosting.
+- `DJANGO_DEBUG` — set to `0` when hosting.
+- `DJANGO_ALLOWED_HOSTS` — comma-separated host names, for example `erp.example.com`.
+- `ERP_DB_PATH` — the business database file. Defaults to `cosmetics_3sim_erp.db` in the project folder.
+
+## Users and roles
+
+Assign roles in the admin at http://127.0.0.1:8000/admin/ under **Groups**. Every screen has a view and an edit permission. Three default groups are created:
+
+- **Admin:** every screen, including profit.
+- **Warehouse:** the dashboard, warehouses, the purchase order list, stock summary, shipments, purchase orders, and their own scenarios.
+- **Viewer:** the dashboard only, without profit.
+
+Anyone who is not signed in is sent to the login page. Screens a user cannot view are hidden from the sidebar, and direct links to them return "403 Forbidden".
+
+Permissions added after a group was created are not given to it automatically. Check the groups in the admin after an update. Only the Admin group is topped up on each migration.
+
+## Screens
+
+| Screen | URL | What it is for |
+| --- | --- | --- |
+| Dashboard | `/` | Opening page: expiry and PO counts, what can be packed now, the profit per finished product, and the plan start date. |
+| Warehouses | `/inventory/` | Stock, expiry, purchase orders, suppliers, catalog editing, physical count and ERP import. |
+| Purchase orders | `/po-list/` | Read-only list of every order, with search and a status filter. |
+| Stock summary | `/stock-summary/` | Totals by warehouse and item type, and the check of catalog balances against batches. |
+| Shipments | `/shipments/` | Shipments by customer, shipment type and status (demo data). |
+| Projects | `/projects/` | Projects linked to a finished product (demo data). |
+| Alternative SKUs | `/alt-skus/` | Replacement SKUs in priority order (demo data). |
+| Purchase orders management | `/purchase-orders/` | Edit PO rows and statuses, view arrival weeks, and receive an order into a warehouse. |
+| Purchase planning (MRP) | `/mrp/` | What to buy from the eight-week plan, rounded to the minimum order quantity. |
+| Batches & traceability | `/batches/` | Batch balances and expiry, manual receipts, and consumption links. |
+| Product trees (BOM) | `/bom/` | Product list, tree pages and the tree editor. |
+| Production planning | `/production-planning/` | Tabs: 1. production line, 2. packaging, 3. master work. |
+| My simulator | `/scenarios/` | Your private what-if scenarios, and scenarios shared with you. |
+| PRR | `/prr/` | Readiness with a switch between Production and Packaging. The old address `/prr-packaging/` opens the packaging view. |
+| Quick command agent | `/quick-command/` | Add stock using a simple text command. |
+| Change log | `/audit/` | Every stock, product-tree and planning change, including undos. |
+
+The old addresses `/production/`, `/packaging/` and `/master-work/` still open the three planning tabs.
+
+Each change goes through the same steps: check it, review the preview, tick the confirmation, and save. A backup is taken before each save so the last change can be undone.
+
+The sidebar also has language (Hebrew/English), weight unit (kg/g), and light/dark switches. These settings are kept per browser session.
+
 ## Project layout
 
 ```text
-app.py                         Streamlit startup, shared dependency wiring, and page dispatch
-cosmetics_erp/
-  config/                      UI labels, translations, and app constants
-  db/                          SQLite connection, schema, demo data, and records (projects, alternatives, shipments, scenarios)
+manage.py                      Django command-line entry point
+erp_web/                       Project settings and the root URL configuration
+erp/                           The web app
+  screens.py                   Screen list, menu layout and the permissions for each screen
+  models.py                    Personal scenarios (Django database)
+  bridge.py                    Opens the business SQLite database for each request
+  dashboard.py                 Dashboard figures
+  urls.py                      Screen URLs
+  views/
+    page.py                    Shared request handling: permissions, labels, messages, review state
+    dashboard.py               Dashboard screen
+    inventory.py               Warehouses: stock, catalog editor, count, ERP import
+    purchasing.py              Purchase order list and management, receiving, and MRP
+    stock.py                   Stock summary and reconciliation check
+    records.py                 Projects, alternative SKUs and shipments
+    scenarios.py               Personal what-if scenarios
+    batches.py                 Batches and traceability
+    planning.py                Product trees, production planning and the weekly plan
+    readiness.py               PRR (production and packaging)
+    operations.py              Quick command, change log, undo, and settings switches
+  templates/erp/               One template per screen, plus small shared parts (_planning_tabs, _icon_*)
+  static/erp/app.css           Stylesheet (light and dark themes)
+  static/erp/tables.js         Table tools shared by every table
+  templatetags/erp_icons.py    Icons and small template filters
+cosmetics_erp/                 Business logic, shared with the tests (no web framework)
+  config/                      Labels, translations and app constants
+  db/                          SQLite schema, demo-data initialization and the record tables
   services/                    Inventory/FEFO, planning, manufacturing, MRP, BOM rules, costing,
-                               capacity, ERP import, backups, change review, scenarios,
-                               where-used and master-work simulations, quick-command parsing,
-                               and readiness
-  ui/
-    auth.py                    Name and password sign-in
-    components.py              Shared planning, shortage, and undo UI
-    context.py                 Dependencies passed to page renderers
-    formatting.py              Shared number and unit formatting
-    navigation.py              Sidebar, language, and session-state behavior
-    styles.py                  Loads and injects the stylesheet
-    pages/                     One Streamlit renderer per application screen
-static/
-  css/app.css                  Custom stylesheet
-tests/                         Service and app tests (pytest)
-requirements.txt               Python package dependencies
+                               capacity, ERP import, backups, change review, where-used, readiness,
+                               master-work simulations, personal scenarios, quick-command parsing
+  text_language.py             Shows two-language item names in the page language
+  formatting.py                Number, unit, and date formatting
+tests/                         Service tests (pytest)
 ```
-
-Screen-specific database queries currently live with their corresponding page renderers. Shared inventory, planning, and backup behavior is kept in the service modules.
 
 ## How inventory and planning work
 
@@ -84,7 +149,6 @@ Screen-specific database queries currently live with their corresponding page re
 - Every backup and every undo is also written to the change log.
 - Production and packaging runs are posted by `services/manufacturing.py`. The UI only collects inputs and shows messages.
 - The readiness rule for PRR: green when the stock on hand covers the need, yellow when a purchase order arrives in time, red when it is short even with every arrival.
-
 
 ## Data model
 
@@ -102,13 +166,11 @@ The SQLite schema is created by [`cosmetics_erp/db/schema.py`](./cosmetics_erp/d
 - `AuditLog` — the change log.
 - `Settings` — small key/value settings, such as the plan start date and the demo-data marker.
 
-Projects, alternative SKUs, shipments, and personal scenarios are stored in the same SQLite file (tables `Projects`, `AltSkus`, `Shipments`, `Scenarios`).
-
+Django's own database (`django.sqlite3`) holds users, groups, sessions and the `Scenario` table.
 
 ## Demo data
 
 The business database starts with demo data: four formulas of one ton each (keratin shampoo, hyaluronic shampoo, hyaluronic hair mask and hand cream), their raw materials, packaging, finished products, invented purchase orders, batches, a weekly plan and shipments. Once the owner replaces the demo data, the marker `demo_reset_done` in `Settings` stops the old sample rows from being loaded again.
-
 
 ## ERP import and assumptions to confirm
 
@@ -116,23 +178,31 @@ The business database starts with demo data: four formulas of one ton each (kera
 - Stock and PO quantities for weight items (RAW and BULK) are read in kg by default. The import screen lets you switch to grams.
 - Catalog prices: RAW and BULK `item_price` is per kg. PKG and FG `item_price` is per unit. FG `item_price` is the selling price. Profit figures depend on these assumptions.
 
-
 ## Testing
 
 ```bash
 python -m pip install pytest
-python -m pytest
+python -m pytest                 # service tests
+python manage.py test erp        # web app: screens, permissions, and each save flow
 ```
 
 The tests use temporary databases and do not touch `cosmetics_3sim_erp.db`.
 
-## Hosting
-
-The app runs on Streamlit Community Cloud from this repository's `main` branch: point it at `app.py` and set `APP_PASSWORD` in the app's secrets. The community cloud stores files in the app's own storage, so the database may reset when the app restarts. Check that before relying on it for real records.
-
 ## Current scope
 
-This repository contains a local Streamlit app and SQLite storage. It does not include a hosted database or live SAP connectivity; SAP codes are catalog fields only. The quick-command screen is rule-based and does not call any external AI service. Treat the seeded data as demonstration data and take appropriate database backups before using real operational records.
+- No hosted database and no live SAP or Priority connection yet. SAP codes are catalog fields only.
+- Projects, alternative SKUs and shipments show demo data; they are not yet connected to the real order flow.
+- Comments on PRR rows and the PRR priority report are not built.
+- The quick command is rule-based and does not call any external AI service.
+- Treat the seeded data as demonstration data and take database backups before using real operational records.
+
+## Settings for hosting
+
+```bash
+DJANGO_SECRET_KEY=... DJANGO_DEBUG=0 DJANGO_ALLOWED_HOSTS=erp.example.com python manage.py runserver 0.0.0.0:8000
+```
+
+Use a production WSGI server (for example gunicorn behind a reverse proxy with HTTPS) for real use.
 
 ## Database notes
 
