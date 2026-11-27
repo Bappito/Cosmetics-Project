@@ -21,6 +21,7 @@ from cosmetics_erp.services.manufacturing import plan_components, post_run
 from cosmetics_erp.services.master_work import simulate_master_work
 from cosmetics_erp.services.where_used import WEEKS, compute_where_used
 
+from .arrivals import arrivals_for_week, open_arrivals
 from .page import Page
 
 WEEK_COLS = WEEKS
@@ -265,6 +266,7 @@ def _where_used(page: Page, sched: pd.DataFrame, bom: pd.DataFrame, parent_unit:
     for line in lines:
         by_comp.setdefault(line["component_sku"], []).append(line)
     merged: list[dict] = []
+    arrivals = open_arrivals(page)
     for comp, members in by_comp.items():
         is_w = comp_is_w[comp]
         last = members[-1]
@@ -282,6 +284,7 @@ def _where_used(page: Page, sched: pd.DataFrame, bom: pd.DataFrame, parent_unit:
                 "after": last_cell["after"],
                 "used_total": page.fmt(used_total, is_w),
                 "breakdown": [{"parent": m["parent_sku"], "used": m["weeks"][w_idx]["used"]} for m in members],
+                "arrivals": arrivals_for_week(page, arrivals.get(comp, []), w_idx),
             })
         eight_week_total = sum(m["weeks"][w]["used_raw"] for m in members for w in range(len(last["weeks"])))
         merged.append({
@@ -595,6 +598,9 @@ def master_work(request):
         incoming = page.inventory.get_incoming_map()
         cells = simulate_master_work(catalog, bom, sched.to_dict("records"), incoming, page.fmt)
 
+        arrivals = open_arrivals(page)
+        due = {(sku, o["po"]): o["date"] for sku, orders in arrivals.items() for o in orders}
+
         rows = []
         for r in sched.to_dict("records"):
             week_cells = []
@@ -610,9 +616,14 @@ def master_work(request):
                     "is_ok": cell["is_ok"],
                     "title": page.periods[w_idx][2],
                     "shortages": cell["shortages"],
-                    "arrivals": cell["arrivals"],
+                    "arrivals": [
+                        {**a, "dates": ", ".join(dict.fromkeys(
+                            due[(a["sku"], po)] for po in a["pos"] if (a["sku"], po) in due))}
+                        for a in cell["arrivals"]
+                    ],
                     "shortage_texts": [
-                        {"label": s["kind"], "sku": s["sku"], "name": s["name"], "value": page.fmt(s["after"], s["is_weight"])}
+                        {"label": s["kind"], "sku": s["sku"], "name": s["name"], "value": page.fmt(s["after"], s["is_weight"]),
+                         "arrivals": arrivals_for_week(page, arrivals.get(s["sku"], []), w_idx)}
                         for s in cell["shortages"]
                     ],
                 })

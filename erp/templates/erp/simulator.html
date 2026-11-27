@@ -140,12 +140,17 @@
             <details class="cell-details">
               <summary><span class="cell-main">{{ c.value|safe }}</span>{% if c.incoming %}<span class="cell-sub">{{ c.incoming.amount|safe }}</span>{% endif %}</summary>
               <div class="cell-breakdown">
-                <div class="cell-title">{{ line.component_sku }} ({{ c.week_title }})</div>
-                {% for b in c.breakdown %}<div>{{ b.parent }}: <b>{{ b.used|safe }}</b></div>{% endfor %}
-                <div>{% if is_he %}סה"כ נדרש השבוע{% else %}Total needed this week{% endif %}: <b>{{ c.used_total|safe }}</b></div>
-                {% if c.incoming %}<div class="incoming">{% if is_he %}הגעת PO{% else %}PO arrives{% endif %} ({{ c.incoming.pos }}): <b>{{ c.incoming.amount|safe }}</b></div>{% endif %}
-                <div>{% if is_he %}לפני השימוש{% else %}Before usage{% endif %}: <b>{{ c.before|safe }}</b></div>
-                <div>{% if c.is_ok %}{% if is_he %}נשאר במלאי{% else %}Stock left{% endif %}{% else %}{% if is_he %}חוסר מצטבר{% else %}Cumulative shortage{% endif %}{% endif %}: <b>{{ c.after|safe }}</b></div>
+                <div class="cell-title">{{ line.component_sku }} · {{ c.week_title }}<span class="pop-sub">{{ line.component_name }}</span></div>
+                {% if c.breakdown %}<div class="pop-group">
+                  {% for b in c.breakdown %}<div class="pop-row"><span>{% if is_he %}מוצר{% else %}Product{% endif %} {{ b.parent }}</span><b>{{ b.used|safe }}</b></div>{% endfor %}
+                </div>{% endif %}
+                <div class="pop-group">
+                  <div class="pop-row"><span>{% if is_he %}סה"כ נדרש השבוע{% else %}Total needed this week{% endif %}</span><b>{{ c.used_total|safe }}</b></div>
+                  {% if c.incoming %}<div class="pop-row incoming"><span>{% if is_he %}הגעה השבוע{% else %}Arriving this week{% endif %}</span><b>&lrm;{{ c.incoming.amount|safe }}</b></div>{% endif %}
+                  <div class="pop-row"><span>{% if is_he %}לפני השימוש{% else %}Before usage{% endif %}</span><b>{{ c.before|safe }}</b></div>
+                </div>
+                <div class="pop-result {% if c.is_ok %}prr-green{% else %}prr-red{% endif %}"><span>{% if c.is_ok %}{% if is_he %}נשאר במלאי{% else %}Stock left{% endif %}{% else %}{% if is_he %}חוסר מצטבר{% else %}Cumulative shortage{% endif %}{% endif %}</span><b>{{ c.after|safe }}</b></div>
+                {% include "erp/_arrivals.html" with arrivals=c.arrivals %}
               </div>
             </details>
           </td>

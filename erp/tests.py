@@ -510,3 +510,27 @@ class OneLanguageNameTests(ScreenTestBase):
         hebrew = self.client.get("/bom/tree/5001/").content.decode("utf-8")
         self.assertIn("בסיס אמולסיה לקרם", hebrew)
         self.assertNotIn("Cream Base", hebrew)
+
+
+class WeekWindowArrivalTests(ScreenTestBase):
+    """The week windows say when each open purchase order is due."""
+
+    def test_window_shows_the_arrival_date_and_the_next_arrival(self):
+        self.client.post("/settings/language/en/")
+        rows = self.client.get("/prr/").context["rows"]
+        weeks = next(r for r in rows if str(r["sku"]) == "1003")["weeks"]
+        arriving = next(i for i, week in enumerate(weeks) if week["incoming"])
+        self.assertEqual([a["kind"] for a in weeks[arriving]["arrivals"]][0], "now")
+        self.assertEqual(weeks[-1]["arrivals"][0]["kind"], "past")
+        self.assertContains(self.client.get("/prr/"), "Arrives this week")
+        self.assertContains(self.client.get("/production-planning/?view=production"), weeks[arriving]["arrivals"][0]["date"])
+
+    def test_item_without_an_open_order_says_so(self):
+        self.client.post("/settings/language/en/")
+        conn = self.erp()
+        conn.execute("DELETE FROM PurchaseOrders")
+        conn.commit()
+        conn.close()
+        for url in ("/prr/", "/production-planning/?view=production", "/production-planning/?view=master_work"):
+            with self.subTest(url=url):
+                self.assertContains(self.client.get(url), "No open purchase order for this item")

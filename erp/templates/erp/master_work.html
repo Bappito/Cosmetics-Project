@@ -50,16 +50,24 @@
             </summary>
             <div class="cell-breakdown">
               <div class="cell-title">{{ r.sku }} | {{ c.title }}</div>
-              <div>{% if is_he %}מתוכנן לשבוע{% else %}Planned{% endif %}: <b>{{ c.planned }} {{ u_label }}</b> · {% if is_he %}ניתן להכין{% else %}Can make{% endif %}: <b>{{ c.makeable }} {{ u_label }}</b></div>
+              <div class="pop-group">
+                <div class="pop-row"><span>{% if is_he %}מתוכנן לשבוע{% else %}Planned{% endif %}</span><b>{{ c.planned }} {{ u_label }}</b></div>
+                <div class="pop-row"><span>{% if is_he %}ניתן להכין{% else %}Can make{% endif %}</span><b>{{ c.makeable }} {{ u_label }}</b></div>
+              </div>
               {% if c.is_ok %}
-                <div class="ok">{% if is_he %}אין חוסרים בשבוע זה!{% else %}No shortages this week!{% endif %}</div>
+                <div class="pop-result prr-green">{% if is_he %}אין חוסרים בשבוע זה!{% else %}No shortages this week!{% endif %}</div>
               {% else %}
                 <div class="incoming-title">{% if is_he %}מה חסר וכמה (מצטבר):{% else %}Missing components:{% endif %}</div>
-                <ul>{% for s in c.shortage_texts %}<li>{{ s.label }} {{ s.sku }} ({{ s.name }}): <b class="short">{{ s.value|safe }}</b></li>{% endfor %}</ul>
+                {% for s in c.shortage_texts %}
+                  <div class="pop-shortage">
+                    <div class="pop-row"><span>{{ s.label }} {{ s.sku }} ({{ s.name }})</span><b class="short">{{ s.value|safe }}</b></div>
+                    {% include "erp/_arrivals.html" with arrivals=s.arrivals %}
+                  </div>
+                {% endfor %}
               {% endif %}
               {% if c.arrivals %}
                 <div class="incoming-title">{% if is_he %}הגעות רכש השבוע:{% else %}PO arrivals this week:{% endif %}</div>
-                <ul>{% for a in c.arrivals %}<li>{{ a.sku }} ({{ a.name }}): <b>+{{ a.amount|safe }}</b> ({{ a.pos|join:", " }})</li>{% endfor %}</ul>
+                <ul>{% for a in c.arrivals %}<li>{{ a.sku }} ({{ a.name }}): <b>+{{ a.amount|safe }}</b>{% if a.dates %} · {{ a.dates }}{% endif %} ({{ a.pos|join:", " }})</li>{% endfor %}</ul>
               {% endif %}
             </div>
           </details>

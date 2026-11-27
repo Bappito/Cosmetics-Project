@@ -17,6 +17,7 @@ ICONS = {
     "play": '<polygon points="6 4 20 12 6 20 6 4"/>',
     "clipboard": '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6M9 16h6"/>',
     "search": '<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/>',
+    "reorder": '<path d="M7 20V4M3 8l4-4 4 4M17 4v16M13 16l4 4 4-4"/>',
     "logout": '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/>',
     "chevron-left": '<path d="M15 18l-6-6 6-6"/>',
     "chevron-right": '<path d="M9 18l6-6-6-6"/>',

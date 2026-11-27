@@ -6,6 +6,7 @@
   <title>{% block title %}{% endblock %} · {{ ui.app_name }}</title>
   <link rel="stylesheet" href="{% static 'erp/app.css' %}">
   <script src="{% static 'erp/tables.js' %}" defer></script>
+  <script src="{% static 'erp/cell-popover.js' %}" defer></script>
 </head>
 <body>
 <div class="app{% if user.is_authenticated and nav %} with-nav{% endif %}" id="app">
@@ -40,7 +41,7 @@
   <div class="sidebar-foot">
     {% if perms.erp.edit_dashboard %}
     <a href="{% url 'menu_order' %}" class="nav-item">
-      <span class="nav-icon">{{ "chevron-right"|icon }}</span>
+      <span class="nav-icon">{{ "reorder"|icon }}</span>
       <span class="nav-label">{% if lang == 'he' %}סדר התפריט{% else %}Menu order{% endif %}</span>
     </a>
     {% endif %}
@@ -61,17 +62,19 @@
       </form>
     </div>
 
-    <div class="user-card">
-      <div class="avatar">{{ user.get_username|first|upper }}</div>
-      <div class="user-meta">
-        <strong>{{ user.get_username }}</strong>
-        <small>{% if user.is_superuser %}{% if lang == 'he' %}מנהל{% else %}Admin{% endif %}{% else %}{% if lang == 'he' %}משתמש{% else %}User{% endif %}{% endif %}</small>
+    <div class="user-row">
+      <div class="user-card" title="{{ user.get_username }}">
+        <div class="avatar">{{ user.get_username|first|upper }}</div>
+        <div class="user-meta">
+          <strong>{{ user.get_username }}</strong>
+          <small>{% if user.is_superuser %}{% if lang == 'he' %}מנהל{% else %}Admin{% endif %}{% else %}{% if lang == 'he' %}משתמש{% else %}User{% endif %}{% endif %}</small>
+        </div>
       </div>
+      <form method="post" action="{% url 'logout' %}">
+        {% csrf_token %}
+        <button type="submit" class="logout-btn" title="{{ ui.logout }}" aria-label="{{ ui.logout }}">{{ "logout"|icon }}<span class="nav-label">{{ ui.logout }}</span></button>
+      </form>
     </div>
-    <form method="post" action="{% url 'logout' %}">
-      {% csrf_token %}
-      <button type="submit" class="logout-btn">{{ "logout"|icon }}<span class="nav-label">{{ ui.logout }}</span></button>
-    </form>
   </div>
 </aside>
 {% endif %}
@@ -88,6 +91,11 @@
 </main>
 </div>
 <script>
+  // Keep the current page visible in a menu that scrolls.
+  (function () {
+    var current = document.querySelector('.nav .nav-item.active');
+    if (current) current.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  })();
   // Remember the collapsed sidebar for this browser only; ignore storage errors (private mode).
   (function () {
     var app = document.getElementById('app');

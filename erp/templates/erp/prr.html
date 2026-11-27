@@ -67,13 +67,17 @@
             <details class="cell-details">
               <summary><span class="prr-value">{{ c.value|safe }}</span>{% if c.incoming %}<span class="cell-sub">+{{ c.incoming_text|safe }}</span>{% endif %}</summary>
               <div class="cell-breakdown">
-                <div class="cell-title">{{ r.sku }} · {{ c.week_label }}</div>
-                {% for b in c.breakdown %}<div>{{ b.parent }}: <b>{{ b.used|safe }}</b></div>{% endfor %}
-                <div>{% if is_he %}סה"כ נדרש השבוע{% else %}Total needed this week{% endif %}: <b>{{ c.used_text|safe }}</b></div>
-                <div>{% if is_he %}לפני השימוש{% else %}Before usage{% endif %}: <b>{{ c.before_text|safe }}</b></div>
-                <div>{% if is_he %}אחרי השימוש{% else %}After usage{% endif %}: <b>{{ c.value|safe }}</b></div>
-                {% if c.incoming %}<div class="incoming">{% if is_he %}הגעה צפויה{% else %}Expected arrival{% endif %}: <b>+{{ c.incoming_text|safe }}</b> ({{ c.incoming_pos }})</div>
-                {% else %}<div class="muted">{% if is_he %}אין הגעה צפויה{% else %}No arrival expected{% endif %}</div>{% endif %}
+                <div class="cell-title">{{ r.sku }} · {{ c.week_label }}<span class="pop-sub">{{ r.name }}</span></div>
+                {% if c.breakdown %}<div class="pop-group">
+                  {% for b in c.breakdown %}<div class="pop-row"><span>{% if is_he %}מוצר{% else %}Product{% endif %} {{ b.parent }}</span><b>{{ b.used|safe }}</b></div>{% endfor %}
+                </div>{% endif %}
+                <div class="pop-group">
+                  <div class="pop-row"><span>{% if is_he %}סה"כ נדרש השבוע{% else %}Total needed this week{% endif %}</span><b>{{ c.used_text|safe }}</b></div>
+                  <div class="pop-row"><span>{% if is_he %}לפני השימוש{% else %}Before usage{% endif %}</span><b>{{ c.before_text|safe }}</b></div>
+                  {% if c.incoming %}<div class="pop-row incoming"><span>{% if is_he %}הגעה השבוע{% else %}Arriving this week{% endif %}</span><b>&lrm;+{{ c.incoming_text|safe }}</b></div>{% endif %}
+                </div>
+                <div class="pop-result {{ c.css }}"><span>{% if is_he %}אחרי השימוש{% else %}After usage{% endif %}</span><b>{{ c.value|safe }}</b></div>
+                {% include "erp/_arrivals.html" with arrivals=c.arrivals %}
               </div>
             </details>
             {% endif %}
