@@ -121,6 +121,12 @@ class Page:
             w_label=self.w_label, u_label=self.u_label,
         )
 
+    def fmt_ratio(self, value: float, is_weight: bool) -> str:
+        """A quantity inside a formula. Under one kilogram it is shown in grams, so 2 g does not read as 0 kg."""
+        if is_weight and 0 < value < 1000:
+            return f"{value:g} {self.L('גרם', 'g')}"
+        return self.fmt(value, is_weight)
+
     def unit_for(self, is_weight: bool) -> str:
         return self.w_label if is_weight else self.u_label
 

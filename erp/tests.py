@@ -534,3 +534,15 @@ class WeekWindowArrivalTests(ScreenTestBase):
         for url in ("/prr/", "/production-planning/?view=production", "/production-planning/?view=master_work"):
             with self.subTest(url=url):
                 self.assertContains(self.client.get(url), "No open purchase order for this item")
+
+
+class SmallFormulaQuantityTests(ScreenTestBase):
+    def test_a_few_grams_in_a_formula_do_not_read_as_zero(self):
+        self.client.post("/settings/language/en/")
+        conn = self.erp()
+        conn.execute("UPDATE BOM SET req_weight_grams = 1.5 WHERE parent_sku = '2001' AND component_sku = '1003'")
+        conn.commit()
+        conn.close()
+        for url in ("/bom/tree/2001/", "/prr/?kind=production", "/production-planning/?view=production"):
+            with self.subTest(url=url):
+                self.assertContains(self.client.get(url), "1.5 g")

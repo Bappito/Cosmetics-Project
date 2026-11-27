@@ -89,7 +89,7 @@ def _kind_view(page: Page, kind: str):
     for row in all_rows:
         is_w = row["comp_type"] in ("RAW", "BULK")
         per = float(row["req_weight_grams"] if is_w else row["req_qty_units"] or 0)
-        parents[row["component_sku"]].append({"sku": row["parent_sku"], "qty": page.fmt(per, is_w)})
+        parents[row["component_sku"]].append({"sku": row["parent_sku"], "qty": page.fmt_ratio(per, is_w)})
 
     # Keep the rows of this kind; a component used by several of them is shown once, with its
     # balance after all of its users (the last row of that component).
