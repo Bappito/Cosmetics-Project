@@ -17,17 +17,20 @@ The app is not deployed yet. It runs on a local computer at http://localhost:800
 - **Stock summary** — totals by warehouse and by item type, plus a check that compares catalog balances with the sum of their active batches.
 - **Purchase orders** — two screens: **Purchase orders** (a read-only list of all orders, with search and a status filter) and **Purchase orders management** (edit, review, and receive an order into a warehouse).
 - **Purchase planning (MRP)** — works out what to buy from the eight-week plan. Suggestions are rounded to the minimum order quantity and can become draft POs.
-- **Product trees (BOM)** — a list of all parent products. Each product opens a tree page with its components, stock, ratio to the parent and how many parent units the stock covers. A bulk component opens to show its own raw materials.
+- **Product trees (BOM)** — a list of all parent products. Each product opens a tree page with its components, stock, ratio to the parent and how many parent units the stock covers. A bulk component opens to show its own raw materials. Amounts under one kilogram are shown in grams.
+- **Pack sizes** — packaging belongs to the finished product, not to the bulk. Make each size (for example 500 ml and 1 L of the same shampoo) its own finished product, with a tree that holds the bulk in grams plus its packaging.
 - **Production planning** — one page with three tabs: production line, packaging, and master work. Each shows the weekly plan, component use per SKU (one row per component, with a total across all products that use it), and the cumulative balance.
-- **PRR (project readiness)** — one screen with a switch between **Production** (bulk products and their raw materials) and **Packaging** (finished products and their bulk and packaging). It shows weekly readiness, the users of each component, supplier, open orders and alternatives.
+- **PRR (project readiness)** — one screen with a switch between **Production** (bulk products and their raw materials) and **Packaging** (finished products and their bulk and packaging). It shows the stock for every week (also weeks without production), the users of each component, supplier, open orders and alternatives, and exports the view or a shortage report as CSV. See [Reading the PRR board](#reading-the-prr-board).
+- **Week windows** — clicking a week cell in the PRR or production planning opens a floating window beside it, without moving the table. It shows the week's calculation and when purchase orders arrive: date, days away or days late, quantity and order number. It closes with the X button, Escape or a click outside.
 - **Batches and traceability** — batch balances and expiry, manual receipts, and consumption links. Production and packaging use batches in FEFO order (earliest expiry first), so several batches of the same material can be used in one run.
 - **My simulator** — a private what-if scenario for each user: planned orders by week, with the shortages they would cause. A scenario can be shared for viewing; shared scenarios are read-only for everyone else.
 - **Projects, alternative SKUs and shipments** — read-only lists with demo data.
 - **Change log, backups and undo** — every save is preceded by a backup, and every backup and undo is written to the change log.
 - **Quick command** — add stock with a simple text command such as `תוסיף 5 קילו ל-1001`. This is a local parser; no external AI service is called.
-- **Tables** — every table has a search box, a row count, click-to-sort headers, paging, and an export to Excel (CSV, which Excel opens with Hebrew text intact).
+- **Tables** — list tables have a search box, click-to-sort headers, paging, and an export to Excel (CSV, which Excel opens with Hebrew text intact). A row count appears when some rows are hidden. The weekly boards (PRR and planning) are not changed by these tools.
 - **Admin menu order** — an admin can move sidebar items up or down. The order applies to every user.
 - **Language and units** — Hebrew/English. Item names that are written in two languages show only the current language. Weight can be shown in grams or kilograms.
+- **Light, dark and phone** — both themes follow the sidebar switch. On narrow screens the menu becomes one swipeable row, and the PRR hides the products and supplier columns so the weeks fit.
 
 ## Requirements
 
@@ -125,10 +128,12 @@ erp/                           The web app
     batches.py                 Batches and traceability
     planning.py                Product trees, production planning and the weekly plan
     readiness.py               PRR (production and packaging)
+    arrivals.py                Dates of open purchase orders, for the week windows and PRR markers
     operations.py              Quick command, change log, undo, and settings switches
-  templates/erp/               One template per screen, plus small shared parts (_planning_tabs, _icon_*)
+  templates/erp/               One template per screen, plus small shared parts (_planning_tabs, _arrivals, _icon_*)
   static/erp/app.css           Stylesheet (light and dark themes)
-  static/erp/tables.js         Table tools shared by every table
+  static/erp/tables.js         Table tools shared by every list table
+  static/erp/cell-popover.js   The floating week window
   templatetags/erp_icons.py    Icons and small template filters
 cosmetics_erp/                 Business logic, shared with the tests (no web framework)
   config/                      Labels, translations and app constants
@@ -146,7 +151,7 @@ tests/                         Service tests (pytest)
 - Catalog item types are `RAW` (raw material), `BULK` (prepared formula), `PKG` (packaging) and `FG` (finished packaged product).
 - Weight is stored in grams; packaging and finished goods are stored in units. The UI can display weight in grams or kilograms. Purchase-order weights are always entered in grams.
 - BOM rows give the component quantities needed for one unit of the parent. For a bulk, weight components are grams per kg of bulk.
-- Planning covers eight weekly periods (`W1`–`W8`). Week headers show only the week number; the dates come from the plan start date stored in the database.
+- Planning covers eight weekly periods (`W1`–`W8`). The dates come from the plan start date stored in the database. The PRR shows each week's start date and marks the current week.
 - FEFO means **First Expired, First Out**. Production and packaging consume active batches in expiry order and skip expired batches by default. Several batches of the same material can be used in one run.
 - For production and packaging, the output batch expiry is capped at the earliest expiry among the consumed component batches when that date is earlier.
 - Receiving a PO or recording a manual receipt creates or updates a batch and adjusts catalog stock.
@@ -154,6 +159,19 @@ tests/                         Service tests (pytest)
 - Every backup and every undo is also written to the change log.
 - Production and packaging runs are posted by `services/manufacturing.py`. The UI only collects inputs and shows messages.
 - The readiness rule for PRR: green when the stock on hand covers the need, yellow when a purchase order arrives in time, red when it is short even with every arrival.
+- Every purchase order that is not `Received` or `Cancelled` counts as an arrival, including `Draft` orders. An order dated before the plan start is counted in `W1`; an order after `W8` is not counted.
+
+## Reading the PRR board
+
+| Cell | Meaning |
+| --- | --- |
+| Quiet tile with a green line | Production uses the item that week and the stock on hand covers it. |
+| Yellow tile | Covered only because a purchase order arrives. |
+| Red tile with **!** | Short even with every arrival. |
+| Dashed tile, grey number | No production uses the item that week; the stock is shown. |
+| Blue truck | An order arrives that week. |
+| Red truck | That week's order is past its date and not received. |
+| Dashed truck | That week's arrival is only a draft order. |
 
 ## Data model
 
@@ -175,7 +193,9 @@ Django's own database (`django.sqlite3`) holds users, groups, sessions and the `
 
 ## Demo data
 
-The business database starts with demo data: four formulas of one ton each (keratin shampoo, hyaluronic shampoo, hyaluronic hair mask and hand cream), their raw materials, packaging, finished products, invented purchase orders, batches, a weekly plan and shipments. Once the owner replaces the demo data, the marker `demo_reset_done` in `Settings` stops the old sample rows from being loaded again.
+A new business database starts with sample data: a face cream and a hair serum (each with a bulk formula, packaging and a finished product), hair-colour raw materials, two purchase orders, opening batches, a weekly plan, projects, alternative SKUs and shipments. All of it is invented.
+
+The database files are not stored in git, so products and stock entered on one computer do not appear on another. To move them, copy the database file (stop the app first). After replacing the sample data, set the key `demo_reset_done` in the `Settings` table so the sample rows are never loaded again.
 
 ## ERP import and assumptions to confirm
 
