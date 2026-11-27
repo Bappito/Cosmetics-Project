@@ -464,6 +464,9 @@ td:has(> .cell-details[open]) { box-shadow: inset 0 0 0 2px var(--primary); }
 .prr-yellow { background: var(--warning-soft); color: var(--warning); }
 .prr-red { background: var(--danger-soft); color: var(--danger); }
 .prr-none { background: transparent; }
+/* A week with no production: the stock is still shown, quietly */
+.prr-table td.prr-none .prr-value { color: var(--muted); font-weight: 600; }
+.pop-result.prr-none { background: var(--surface-2); }
 .prr-value { font-weight: 700; }
 .incoming-tag { display: block; margin-top: 3px; font-size: 11.5px; color: var(--primary-text); }
 .prr-table td:first-child { min-width: 230px; white-space: normal; }
@@ -777,6 +780,96 @@ button:disabled, .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
     transition-property: opacity, background-color, color, border-color;
   }
   .has-popover .cell-details > .cell-breakdown { transform: none; transition-property: opacity; }
-  button:active, a:active { transform: none !important; }
+  button:active, a:active, summary:active { transform: none !important; }
 }
 .has-popover .cell-details > .cell-breakdown.no-motion { transition: none; }
+
+/* ---------- PRR board ----------
+   Each week is its own tile with space around it, so neighbouring colours do not run together.
+   The louder the problem, the stronger the tile: enough stock is quiet, a delivery is tinted,
+   a shortage is filled, outlined and marked. */
+.prr-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin: 0 0 14px; font-size: 13px; color: var(--muted); }
+.prr-key { display: inline-flex; align-items: center; gap: 7px; }
+.prr-swatch { width: 24px; height: 18px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); }
+.prr-swatch-green, .prr-board td.prr-green summary {
+  background: var(--surface); border-color: color-mix(in srgb, var(--success) 35%, var(--border));
+  box-shadow: inset 0 -3px 0 var(--success);
+}
+.prr-swatch-yellow, .prr-board td.prr-yellow summary {
+  background: var(--warning-soft); border-color: color-mix(in srgb, var(--warning) 55%, transparent);
+  box-shadow: inset 0 -3px 0 var(--warning);
+}
+.prr-swatch-red, .prr-board td.prr-red summary {
+  background: color-mix(in srgb, var(--danger) 15%, var(--surface)); border-color: var(--danger);
+  box-shadow: inset 0 -3px 0 var(--danger);
+}
+.prr-swatch-none, .prr-board td.prr-none summary { background: transparent; border-style: dashed; border-color: var(--border); }
+
+.prr-table.prr-board th, .prr-table.prr-board td { vertical-align: middle; }
+.prr-board thead th { background: var(--surface-2); }
+.prr-board thead tr:first-child th { height: 36px; padding-block: 6px; }
+.prr-board thead tr:nth-child(2) th { top: 36px; padding-block: 6px; line-height: 1.3; }
+.prr-board thead th.month-head { background: var(--primary-soft); }
+.prr-board thead th.is-current { background: var(--primary-soft); color: var(--primary-text); box-shadow: inset 0 -3px 0 var(--primary); }
+.week-date { display: block; font-size: 11px; font-weight: 500; opacity: .8; }
+
+/* The item stays in view while the weeks scroll sideways */
+.prr-table.prr-board td.prr-item { min-width: 190px; max-width: 230px; text-align: start; white-space: normal; background: var(--surface); border-inline-end: 1px solid var(--border); }
+.prr-board .prr-id { display: flex; align-items: center; gap: 8px; }
+.prr-table.prr-board td.prr-item .prr-sku { font-size: 13.5px; }
+.prr-table.prr-board td.prr-item .prr-name { margin: 3px 0 0; line-height: 1.35; }
+.prr-board .type-badge { padding: 0 8px; font-size: 11px; line-height: 18px; }
+.prr-board .prr-item { position: sticky; inset-inline-start: 0; z-index: 2; }
+.prr-board thead th.prr-item { z-index: 3; }
+/* Phones: a narrow item column and no products or supplier columns, so the weeks fit. */
+@media (max-width: 719px) {
+  .prr-table.prr-board td.prr-item { min-width: 112px; max-width: 128px; padding-inline: 8px; }
+  .prr-board .prr-id { flex-wrap: wrap; gap: 4px; }
+  .prr-board .prr-products, .prr-board .prr-supplier { display: none; }
+  .prr-table.prr-board td.prr-week { min-width: 88px; }
+}
+.prr-table.prr-board td.prr-products, .prr-table.prr-board td.prr-supplier, .prr-table.prr-board td.prr-stock { min-width: 0; }
+.prr-table.prr-board td.prr-supplier { font-size: 12.5px; color: var(--muted); }
+.prr-board td.prr-stock { font-weight: 700; white-space: nowrap; border-inline-end: 1px solid var(--border); }
+
+/* Week tiles */
+.prr-table.prr-board td.prr-week { min-width: 100px; padding: 7px 4px; background: transparent; }
+.prr-table.prr-board td.prr-week.is-current { background: var(--primary-soft); }
+.prr-board .prr-week summary {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  min-height: 54px; padding: 6px 6px 8px; border: 1px solid transparent; border-radius: 9px;
+  transition: transform 140ms var(--ease-out), border-color 150ms ease, outline-color 150ms ease;
+}
+.prr-board .prr-week summary:active { transform: scale(0.97); }
+.prr-board .prr-value { font-size: 13px; white-space: nowrap; }
+.prr-table.prr-board td.prr-green .prr-value { color: var(--text); font-weight: 600; }
+.prr-table.prr-board td.prr-red .prr-value { font-weight: 800; }
+.prr-board td.prr-red summary::before {
+  content: "!"; position: absolute; top: -6px; inset-inline-end: -3px; width: 16px; height: 16px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--danger); color: var(--surface); font-size: 11px; font-weight: 800; line-height: 1;
+}
+.prr-board td:has(> .cell-details[open]) { box-shadow: none; }
+.prr-board .cell-details[open] > summary { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* Arrival marker, in a tile and in the legend */
+.prr-in {
+  display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; border: 1px solid transparent; border-radius: 999px;
+  background: var(--primary-soft); color: var(--primary-text); font-size: 11.5px; font-weight: 700; line-height: 18px; white-space: nowrap;
+}
+.prr-in .icon { width: 13px; height: 13px; }
+.prr-legend .prr-in { height: 20px; }
+[dir="rtl"] .prr-in .icon { transform: scaleX(-1); }
+.prr-in.is-late { background: var(--danger-soft); color: var(--danger); border-color: var(--danger-border); }
+.prr-in.is-draft { background: var(--surface); color: var(--muted); border: 1px dashed var(--muted); }
+
+.arrival-is-draft { border-style: dashed; border-color: var(--muted); }
+.arrival-draft { padding: 0 7px; margin-inline-end: 4px; border: 1px dashed var(--muted); border-radius: 999px; font-weight: 700; color: var(--text); }
+
+@media (hover: hover) and (pointer: fine) {
+  .prr-board tbody tr:hover td.prr-item { background: var(--hover); }
+  .prr-board .prr-week summary:hover { border-color: var(--muted); border-style: solid; }
+  .prr-board .cell-details > summary:hover .prr-value { text-decoration: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .prr-board .prr-week summary { transition-property: border-color; }
+}

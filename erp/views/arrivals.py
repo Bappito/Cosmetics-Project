@@ -33,8 +33,8 @@ def open_arrivals(page: Page, today: date | None = None) -> dict[str, list[dict]
     """Open orders per SKU, earliest first. Orders without a valid date come last."""
     today = today or date.today()
     out: dict[str, list[dict]] = defaultdict(list)
-    for po_number, sku, units, grams, eta_text, item_type in page.conn.execute(
-        "SELECT po.po_number, po.sku, po.order_qty_units, po.order_weight_grams, po.eta_date, c.item_type "
+    for po_number, sku, units, grams, eta_text, item_type, status in page.conn.execute(
+        "SELECT po.po_number, po.sku, po.order_qty_units, po.order_weight_grams, po.eta_date, c.item_type, po.status "
         "FROM PurchaseOrders po JOIN Catalog c ON po.sku = c.sku "
         "WHERE po.status NOT IN ('Received', 'Cancelled') ORDER BY po.eta_date, po.po_number"
     ).fetchall():
@@ -48,6 +48,7 @@ def open_arrivals(page: Page, today: date | None = None) -> dict[str, list[dict]
             "date": format_date(eta_text, is_he=page.is_he) if eta else page.L("ללא תאריך", "No date"),
             "when": _when(page, eta, today) if eta else "",
             "late": bool(eta and eta < today),
+            "draft": status == "Draft",
         })
     for orders in out.values():
         orders.sort(key=lambda o: BEYOND + 1 if o["week_index"] is None else o["week_index"])

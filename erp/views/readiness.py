@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import csv
 from collections import defaultdict
+from datetime import date, timedelta
 
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseRedirect
@@ -76,6 +77,11 @@ def _open_pos(page: Page) -> dict:
     return out
 
 
+def _current_week(page: Page) -> int:
+    """Index of the plan week that contains today (outside 0-7 when the plan does not cover today)."""
+    return (date.today() - page.plan_start).days // 7
+
+
 def _kind_view(page: Page, kind: str):
     """One row per component of the products of this kind (production or packaging)."""
     parent_type = KINDS[kind][0]
@@ -115,17 +121,27 @@ def _kind_view(page: Page, kind: str):
         row = all_rows[idx]
         is_w = row["comp_type"] in ("RAW", "BULK")
         weeks = []
+        current = _current_week(page)
         for w_i, cell in enumerate(result["cells"][idx]):
-            if cell["status"] in counts:
-                counts[cell["status"]] += 1
             inc = cell.get("incoming")
             arriving = float(inc["amt"]) if inc else 0.0
             # The last row's balance is after every product's use, so the week's need is the sum over all products.
             need = total_used[sku][w_i]
             before = cell["after"] + need - arriving
+            # The service colours the last product's own use. Another product may need it this week.
+            status = READY if cell["status"] == IDLE and need > 1e-9 else cell["status"]
+            if status in counts:
+                counts[status] += 1
+            cards = arrivals_for_week(page, arrivals.get(sku, []), w_i)
+            now = [a for a in cards if a["kind"] == "now"]
             weeks.append({
                 **cell,
-                "css": CELL_CLASS[cell["status"]],
+                "current": w_i == current,
+                "incoming_late": any(a["late"] for a in now),
+                "incoming_draft": bool(now) and all(a["draft"] for a in now),
+                "status": status,
+                "used": need,
+                "css": CELL_CLASS[status],
                 "value": page.fmt(cell["after"], is_w),
                 "week_label": page.periods[w_i][2],
                 "before_text": page.fmt(before, is_w),
@@ -133,7 +149,7 @@ def _kind_view(page: Page, kind: str):
                 "incoming_text": page.fmt(arriving, is_w) if inc else "",
                 "incoming_pos": ", ".join(inc["pos"]) if inc and isinstance(inc.get("pos"), list) else (inc or {}).get("pos", "") if inc else "",
                 "breakdown": usage[sku][w_i],
-                "arrivals": arrivals_for_week(page, arrivals.get(sku, []), w_i),
+                "arrivals": cards,
                 "title": "",
             })
         worst = min((w["status"] for w in weeks), key=SEVERITY.index)
@@ -191,7 +207,12 @@ def prr(request):
         rows, counts = _filtered(page, request, kind)
         products = sorted({p["sku"] for r in rows for p in r["parents"]})
         names = dict(page.conn.execute("SELECT sku, name FROM Catalog").fetchall())
-        weeks = [{"code": p[0], "month": p[1], "label": p[2]} for p in page.periods]
+        current = _current_week(page)
+        weeks = [
+            {"code": p[0], "month": p[1], "label": p[2], "current": i == current,
+             "date": (page.plan_start + timedelta(weeks=i)).strftime("%d/%m" if page.is_he else "%b %d")}
+            for i, p in enumerate(page.periods)
+        ]
         base = f"?kind={kind}"
         return page.render(
             "erp/prr.html",

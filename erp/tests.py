@@ -546,3 +546,35 @@ class SmallFormulaQuantityTests(ScreenTestBase):
         for url in ("/bom/tree/2001/", "/prr/?kind=production", "/production-planning/?view=production"):
             with self.subTest(url=url):
                 self.assertContains(self.client.get(url), "1.5 g")
+
+
+class PrrQuietWeekTests(ScreenTestBase):
+    """A week without production still shows the stock; a shared material counts every product."""
+
+    def plan(self, **weeks_by_parent):
+        conn = self.erp()
+        conn.execute("UPDATE WeeklySchedule SET W1=0, W2=0, W3=0, W4=0, W5=0, W6=0, W7=0, W8=0")
+        for parent, (week, qty) in weeks_by_parent.items():
+            conn.execute(f"UPDATE WeeklySchedule SET {week} = ? WHERE parent_sku = ?", (qty, parent[1:]))
+        conn.commit()
+        conn.close()
+
+    def weeks(self, sku):
+        rows = self.client.get("/prr/").context["rows"]
+        return next(r for r in rows if str(r["sku"]) == sku)["weeks"]
+
+    def test_week_without_production_shows_the_stock(self):
+        self.client.post("/settings/language/en/")
+        self.plan()
+        cell = self.weeks("1002")[0]
+        self.assertEqual(cell["status"], "none")
+        page = self.client.get("/prr/")
+        self.assertContains(page, f'<span class="prr-value">{cell["value"]}</span>')
+        self.assertContains(page, "No production uses this item this week")
+
+    def test_material_used_by_an_earlier_product_is_not_idle(self):
+        # 1003 goes into 2001 and 2002; only the first one is planned.
+        self.plan(p2001=("W1", 1))
+        cell = self.weeks("1003")[0]
+        self.assertNotEqual(cell["status"], "none")
+        self.assertGreater(cell["used"], 0)
