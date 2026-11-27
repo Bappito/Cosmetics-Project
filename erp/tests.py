@@ -578,3 +578,36 @@ class PrrQuietWeekTests(ScreenTestBase):
         cell = self.weeks("1003")[0]
         self.assertNotEqual(cell["status"], "none")
         self.assertGreater(cell["used"], 0)
+
+
+class SampleDataCommandTests(ScreenTestBase):
+    """load_sample_data replaces the data with the four sample formulas, after a copy."""
+
+    def load(self, *args):
+        from io import StringIO
+        from django.core.management import call_command
+        call_command("load_sample_data", *args, stdout=StringIO())
+
+    def test_loads_formulas_pack_sizes_and_orders(self):
+        self.load("--yes")
+        self.load("--yes")  # loading again gives the same result
+        totals = self.query("SELECT parent_sku, ROUND(SUM(req_weight_grams), 3) FROM BOM "
+                            "WHERE comp_type = 'RAW' GROUP BY parent_sku ORDER BY parent_sku")
+        self.assertEqual(totals, [("2001", 1000), ("2002", 1000), ("2003", 1000), ("2004", 1000)])
+        self.assertEqual(self.query("SELECT COUNT(*) FROM Catalog WHERE item_type = 'FG'"), [(6,)])
+        self.assertEqual(self.query("SELECT COUNT(*) FROM PurchaseOrders"), [(25,)])
+        self.assertEqual(self.query("SELECT COUNT(*) FROM Catalog WHERE primary_warehouse = 'WH_COLOR'"), [(5,)])
+        self.assertEqual(self.client.get("/stock-summary/").context["mismatches"], [])
+        rows = self.client.get("/prr/").context["rows"]
+        statuses = {week["status"] for row in rows for week in row["weeks"]}
+        self.assertEqual(statuses, {"green", "yellow", "red", "none"})
+        self.assertTrue(list(self.tmp.glob("*.bak")))
+
+    def test_without_confirmation_nothing_changes(self):
+        from unittest import mock
+        from django.core.management import CommandError
+        before = self.query("SELECT sku, name FROM Catalog ORDER BY sku")
+        with mock.patch("builtins.input", return_value="no"), self.assertRaises(CommandError):
+            self.load()
+        self.assertEqual(self.query("SELECT sku, name FROM Catalog ORDER BY sku"), before)
+        self.assertFalse(list(self.tmp.glob("*.bak")))

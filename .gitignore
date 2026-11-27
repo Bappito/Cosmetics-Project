@@ -15,3 +15,6 @@ staticfiles/
 
 # Backups of the local databases (contain business data)
 *.bak
+
+# Backup folders made by run_site.bat and before data changes
+backup_*/
