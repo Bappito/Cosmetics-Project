@@ -50,6 +50,8 @@ python manage.py runserver
 
 Then open http://localhost:8000/ and sign in with the superuser account.
 
+On Windows, after the `.venv` folder exists, you can double-click [`run_site.bat`](./run_site.bat). It backs up the database files, switches to `main` and pulls the latest code, installs packages, updates the database, asks for a first user if there is none, and starts the site.
+
 The app uses two SQLite files:
 
 - `cosmetics_3sim_erp.db` — the business data (catalog, batches, purchase orders, planning, scenarios' shared data). On first use it is filled with demo data.
@@ -135,9 +137,10 @@ erp/                           The web app
   static/erp/tables.js         Table tools shared by every list table
   static/erp/cell-popover.js   The floating week window
   templatetags/erp_icons.py    Icons and small template filters
+  management/commands/         load_sample_data: loads the four sample formulas
 cosmetics_erp/                 Business logic, shared with the tests (no web framework)
   config/                      Labels, translations and app constants
-  db/                          SQLite schema, demo-data initialization and the record tables
+  db/                          SQLite schema, demo-data initialization, record tables and sample formulas
   services/                    Inventory/FEFO, planning, manufacturing, MRP, BOM rules, costing,
                                capacity, ERP import, backups, change review, where-used, readiness,
                                master-work simulations, personal scenarios, quick-command parsing
@@ -195,7 +198,21 @@ Django's own database (`django.sqlite3`) holds users, groups, sessions and the `
 
 A new business database starts with sample data: a face cream and a hair serum (each with a bulk formula, packaging and a finished product), hair-colour raw materials, two purchase orders, opening batches, a weekly plan, projects, alternative SKUs and shipments. All of it is invented.
 
-The database files are not stored in git, so products and stock entered on one computer do not appear on another. To move them, copy the database file (stop the app first). After replacing the sample data, set the key `demo_reset_done` in the `Settings` table so the sample rows are never loaded again.
+### Four sample formulas
+
+For a fuller demonstration, load the second set of sample data (also invented):
+
+```powershell
+python manage.py load_sample_data
+```
+
+- Four bulk formulas of 1,000 kg: jojoba hair wax, hyaluronic shampoo, hyaluronic hair mask and hand cream.
+- A finished product for each pack size, with its own tree: wax 100 ml, shampoo 500 ml and 1 L, mask 500 ml and 1 L, hand cream 100 ml.
+- Invented stock, suppliers and prices, an eight-week plan starting in the current week, and purchase orders that are late, due today, upcoming, draft, received and cancelled.
+
+**This replaces the catalog, product trees, plan, purchase orders, projects, alternative SKUs and shipments.** The command asks you to type `yes` (or pass `--yes`) and first saves a copy of the database next to it, ending in `.bak`. Hair-colour items are kept. Personal simulator scenarios are not changed, so any that point to old products need to be edited. The data is defined in [`cosmetics_erp/db/sample_formulas.py`](./cosmetics_erp/db/sample_formulas.py).
+
+The database files are not stored in git, so changes you make in the app stay on that computer. To move them, copy the database file (stop the app first).
 
 ## ERP import and assumptions to confirm
 
