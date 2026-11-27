@@ -1,18 +1,19 @@
 # Cosmetics ERP
 
+**Repository:** https://github.com/Bappito/Cosmetics-Project  
+**Online app:** not deployed yet. See [Hosting on PythonAnywhere](#hosting-on-pythonanywhere).
+
 A web app for a cosmetics manufacturing company. It brings stock, purchasing, production planning, packaging, batches, traceability and personal what-if scenarios together in one place. The business data lives in a local SQLite database. The app is built with Django.
 
 The interface supports Hebrew (right-to-left) and English (left-to-right). Users sign in, and what they can see and change depends on their role.
 
 ## Online access
 
-The app runs on PythonAnywhere (free plan). Address: **https://YOUR_USERNAME.pythonanywhere.com/** (replace `YOUR_USERNAME` with the PythonAnywhere account name).
-
-The setup steps are in [Hosting on PythonAnywhere](#hosting-on-pythonanywhere). Locally the app still runs at http://localhost:8000/.
+The app is not deployed yet. It runs on a local computer at http://localhost:8000/. The planned host is PythonAnywhere (free plan); once it is live, its address will be **https://YOUR_USERNAME.pythonanywhere.com/**. The steps are in [Hosting on PythonAnywhere](#hosting-on-pythonanywhere).
 
 ## Features
 
-- **Warehouses** — stock by warehouse, expiry dates, suppliers, catalog editing, physical count, and ERP import (SAP or Priority CSV/Excel exports). Each row shows its unit (kg, g or units).
+- **Warehouses** — four tabs: raw materials, bulk, packaging, and ready material (finished products). Each shows stock, expiry dates, suppliers, catalog editing, physical count, and ERP import (SAP or Priority CSV/Excel exports). Each row shows its unit (kg, g or units).
 - **Stock summary** — totals by warehouse and by item type, plus a check that compares catalog balances with the sum of their active batches.
 - **Purchase orders** — two screens: **Purchase orders** (a read-only list of all orders, with search and a status filter) and **Purchase orders management** (edit, review, and receive an order into a warehouse).
 - **Purchase planning (MRP)** — works out what to buy from the eight-week plan. Suggestions are rounded to the minimum order quantity and can become draft POs.
@@ -25,6 +26,7 @@ The setup steps are in [Hosting on PythonAnywhere](#hosting-on-pythonanywhere). 
 - **Change log, backups and undo** — every save is preceded by a backup, and every backup and undo is written to the change log.
 - **Quick command** — add stock with a simple text command such as `תוסיף 5 קילו ל-1001`. This is a local parser; no external AI service is called.
 - **Tables** — every table has a search box, a row count, click-to-sort headers, paging, and an export to Excel (CSV, which Excel opens with Hebrew text intact).
+- **Admin menu order** — an admin can move sidebar items up or down. The order applies to every user.
 - **Language and units** — Hebrew/English. Item names that are written in two languages show only the current language. Weight can be shown in grams or kilograms.
 
 ## Requirements
@@ -69,6 +71,8 @@ Assign roles in the admin at http://localhost:8000/admin/ under **Groups**. Ever
 
 Anyone who is not signed in is sent to the login page. Screens a user cannot view are hidden from the sidebar, and direct links to them return "403 Forbidden".
 
+Changing the sidebar order needs the dashboard edit permission, which the Admin group has.
+
 Permissions added after a group was created are not given to it automatically. Check the groups in the admin after an update. Only the Admin group is topped up on each migration.
 
 ## Screens
@@ -76,7 +80,7 @@ Permissions added after a group was created are not given to it automatically. C
 | Screen | URL | What it is for |
 | --- | --- | --- |
 | Dashboard | `/` | Opening page: expiry and PO counts, what can be packed now, the profit per finished product, and the plan start date. |
-| Warehouses | `/inventory/` | Stock, expiry, purchase orders, suppliers, catalog editing, physical count and ERP import. |
+| Warehouses | `/inventory/` | Four tabs (raw materials, bulk, packaging, ready material): stock, expiry, suppliers, catalog editing, physical count and ERP import. |
 | Purchase orders | `/po-list/` | Read-only list of every order, with search and a status filter. |
 | Stock summary | `/stock-summary/` | Totals by warehouse and item type, and the check of catalog balances against batches. |
 | Shipments | `/shipments/` | Shipments by customer, shipment type and status (demo data). |
@@ -91,6 +95,7 @@ Permissions added after a group was created are not given to it automatically. C
 | PRR | `/prr/` | Readiness with a switch between Production and Packaging. The old address `/prr-packaging/` opens the packaging view. |
 | Quick command agent | `/quick-command/` | Add stock using a simple text command. |
 | Change log | `/audit/` | Every stock, product-tree and planning change, including undos. |
+| Menu order | `/menu-order/` | Admin only: change the order of the sidebar menu. |
 
 The old addresses `/production/`, `/packaging/` and `/master-work/` still open the three planning tabs.
 
