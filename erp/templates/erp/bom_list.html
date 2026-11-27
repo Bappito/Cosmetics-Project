@@ -8,8 +8,8 @@
     <h1>{{ title }}</h1>
     <p class="muted">{{ subtitle }}</p>
   </div>
-  <div class="segmented">
-    <a href="{% url 'bom' %}?mode=new" class="seg">{% if is_he %}עץ מוצר חדש{% else %}New product tree{% endif %}</a>
+  <div class="page-actions">
+    <a href="{% url 'bom' %}?mode=new" class="btn-primary">{% if is_he %}עץ מוצר חדש{% else %}New product tree{% endif %}</a>
   </div>
 </div>
 

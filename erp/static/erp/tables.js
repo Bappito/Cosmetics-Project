@@ -153,6 +153,13 @@
     var search = bar.querySelector('.grid-search');
     var count = bar.querySelector('.grid-count');
 
+    // The title already carries the total, so the count appears only when some rows are hidden.
+    function showCount(shown) {
+      count.textContent = title && shown === allRows.length
+        ? ''
+        : T.shown + ' ' + shown + ' ' + T.of + ' ' + allRows.length + ' ' + T.rows;
+    }
+
     // Read-only tables: move only the visible page into the table.
     // Editable tables: keep every row in the page and just show or hide them.
     function render() {
@@ -160,7 +167,7 @@
       if (editable) {
         allRows.forEach(function (tr) { tr.style.display = 'none'; });
         state.filtered.forEach(function (tr) { tr.style.display = ''; });
-        count.textContent = T.shown + ' ' + total + ' ' + T.of + ' ' + allRows.length + ' ' + T.rows;
+        showCount(total);
         return;
       }
       var pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -169,7 +176,7 @@
       var visible = state.filtered.slice(start, start + PAGE_SIZE);
       tbody.innerHTML = '';
       visible.forEach(function (tr) { tbody.appendChild(tr); });
-      count.textContent = T.shown + ' ' + visible.length + ' ' + T.of + ' ' + allRows.length + ' ' + T.rows;
+      showCount(visible.length);
       pageLabel.textContent = T.page + ' ' + (state.page + 1) + ' / ' + pages;
       prev.disabled = state.page === 0;
       next.disabled = state.page >= pages - 1;

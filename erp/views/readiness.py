@@ -15,6 +15,7 @@ from django.urls import reverse
 
 from cosmetics_erp.services.where_used import COVERED, IDLE, READY, SHORT, WEEKS, readiness
 
+from .arrivals import arrivals_for_week, open_arrivals
 from .page import Page
 
 KINDS = {
@@ -82,6 +83,7 @@ def _kind_view(page: Page, kind: str):
     result = readiness(all_rows, page.inventory.get_incoming_map())
     supply = _supply_info(page)
     pos = _open_pos(page)
+    arrivals = open_arrivals(page)
 
     parents = defaultdict(list)
     for row in all_rows:
@@ -131,6 +133,7 @@ def _kind_view(page: Page, kind: str):
                 "incoming_text": page.fmt(arriving, is_w) if inc else "",
                 "incoming_pos": ", ".join(inc["pos"]) if inc and isinstance(inc.get("pos"), list) else (inc or {}).get("pos", "") if inc else "",
                 "breakdown": usage[sku][w_i],
+                "arrivals": arrivals_for_week(page, arrivals.get(sku, []), w_i),
                 "title": "",
             })
         worst = min((w["status"] for w in weeks), key=SEVERITY.index)
