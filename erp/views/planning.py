@@ -207,7 +207,7 @@ def _where_used(page: Page, sched: pd.DataFrame, bom: pd.DataFrame, parent_unit:
         comp = r["component_sku"]
         is_w = r["comp_type"] in ("RAW", "BULK")
         per_unit = float(r["req_weight_grams"] if is_w else r["req_qty_units"])
-        per_unit_text = f"{per_unit:g} {'גרם' if page.is_he else 'g'}" if (r["comp_type"] == "BULK" and per_unit < 1000) else page.fmt(per_unit, is_w)
+        per_unit_text = page.fmt_ratio(per_unit, is_w)
         first = comp not in seen_child
         seen_child.add(comp)
         stock0 = float(r["avail_grams"] if is_w else r["avail_units"])
@@ -733,7 +733,7 @@ def _tree_rows(page: Page, parent_sku: str, parent_type: str, depth: int, seen: 
         rows.append({
             "sku": comp_sku, "name": comp_name or "?", "type": comp_type or "—",
             "stock": page.fmt(stock, is_w),
-            "ratio": page.fmt(need, is_w) + per,
+            "ratio": page.fmt_ratio(need, is_w) + per,
             "covers": f"{covers:,.1f} {parent_unit}" if covers is not None else "—",
             "covers_value": covers,
             "children": children,
