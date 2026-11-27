@@ -28,64 +28,69 @@
 <div class="segmented prr-switch" role="tablist" aria-label="{% if is_he %}סוג PRR{% else %}PRR type{% endif %}">
   {% for k in kinds %}<a href="?kind={{ k.key }}" class="seg{% if kind == k.key %} active{% endif %}" role="tab">{{ k.label }}</a>{% endfor %}
 </div>
-<div class="legend">
-  {% for key, label in legend %}<span class="legend-dot legend-{% if key == 'green' %}green{% elif key == 'yellow' %}yellow{% else %}red{% endif %}">{{ label }}</span>{% endfor %}
+<div class="prr-legend">
+  {% for key, label in legend %}<span class="prr-key"><span class="prr-swatch prr-swatch-{{ key }}"></span>{{ label }}</span>{% endfor %}
+  <span class="prr-key"><span class="prr-swatch prr-swatch-none"></span>{% if is_he %}ללא ייצור השבוע{% else %}No production that week{% endif %}</span>
+  <span class="prr-key"><span class="prr-in">{{ "truck"|icon }}</span>{% if is_he %}הגעה השבוע{% else %}Arrives that week{% endif %}</span>
+  <span class="prr-key"><span class="prr-in is-late">{{ "truck"|icon }}</span>{% if is_he %}הגעה באיחור{% else %}Late arrival{% endif %}</span>
+  <span class="prr-key"><span class="prr-in is-draft">{{ "truck"|icon }}</span>{% if is_he %}טיוטת הזמנה{% else %}Draft order{% endif %}</span>
 </div>
 
 {% if rows %}
 <section class="table-card">
   <div class="table-toolbar"><h2>{% if is_he %}מקטים — {{ selected }}{% else %}SKUs — {{ selected }}{% endif %}</h2></div>
-  <div class="table-wrap table-flat"><table class="matrix-table prr-table">
+  <div class="table-wrap table-flat"><table class="matrix-table prr-table prr-board">
     <thead>
       <tr>
-        <th rowspan="2">{% if is_he %}מקט{% else %}SKU{% endif %}</th>
-        <th rowspan="2">{% if is_he %}מוצרים{% else %}Products{% endif %}</th>
-        <th rowspan="2">{% if is_he %}ספק{% else %}Supplier{% endif %}</th>
+        <th rowspan="2" class="prr-item">{% if is_he %}מקט{% else %}SKU{% endif %}</th>
+        <th rowspan="2" class="prr-products">{% if is_he %}מוצרים{% else %}Products{% endif %}</th>
+        <th rowspan="2" class="prr-supplier">{% if is_he %}ספק{% else %}Supplier{% endif %}</th>
+        <th rowspan="2">{% if is_he %}מלאי כעת{% else %}Stock now{% endif %}</th>
         {% for g in month_groups %}<th colspan="{{ g.span }}" class="month-head">{{ g.label }}</th>{% endfor %}
         <th rowspan="2">{% if is_he %}סטטוס{% else %}Status{% endif %}</th>
         <th rowspan="2">{% if is_he %}הערה{% else %}Note{% endif %}</th>
-        <th rowspan="2">{% if is_he %}מלאי{% else %}Stock{% endif %}</th>
         <th rowspan="2">{% if is_he %}חלופיים{% else %}Alternatives{% endif %}</th>
       </tr>
-      <tr>{% for w in weeks %}<th title="{{ w.month }}">{{ w.label }}</th>{% endfor %}</tr>
+      <tr>{% for w in weeks %}<th title="{{ w.month }}"{% if w.current %} class="is-current"{% endif %}>{{ w.label }}<span class="week-date">{% if w.current %}{% if is_he %}השבוע{% else %}Now{% endif %} · {% endif %}{{ w.date }}</span></th>{% endfor %}</tr>
     </thead>
     <tbody>
     {% for r in rows %}
       <tr>
         <td class="prr-item">
-          <div class="prr-sku">{{ r.sku }}</div>
+          <div class="prr-id"><span class="prr-sku">{{ r.sku }}</span><span class="type-badge type-{{ r.type|lower }}">{{ r.type }}</span></div>
           <div class="prr-name">{{ r.name }}</div>
-          <span class="status-pill pill-open">{{ r.type }}</span>
         </td>
         <td class="prr-products">
           {% for p in r.parents %}<div><span class="chip">{{ p.qty|safe }}</span> {{ p.sku }}</div>{% endfor %}
         </td>
-        <td>{{ r.supplier }}</td>
+        <td class="prr-supplier">{{ r.supplier }}</td>
+        <td class="prr-stock">{{ r.stock|safe }}</td>
         {% for c in r.weeks %}
-          <td class="{{ c.css }}">
-            {% if c.status == "none" %}<span class="muted">—</span>{% else %}
+          <td class="prr-week {{ c.css }}{% if c.current %} is-current{% endif %}">
             <details class="cell-details">
-              <summary><span class="prr-value">{{ c.value|safe }}</span>{% if c.incoming %}<span class="cell-sub">+{{ c.incoming_text|safe }}</span>{% endif %}</summary>
+              <summary title="{% if c.status == 'red' %}{% if is_he %}חוסר{% else %}Short{% endif %}{% elif c.status == 'yellow' %}{% if is_he %}מכוסה רק ע&quot;י משלוח{% else %}Covered only by a delivery{% endif %}{% elif c.status == 'green' %}{% if is_he %}מלאי מספיק{% else %}Enough stock{% endif %}{% else %}{% if is_he %}ללא ייצור השבוע{% else %}No production this week{% endif %}{% endif %}">
+                <span class="prr-value">{{ c.value|safe }}</span>
+                {% if c.incoming %}<span class="prr-in{% if c.incoming_late %} is-late{% elif c.incoming_draft %} is-draft{% endif %}">{{ "truck"|icon }}<span>&lrm;+{{ c.incoming_text|safe }}</span></span>{% endif %}
+              </summary>
               <div class="cell-breakdown">
                 <div class="cell-title">{{ r.sku }} · {{ c.week_label }}<span class="pop-sub">{{ r.name }}</span></div>
-                {% if c.breakdown %}<div class="pop-group">
-                  {% for b in c.breakdown %}<div class="pop-row"><span>{% if is_he %}מוצר{% else %}Product{% endif %} {{ b.parent }}</span><b>{{ b.used|safe }}</b></div>{% endfor %}
-                </div>{% endif %}
+                <div class="pop-group">
+                  {% for b in c.breakdown %}<div class="pop-row"><span>{% if is_he %}מוצר{% else %}Product{% endif %} {{ b.parent }}</span><b>{{ b.used|safe }}</b></div>
+                  {% empty %}<div class="pop-row muted">{% if is_he %}אין ייצור עם הפריט הזה השבוע{% else %}No production uses this item this week{% endif %}</div>{% endfor %}
+                </div>
                 <div class="pop-group">
                   <div class="pop-row"><span>{% if is_he %}סה"כ נדרש השבוע{% else %}Total needed this week{% endif %}</span><b>{{ c.used_text|safe }}</b></div>
                   <div class="pop-row"><span>{% if is_he %}לפני השימוש{% else %}Before usage{% endif %}</span><b>{{ c.before_text|safe }}</b></div>
                   {% if c.incoming %}<div class="pop-row incoming"><span>{% if is_he %}הגעה השבוע{% else %}Arriving this week{% endif %}</span><b>&lrm;+{{ c.incoming_text|safe }}</b></div>{% endif %}
                 </div>
-                <div class="pop-result {{ c.css }}"><span>{% if is_he %}אחרי השימוש{% else %}After usage{% endif %}</span><b>{{ c.value|safe }}</b></div>
+                <div class="pop-result {{ c.css }}"><span>{% if c.status == "none" %}{% if is_he %}מלאי בסוף השבוע{% else %}Stock at end of week{% endif %}{% else %}{% if is_he %}אחרי השימוש{% else %}After usage{% endif %}{% endif %}</span><b>{{ c.value|safe }}</b></div>
                 {% include "erp/_arrivals.html" with arrivals=c.arrivals %}
               </div>
             </details>
-            {% endif %}
           </td>
         {% endfor %}
         <td><span class="status-pill {{ r.status_css }}">{{ r.status_label }}</span></td>
         <td class="prr-note">{{ r.pos|default:"—" }}</td>
-        <td><b>{{ r.stock|safe }}</b></td>
         <td class="prr-alt">{{ r.alt|default:"—" }}</td>
       </tr>
     {% endfor %}

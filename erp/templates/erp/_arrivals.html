@@ -1,10 +1,10 @@
 {% load erp_icons %}<div class="pop-arrivals">
   <div class="pop-heading">{% if is_he %}מתי ההגעה{% else %}When it arrives{% endif %}</div>
   {% for a in arrivals %}
-    <div class="arrival arrival-{{ a.kind }}{% if a.late %} arrival-late{% endif %}">
+    <div class="arrival arrival-{{ a.kind }}{% if a.late %} arrival-late{% endif %}{% if a.draft %} arrival-is-draft{% endif %}">
       <div class="arrival-tag">{{ "truck"|icon }}<span>{{ a.tag }}</span></div>
       <div class="pop-row"><b class="arrival-date">{{ a.date }}</b><b>&lrm;+{{ a.amount|safe }}</b></div>
-      <div class="pop-row arrival-meta"><span>{{ a.when }}</span><span class="code">{{ a.po }}</span></div>
+      <div class="pop-row arrival-meta"><span>{{ a.when }}</span><span>{% if a.draft %}<span class="arrival-draft">{% if is_he %}טיוטה{% else %}Draft{% endif %}</span> {% endif %}<span class="code">{{ a.po }}</span></span></div>
     </div>
   {% empty %}
     <div class="arrival-none">{% if is_he %}אין הזמנת רכש פתוחה לפריט הזה{% else %}No open purchase order for this item{% endif %}</div>
